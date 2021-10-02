@@ -3,7 +3,6 @@ package io.lotsandlots.etrade;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
-import io.lotsandlots.etrade.api.ApiResource;
 import io.lotsandlots.etrade.oauth.EtradeRestTemplate;
 import io.lotsandlots.etrade.oauth.model.OAuthConfig;
 import io.lotsandlots.etrade.oauth.model.SecurityContext;
@@ -34,18 +33,18 @@ public class EtradeRestTemplateFactory {
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static EtradeRestTemplateFactory TEMPLATE_FACTORY = null;
 
-    private final ApiResource apiResource;
+    private final ApiConfig apiConfig;
     private final ClientHttpRequestFactory clientHttpRequestFactory;
     private final SecurityContext securityContext;
 
     private EtradeRestTemplateFactory() throws GeneralSecurityException {
 
-        apiResource = new ApiResource();
-        apiResource.setAcctListUri(CONFIG.getString("etrade.accountListUri"));
-        apiResource.setApiBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
-        apiResource.setBalanceUri(CONFIG.getString("etrade.balanceUri"));
-        apiResource.setPortfolioUri(CONFIG.getString("etrade.portfolioUri"));
-        apiResource.setQuoteUri(CONFIG.getString("etrade.quoteUri"));
+        apiConfig = new ApiConfig();
+        apiConfig.setAcctListUri(CONFIG.getString("etrade.accountListUri"));
+        apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
+        apiConfig.setBalanceUri(CONFIG.getString("etrade.balanceUri"));
+        apiConfig.setPortfolioUri(CONFIG.getString("etrade.portfolioUri"));
+        apiConfig.setQuoteUri(CONFIG.getString("etrade.quoteUri"));
 
         clientHttpRequestFactory = newClientHttpRequestFactory();
 
@@ -62,8 +61,8 @@ public class EtradeRestTemplateFactory {
         securityContext.setOAuthConfig(oauthOAuthConfig);
     }
 
-    public ApiResource getApiResource() {
-        return apiResource;
+    public ApiConfig getApiConfig() {
+        return apiConfig;
     }
 
     public static EtradeRestTemplateFactory getClient() {

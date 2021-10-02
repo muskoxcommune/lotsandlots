@@ -1,8 +1,7 @@
 package io.lotsandlots.web.servlet;
 
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
-import io.lotsandlots.etrade.api.ApiResource;
-import io.lotsandlots.etrade.exception.ApiException;
+import io.lotsandlots.etrade.ApiConfig;
 import io.lotsandlots.etrade.oauth.model.Message;
 import io.lotsandlots.etrade.oauth.model.SecurityContext;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +16,7 @@ import java.io.IOException;
 
 public class EtradeAccountListServlet extends HttpServlet implements EtradeServlet {
 
+    private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAccountListServlet.class);
 
     @Override
@@ -27,11 +27,10 @@ public class EtradeAccountListServlet extends HttpServlet implements EtradeServl
             return;
         }
 
-        ApiResource apiResource = EtradeRestTemplateFactory.getClient().getApiResource();
         Message accountListMessage = new Message();
         accountListMessage.setRequiresOauth(true);
         accountListMessage.setHttpMethod("GET");
-        accountListMessage.setUrl(apiResource.getApiBaseUrl() + apiResource.getAcctListUri());
+        accountListMessage.setUrl(API.getBaseUrl() + API.getAcctListUri());
         try {
             setOauthHeader(securityContext, accountListMessage);
             ResponseEntity<String> accountListResponse = EtradeRestTemplateFactory
@@ -40,7 +39,7 @@ public class EtradeAccountListServlet extends HttpServlet implements EtradeServl
                     .execute(accountListMessage, String.class);
             String responseBody = accountListResponse.getBody();
             if (StringUtils.isBlank(responseBody)) {
-                throw new ApiException("Etrade API returned empty response");
+                throw new RuntimeException("Etrade API returned empty response");
             }
             response.getWriter().print(responseBody);
         } catch (Exception e) {
