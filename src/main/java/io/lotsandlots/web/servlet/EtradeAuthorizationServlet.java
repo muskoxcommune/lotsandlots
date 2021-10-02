@@ -60,12 +60,13 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
+        SecurityContext securityContext;
 
         String verifierCode = request.getParameter("verifier");
         if (verifierCode == null) {
             // If a verifier code is not provided, redirect to etrade to get one.
             LOG.info("Verifier code not provided, will redirect to etrade");
+            securityContext = EtradeRestTemplateFactory.getClient().newSecurityContext();
             tokenMessage = new Message();
             tokenMessage.setRequiresOauth(true);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getRequestTokenHttpMethod());
@@ -86,6 +87,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
         } else {
             // If a verifier code parameter is found, complete authorization flow.
             LOG.info("Verifier code found, verifier={}", verifierCode);
+            securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
             tokenMessage.setVerifierCode(verifierCode);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getAccessTokenHttpMethod());
             tokenMessage.setUrl(securityContext.getOAuthConfig().getAccessTokenUrl());

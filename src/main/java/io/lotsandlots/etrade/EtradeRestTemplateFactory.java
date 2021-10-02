@@ -35,10 +35,10 @@ public class EtradeRestTemplateFactory {
 
     private final ApiConfig apiConfig;
     private final ClientHttpRequestFactory clientHttpRequestFactory;
-    private final SecurityContext securityContext;
+
+    private SecurityContext securityContext;
 
     private EtradeRestTemplateFactory() throws GeneralSecurityException {
-
         apiConfig = new ApiConfig();
         apiConfig.setAcctListUri(CONFIG.getString("etrade.accountListUri"));
         apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
@@ -48,17 +48,7 @@ public class EtradeRestTemplateFactory {
 
         clientHttpRequestFactory = newClientHttpRequestFactory();
 
-        securityContext = new SecurityContext();
-        OAuthConfig oauthOAuthConfig = new OAuthConfig();
-        oauthOAuthConfig.setAccessTokenHttpMethod("GET");
-        oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.accessTokenUrl"));
-        oauthOAuthConfig.setAuthorizeUrl(CONFIG.getString("etrade.authorizeUrl"));
-        oauthOAuthConfig.setConsumerKey(CONFIG.getString("etrade.consumerKey"));
-        oauthOAuthConfig.setRequestTokenHttpMethod("GET");
-        oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
-        oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
-        oauthOAuthConfig.setSignatureMethod(Signer.getSigner("HMAC-SHA1"));
-        securityContext.setOAuthConfig(oauthOAuthConfig);
+        newSecurityContext();
     }
 
     public ApiConfig getApiConfig() {
@@ -74,6 +64,20 @@ public class EtradeRestTemplateFactory {
     }
 
     public SecurityContext getSecurityContext() {
+        return securityContext;
+    }
+    public SecurityContext newSecurityContext() {
+        securityContext = new SecurityContext();
+        OAuthConfig oauthOAuthConfig = new OAuthConfig();
+        oauthOAuthConfig.setAccessTokenHttpMethod("GET");
+        oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.accessTokenUrl"));
+        oauthOAuthConfig.setAuthorizeUrl(CONFIG.getString("etrade.authorizeUrl"));
+        oauthOAuthConfig.setConsumerKey(CONFIG.getString("etrade.consumerKey"));
+        oauthOAuthConfig.setRequestTokenHttpMethod("GET");
+        oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
+        oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
+        oauthOAuthConfig.setSignatureMethod(Signer.getSigner("HMAC-SHA1"));
+        securityContext.setOAuthConfig(oauthOAuthConfig);
         return securityContext;
     }
 
