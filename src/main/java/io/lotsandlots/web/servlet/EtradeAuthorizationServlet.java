@@ -5,6 +5,8 @@ import io.lotsandlots.etrade.oauth.OAuth1Template;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -27,6 +29,7 @@ import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+@Api(value = "/etrade")
 public class EtradeAuthorizationServlet extends HttpServlet implements EtradeServlet {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAuthorizationServlet.class);
@@ -58,6 +61,10 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
         return token;
     }
 
+    @ApiOperation(
+            httpMethod = "GET",
+            value = "Resource for updating OAuth security context",
+            nickname = "authorize")
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         SecurityContext securityContext;

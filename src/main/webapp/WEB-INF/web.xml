@@ -4,24 +4,14 @@
          xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
          version="3.0">
     <display-name>lotsandlots</display-name>
+
     <listener>
         <listener-class>io.lotsandlots.web.listener.LifecycleListener</listener-class>
     </listener>
+
     <servlet>
         <servlet-name>EtradeAccountListServlet</servlet-name>
         <servlet-class>io.lotsandlots.web.servlet.EtradeAccountListServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-        <async-supported>true</async-supported>
-    </servlet>
-    <servlet>
-        <servlet-name>EtradeAuthorizationServlet</servlet-name>
-        <servlet-class>io.lotsandlots.web.servlet.EtradeAuthorizationServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-        <async-supported>true</async-supported>
-    </servlet>
-    <servlet>
-        <servlet-name>HelloWorldServlet</servlet-name>
-        <servlet-class>io.lotsandlots.web.servlet.HelloWorldServlet</servlet-class>
         <load-on-startup>1</load-on-startup>
         <async-supported>true</async-supported>
     </servlet>
@@ -29,12 +19,48 @@
         <servlet-name>EtradeAccountListServlet</servlet-name>
         <url-pattern>/etrade/accounts</url-pattern>
     </servlet-mapping>
+
+    <servlet>
+        <servlet-name>EtradeAuthorizationServlet</servlet-name>
+        <servlet-class>io.lotsandlots.web.servlet.EtradeAuthorizationServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+        <async-supported>true</async-supported>
+    </servlet>
     <servlet-mapping>
         <servlet-name>EtradeAuthorizationServlet</servlet-name>
         <url-pattern>/etrade/authorize</url-pattern>
     </servlet-mapping>
+
+    <welcome-file-list>
+        <welcome-file>index.html</welcome-file>
+    </welcome-file-list>
+    
+    <!-- swagger servlet reader -->
+    <servlet>
+        <servlet-name>DefaultServletConfig</servlet-name>
+        <servlet-class>io.swagger.servlet.config.DefaultServletConfig</servlet-class>
+        <init-param>
+            <param-name>swagger.resource.package</param-name>
+            <param-value>io.lotsandlots.web.servlet</param-value>
+        </init-param>
+        <init-param>
+            <param-name>swagger.api.basepath</param-name>
+            <param-value>http://localhost:5000/</param-value>
+        </init-param>
+        <init-param>
+            <param-name>api.version</param-name>
+            <param-value>1.0.0</param-value>
+        </init-param>
+        <load-on-startup>2</load-on-startup>
+    </servlet>
+
+    <!-- swagger api declaration -->
+    <servlet>
+        <servlet-name>ApiDeclarationServlet</servlet-name>
+        <servlet-class>io.swagger.servlet.listing.ApiDeclarationServlet</servlet-class>
+    </servlet>
     <servlet-mapping>
-        <servlet-name>HelloWorldServlet</servlet-name>
-        <url-pattern>/</url-pattern>
+        <servlet-name>ApiDeclarationServlet</servlet-name>
+        <url-pattern>/api/*</url-pattern>
     </servlet-mapping>
 </web-app>

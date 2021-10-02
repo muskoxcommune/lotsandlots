@@ -4,6 +4,8 @@ import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.ApiConfig;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,11 +16,16 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+@Api(value = "/etrade")
 public class EtradeAccountListServlet extends HttpServlet implements EtradeServlet {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAccountListServlet.class);
 
+    @ApiOperation(
+            httpMethod = "GET",
+            value = "Resource for listing Etrade account data",
+            nickname = "accounts")
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
