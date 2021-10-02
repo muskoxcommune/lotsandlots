@@ -1,4 +1,4 @@
-package io.lotsandlots.etrade.oauth.model;
+package io.lotsandlots.etrade.oauth;
 
 import java.io.Serializable;
 

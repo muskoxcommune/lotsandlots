@@ -1,7 +1,6 @@
-package io.lotsandlots.etrade.oauth;
+package io.lotsandlots.etrade;
 
 import org.apache.commons.lang3.StringUtils;
-import io.lotsandlots.etrade.oauth.model.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;

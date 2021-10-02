@@ -2,8 +2,8 @@ package io.lotsandlots.web.servlet;
 
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.ApiConfig;
-import io.lotsandlots.etrade.oauth.model.Message;
-import io.lotsandlots.etrade.oauth.model.SecurityContext;
+import io.lotsandlots.etrade.Message;
+import io.lotsandlots.etrade.oauth.SecurityContext;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

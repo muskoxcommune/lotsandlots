@@ -1,4 +1,4 @@
-package io.lotsandlots.etrade.oauth.model;
+package io.lotsandlots.etrade;
 
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;

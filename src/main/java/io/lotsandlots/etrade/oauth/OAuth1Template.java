@@ -1,9 +1,6 @@
 package io.lotsandlots.etrade.oauth;
 
-import io.lotsandlots.etrade.oauth.model.Message;
-import io.lotsandlots.etrade.oauth.model.OAuthToken;
-import io.lotsandlots.etrade.oauth.model.SecurityContext;
-import io.lotsandlots.etrade.oauth.model.Signer;
+import io.lotsandlots.etrade.Message;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.net.URLCodec;

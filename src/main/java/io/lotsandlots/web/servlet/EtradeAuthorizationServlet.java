@@ -2,9 +2,9 @@ package io.lotsandlots.web.servlet;
 
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.oauth.OAuth1Template;
-import io.lotsandlots.etrade.oauth.model.Message;
-import io.lotsandlots.etrade.oauth.model.OAuthToken;
-import io.lotsandlots.etrade.oauth.model.SecurityContext;
+import io.lotsandlots.etrade.Message;
+import io.lotsandlots.etrade.oauth.OAuthToken;
+import io.lotsandlots.etrade.oauth.SecurityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
