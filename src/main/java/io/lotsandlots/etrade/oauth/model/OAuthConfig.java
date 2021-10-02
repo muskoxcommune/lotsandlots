@@ -1,6 +1,6 @@
 package io.lotsandlots.etrade.oauth.model;
 
-public class Resource {
+public class OAuthConfig {
 
     private String consumerKey;
     private String sharedSecret;

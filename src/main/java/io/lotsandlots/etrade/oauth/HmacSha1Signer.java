@@ -32,10 +32,10 @@ public class HmacSha1Signer implements OAuthSigner {
         OAuthToken token = context.getToken();
         if (token != null) {
             key = StringUtils.isEmpty(token.getOauthTokenSecret())
-                    ? context.getResource().getSharedSecret() + "&"
-                    : context.getResource().getSharedSecret() + "&" + OAuth1Template.encode(token.getOauthTokenSecret());
+                    ? context.getOAuthConfig().getSharedSecret() + "&"
+                    : context.getOAuthConfig().getSharedSecret() + "&" + OAuth1Template.encode(token.getOauthTokenSecret());
         } else {
-            key = context.getResource().getSharedSecret() + "&";
+            key = context.getOAuthConfig().getSharedSecret() + "&";
         }
 
         SecretKeySpec signingKey = new SecretKeySpec(key.getBytes(),HMAC_SHA1_ALGORITHM);

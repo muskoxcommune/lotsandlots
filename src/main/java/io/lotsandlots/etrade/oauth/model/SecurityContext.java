@@ -4,8 +4,8 @@ import java.util.HashMap;
 
 public class SecurityContext extends HashMap<String, OAuthToken> {
 
-    Resource resources;
     private boolean initialized;
+    private OAuthConfig oAuthConfig;
 
     public boolean isInitialized() {
         return initialized;
@@ -15,11 +15,11 @@ public class SecurityContext extends HashMap<String, OAuthToken> {
         this.initialized = initialized;
     }
 
-    public Resource getResource() {
-        return resources;
+    public OAuthConfig getOAuthConfig() {
+        return oAuthConfig;
     }
-    public void setResource(Resource resources) {
-        this.resources = resources;
+    public void setOAuthConfig(OAuthConfig oAuthConfig) {
+        this.oAuthConfig = oAuthConfig;
     }
 
     public OAuthToken getToken() {

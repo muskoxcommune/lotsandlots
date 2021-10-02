@@ -139,7 +139,7 @@ public class OAuth1Template {
         this.timestamp = computeTimestamp();
 
         Map<String, String[]> requestMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        requestMap.put("oauth_consumer_key",new String[] { context.getResource().getConsumerKey() });
+        requestMap.put("oauth_consumer_key",new String[] { context.getOAuthConfig().getConsumerKey() });
         requestMap.put("oauth_timestamp", new String[] { this.timestamp });
         requestMap.put("oauth_nonce", new String[] { this.oauthNonce});
         requestMap.put("oauth_signature_method",new String[] { this.signatureMethod });
@@ -222,7 +222,7 @@ public class OAuth1Template {
             }
             return buf.substring(0, buf.length() - 1);
         } else {
-            message.setQueryString("consumerKey="+context.getResource().getConsumerKey());
+            message.setQueryString("consumerKey="+context.getOAuthConfig().getConsumerKey());
         }
         return "";
     }
@@ -245,10 +245,10 @@ public class OAuth1Template {
 
         MultiValueMap<String, String> requestMap = new LinkedMultiValueMap<>();
         if ( context.isInitialized() || message.isRequiresOauth()) {
-            requestMap.add("oauth_consumer_key", context.getResource().getConsumerKey());
+            requestMap.add("oauth_consumer_key", context.getOAuthConfig().getConsumerKey());
             requestMap.add("oauth_timestamp",  this.timestamp );
             requestMap.add("oauth_nonce",this.oauthNonce);
-            requestMap.add("oauth_signature_method",context.getResource().getSignatureMethod().getValue());
+            requestMap.add("oauth_signature_method",context.getOAuthConfig().getSignatureMethod().getValue());
             requestMap.add("oauth_signature", this.signature);
             if (context != null && context.getToken() !=  null) {
                 OAuthToken oAuthToken = context.getToken();
@@ -268,7 +268,7 @@ public class OAuth1Template {
             }
         } else {
             //in case of quotes api call, delayed quotes will be returned
-            requestMap.add("consumerKey", context.getResource().getConsumerKey());
+            requestMap.add("consumerKey", context.getOAuthConfig().getConsumerKey());
 
         }
         return requestMap;
@@ -372,7 +372,7 @@ public class OAuth1Template {
      */
     private OAuthSigner getSigner() {
         OAuthSigner signer = null;
-        if (context.getResource().getSignatureMethod() == Signer.HMAC_SHA1) {
+        if (context.getOAuthConfig().getSignatureMethod() == Signer.HMAC_SHA1) {
             signer = new HmacSha1Signer();
         }
         return signer;

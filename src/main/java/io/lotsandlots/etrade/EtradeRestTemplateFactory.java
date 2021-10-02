@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.ApiResource;
 import io.lotsandlots.etrade.oauth.EtradeRestTemplate;
-import io.lotsandlots.etrade.oauth.model.Resource;
+import io.lotsandlots.etrade.oauth.model.OAuthConfig;
 import io.lotsandlots.etrade.oauth.model.SecurityContext;
 import io.lotsandlots.etrade.oauth.model.Signer;
 import io.lotsandlots.util.ConfigWrapper;
@@ -50,16 +50,16 @@ public class EtradeRestTemplateFactory {
         clientHttpRequestFactory = newClientHttpRequestFactory();
 
         securityContext = new SecurityContext();
-        Resource oauthResource = new Resource();
-        oauthResource.setAccessTokenHttpMethod("GET");
-        oauthResource.setAccessTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.accessTokenUrl"));
-        oauthResource.setAuthorizeUrl(CONFIG.getString("etrade.authorizeUrl"));
-        oauthResource.setConsumerKey(CONFIG.getString("etrade.consumerKey"));
-        oauthResource.setRequestTokenHttpMethod("GET");
-        oauthResource.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
-        oauthResource.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
-        oauthResource.setSignatureMethod(Signer.getSigner("HMAC-SHA1"));
-        securityContext.setResource(oauthResource);
+        OAuthConfig oauthOAuthConfig = new OAuthConfig();
+        oauthOAuthConfig.setAccessTokenHttpMethod("GET");
+        oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.accessTokenUrl"));
+        oauthOAuthConfig.setAuthorizeUrl(CONFIG.getString("etrade.authorizeUrl"));
+        oauthOAuthConfig.setConsumerKey(CONFIG.getString("etrade.consumerKey"));
+        oauthOAuthConfig.setRequestTokenHttpMethod("GET");
+        oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
+        oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
+        oauthOAuthConfig.setSignatureMethod(Signer.getSigner("HMAC-SHA1"));
+        securityContext.setOAuthConfig(oauthOAuthConfig);
     }
 
     public ApiResource getApiResource() {

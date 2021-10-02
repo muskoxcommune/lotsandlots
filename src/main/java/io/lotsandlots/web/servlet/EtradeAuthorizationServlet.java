@@ -37,8 +37,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
             throws UnsupportedEncodingException, GeneralSecurityException {
         OAuth1Template oAuth1Template = new OAuth1Template(securityContext, tokenMessage);
         oAuth1Template.computeOauthSignature(
-                securityContext.getResource().getRequestTokenHttpMethod(),
-                securityContext.getResource().getRequestTokenUrl());
+                securityContext.getOAuthConfig().getRequestTokenHttpMethod(),
+                securityContext.getOAuthConfig().getRequestTokenUrl());
         tokenMessage.setOauthHeader(oAuth1Template.getAuthorizationHeader());
     }
 
@@ -68,15 +68,15 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
             LOG.info("Verifier code not provided, will redirect to etrade");
             tokenMessage = new Message();
             tokenMessage.setRequiresOauth(true);
-            tokenMessage.setHttpMethod(securityContext.getResource().getRequestTokenHttpMethod());
-            tokenMessage.setUrl(securityContext.getResource().getRequestTokenUrl());
+            tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getRequestTokenHttpMethod());
+            tokenMessage.setUrl(securityContext.getOAuthConfig().getRequestTokenUrl());
             LOG.info("Initialized tokenMessage: {}", tokenMessage);
             try {
                 OAuthToken requestToken = getOauthToken(securityContext, tokenMessage);
                 String url = String.format(
                         "%s?key=%s&token=%s",
-                        securityContext.getResource().getAuthorizeUrl(),
-                        securityContext.getResource().getConsumerKey(),
+                        securityContext.getOAuthConfig().getAuthorizeUrl(),
+                        securityContext.getOAuthConfig().getConsumerKey(),
                         requestToken.getOauthToken());
                 response.sendRedirect(url);
             } catch (Exception e) {
@@ -87,8 +87,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
             // If a verifier code parameter is found, complete authorization flow.
             LOG.info("Verifier code found, verifier={}", verifierCode);
             tokenMessage.setVerifierCode(verifierCode);
-            tokenMessage.setHttpMethod(securityContext.getResource().getAccessTokenHttpMethod());
-            tokenMessage.setUrl(securityContext.getResource().getAccessTokenUrl());
+            tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getAccessTokenHttpMethod());
+            tokenMessage.setUrl(securityContext.getOAuthConfig().getAccessTokenUrl());
             LOG.info("Updated url and verifierCode, tokenMessage={}", tokenMessage);
             try {
                 getOauthToken(securityContext, tokenMessage);
