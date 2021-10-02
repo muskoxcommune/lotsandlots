@@ -76,8 +76,6 @@ public class OAuth1Template {
 
     private final Message message;
 
-    private BitSet unreserved = null;
-
     public OAuth1Template(SecurityContext context, Message message) {
         this.message = message;
         this.context = context;
@@ -212,7 +210,6 @@ public class OAuth1Template {
                 + " isRequiresOauth " + message.isRequiresOauth());
         if (context.isInitialized() || message.isRequiresOauth()) {
             buf.append("OAuth ");
-            //append(buf,"realm", "");z\
 
             for (Map.Entry<String, List<String>> e : requestMap.entrySet()) {
                 append(buf, encode(e.getKey()), encode(e.getValue().get(0)));
