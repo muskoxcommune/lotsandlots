@@ -1,19 +1,10 @@
 package io.lotsandlots.etrade.oauth;
 
-import java.util.HashMap;
-
-public class SecurityContext extends HashMap<String, OAuthToken> {
+public class SecurityContext {
 
     private boolean initialized;
     private OAuthConfig oAuthConfig;
-
-    public boolean isInitialized() {
-        return initialized;
-    }
-
-    public void setInitialized(boolean initialized) {
-        this.initialized = initialized;
-    }
+    private OAuthToken token;
 
     public OAuthConfig getOAuthConfig() {
         return oAuthConfig;
@@ -22,7 +13,17 @@ public class SecurityContext extends HashMap<String, OAuthToken> {
         this.oAuthConfig = oAuthConfig;
     }
 
+    public boolean isInitialized() {
+        return initialized;
+    }
+    public void setInitialized(boolean initialized) {
+        this.initialized = initialized;
+    }
+
     public OAuthToken getToken() {
-        return super.get("TOKEN");
+        return token;
+    }
+    public void setToken(OAuthToken token) {
+        this.token = token;
     }
 }

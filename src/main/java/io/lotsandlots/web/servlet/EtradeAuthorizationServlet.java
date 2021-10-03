@@ -6,7 +6,11 @@ import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -45,7 +49,10 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
         tokenMessage.setOauthHeader(oAuth1Template.getAuthorizationHeader());
     }
 
-    private OAuthToken getOauthToken(SecurityContext securityContext, Message tokenMessage)
+    private OAuthToken getOauthToken(
+            SecurityContext securityContext,
+            Message tokenMessage,
+            OAuthToken.TokenType tokenType)
             throws UnsupportedEncodingException, GeneralSecurityException{
         setTokenMessageOauthHeader(securityContext, tokenMessage);
 
@@ -56,23 +63,36 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
 
         OAuthToken token = new OAuthToken(
                 tokenMessageResponseBody.getFirst("oauth_token"),
-                tokenMessageResponseBody.getFirst("oauth_token_secret"));
-        securityContext.put("TOKEN", token);
+                tokenMessageResponseBody.getFirst("oauth_token_secret"),
+                tokenType);
+        securityContext.setToken(token);
         return token;
     }
 
     @ApiOperation(
             httpMethod = "GET",
-            value = "Resource for updating OAuth security context",
+            value = "Initialize or refresh E*Trade's OAuth tokens. "
+                    + "A GET request without a 'verifier' query parameter will result in a redirect "
+                    + "to E*Trade's authorization page. Once authorized, E*Trade will provide a "
+                    + "Verifier Code. Use this code to make another GET request to complete "
+                    + "authorization. Access tokens expire at midnight US Eastern time.",
             nickname = "authorize")
+    @ApiImplicitParams(
+            {@ApiImplicitParam(name = "verifier", dataType = "string", paramType = "query", required = false,
+                               value = "Code provided by E*Trade after authorization",
+                               example = "{host}:{port}/etrade/authorize?verifier=XXXXX")})
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "Security context is ready."),
+            @ApiResponse(code = 302, message = "Redirect to E*Trade to get Verifier Code."),
+            @ApiResponse(code = 500, message = "Unable to complete authorization.")})
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         SecurityContext securityContext;
 
         String verifierCode = request.getParameter("verifier");
         if (verifierCode == null) {
-            // If a verifier code is not provided, redirect to etrade to get one.
-            LOG.info("Verifier code not provided, will redirect to etrade");
+            // If a verifier code is not provided, redirect to E*Trade to get one.
+            LOG.info("Verifier code not provided, will redirect to E*Trade");
             securityContext = EtradeRestTemplateFactory.getClient().newSecurityContext();
             tokenMessage = new Message();
             tokenMessage.setRequiresOauth(true);
@@ -80,7 +100,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
             tokenMessage.setUrl(securityContext.getOAuthConfig().getRequestTokenUrl());
             LOG.info("Initialized tokenMessage: {}", tokenMessage);
             try {
-                OAuthToken requestToken = getOauthToken(securityContext, tokenMessage);
+                OAuthToken requestToken = getOauthToken(
+                        securityContext, tokenMessage, OAuthToken.TokenType.REQUEST);
                 String url = String.format(
                         "%s?key=%s&token=%s",
                         securityContext.getOAuthConfig().getAuthorizeUrl(),
@@ -88,8 +109,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
                         requestToken.getOauthToken());
                 response.sendRedirect(url);
             } catch (Exception e) {
-                LOG.error("Failed redirect to etrade", e);
-                response.sendError(500, "Unable to redirect to etrade");
+                LOG.error("Failed redirect to E*Trade", e);
+                response.sendError(500, "Unable to redirect to E*Trade");
             }
         } else {
             // If a verifier code parameter is found, complete authorization flow.
@@ -100,7 +121,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeSer
             tokenMessage.setUrl(securityContext.getOAuthConfig().getAccessTokenUrl());
             LOG.info("Updated url and verifierCode, tokenMessage={}", tokenMessage);
             try {
-                getOauthToken(securityContext, tokenMessage);
+                getOauthToken(securityContext, tokenMessage, OAuthToken.TokenType.ACCESS);
                 securityContext.setInitialized(true);
                 response.getWriter().print("Authorization completed at "
                         + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()));

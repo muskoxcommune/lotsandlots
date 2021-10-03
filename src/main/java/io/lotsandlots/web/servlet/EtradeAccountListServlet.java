@@ -6,6 +6,8 @@ import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +26,12 @@ public class EtradeAccountListServlet extends HttpServlet implements EtradeServl
 
     @ApiOperation(
             httpMethod = "GET",
-            value = "Resource for listing Etrade account data",
+            value = "Get a list of E*Trade accounts.",
             nickname = "accounts")
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "Account list returned by E*Trade."),
+            @ApiResponse(code = 400, message = "If OAuth tokens have not been initialized."),
+            @ApiResponse(code = 500, message = "If unable to return account list.")})
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
