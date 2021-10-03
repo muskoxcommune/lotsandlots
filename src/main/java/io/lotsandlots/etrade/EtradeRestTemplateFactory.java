@@ -3,6 +3,7 @@ package io.lotsandlots.etrade;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
+import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.oauth.OAuthConfig;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.oauth.Signer;

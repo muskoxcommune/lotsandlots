@@ -1,6 +1,6 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.ApiConfig;
+import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
 import io.swagger.annotations.*;
@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Api(value = "/etrade")
-public class EtradePortfolioServlet extends HttpServlet implements EtradeServlet {
+public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServlet {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioServlet.class);

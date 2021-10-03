@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 
-public interface EtradeServlet {
+public interface EtradeApiServlet {
 
     default void doEtradeGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();

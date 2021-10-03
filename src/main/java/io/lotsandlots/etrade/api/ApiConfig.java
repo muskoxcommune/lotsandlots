@@ -1,4 +1,4 @@
-package io.lotsandlots.etrade;
+package io.lotsandlots.etrade.api;
 
 public class ApiConfig {
 
