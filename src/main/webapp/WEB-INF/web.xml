@@ -31,6 +31,17 @@
         <url-pattern>/etrade/authorize</url-pattern>
     </servlet-mapping>
 
+    <servlet>
+        <servlet-name>EtradePortfolioServlet</servlet-name>
+        <servlet-class>io.lotsandlots.web.servlet.EtradePortfolioServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+        <async-supported>true</async-supported>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EtradePortfolioServlet</servlet-name>
+        <url-pattern>/etrade/portfolio</url-pattern>
+    </servlet-mapping>
+
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
     </welcome-file-list>

@@ -41,9 +41,8 @@ public class EtradeRestTemplateFactory {
         apiConfig = new ApiConfig();
         apiConfig.setAcctListUri(CONFIG.getString("etrade.accountListUri"));
         apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
-        apiConfig.setBalanceUri(CONFIG.getString("etrade.balanceUri"));
         apiConfig.setPortfolioUri(CONFIG.getString("etrade.portfolioUri"));
-        apiConfig.setQuoteUri(CONFIG.getString("etrade.quoteUri"));
+        apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
 
         clientHttpRequestFactory = newClientHttpRequestFactory();
 
