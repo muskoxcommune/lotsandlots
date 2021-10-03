@@ -80,7 +80,7 @@ public class EtradeAuthorizationServlet extends HttpServlet {
     @ApiImplicitParams(
             {@ApiImplicitParam(name = "verifier", dataType = "string", paramType = "query", required = false,
                                value = "Code provided by E*Trade after authorization.",
-                               example = "{host}:{port}/etrade/authorize?verifier=XXXXX")})
+                               example = "XXXXX")})
     @ApiResponses({
             @ApiResponse(code = 200, message = "Security context is ready."),
             @ApiResponse(code = 302, message = "Redirect to E*Trade to get Verifier Code."),

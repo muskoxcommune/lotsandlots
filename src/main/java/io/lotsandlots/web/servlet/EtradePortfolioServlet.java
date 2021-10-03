@@ -26,7 +26,7 @@ public class EtradePortfolioServlet extends HttpServlet implements EtradeServlet
     @ApiImplicitParams(
             {@ApiImplicitParam(name = "nextPageNo", dataType = "integer", paramType = "query", required = false,
                     value = "Page number of the desired portfolio results page.",
-                    example = "{host}:{port}/etrade/portfolio?nextPageNo=2")})
+                    example = "2")})
     @ApiResponses({
             @ApiResponse(code = 200, message = "Portfolio data returned by E*Trade."),
             @ApiResponse(code = 400, message = "If OAuth tokens have not been initialized."),
