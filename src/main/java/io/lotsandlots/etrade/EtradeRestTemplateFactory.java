@@ -131,7 +131,8 @@ public class EtradeRestTemplateFactory {
         jsonConverter.setSupportedMediaTypes(mediaTypeList);
 
         ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.UNWRAP_ROOT_VALUE, true);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+              .configure(DeserializationFeature.UNWRAP_ROOT_VALUE, true);
         jsonConverter.setObjectMapper(mapper);
         return jsonConverter;
     }

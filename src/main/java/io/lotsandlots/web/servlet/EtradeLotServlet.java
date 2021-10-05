@@ -1,8 +1,8 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
+import io.lotsandlots.etrade.api.ApiConfig;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -19,23 +19,23 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Api(value = "/etrade")
-public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServlet {
+public class EtradeLotServlet extends HttpServlet implements EtradeApiServlet {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
-    private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioServlet.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EtradeLotServlet.class);
 
     @ApiOperation(
             httpMethod = "GET",
-            value = "Get a single E*Trade portfolio.",
-            nickname = "portfolio")
+            value = "Get lots for a single E*Trade position.",
+            nickname = "lots")
     @ApiImplicitParams(
-            {@ApiImplicitParam(name = "nextPageNo", dataType = "integer", paramType = "query",
-                    value = "Page number of the desired portfolio results page.",
-                    example = "2")})
+            {@ApiImplicitParam(name = "positionId", dataType = "integer", paramType = "query", required = true,
+                    value = "ID of desired position.",
+                    example = "100000000000")})
     @ApiResponses({
-            @ApiResponse(code = 200, message = "Portfolio data returned by E*Trade."),
+            @ApiResponse(code = 200, message = "Lot data returned by E*Trade."),
             @ApiResponse(code = 400, message = "If OAuth tokens have not been initialized."),
-            @ApiResponse(code = 500, message = "If unable to return portfolio data.")})
+            @ApiResponse(code = 500, message = "If unable to return lot data.")})
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         doEtradeGet(request, response);
@@ -43,11 +43,11 @@ public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServ
 
     @Override
     public void handleException(HttpServletResponse response, Exception e) throws IOException {
-        LOG.error("Failed to fetch portfolio", e);
+        LOG.error("Failed to fetch lots", e);
         if (e instanceof InvalidParameterException) {
             response.sendError(400, e.getMessage());
         } else {
-            response.sendError(500, "Unable to fetch portfolio");
+            response.sendError(500, "Unable to fetch lots");
         }
     }
 
@@ -56,18 +56,17 @@ public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServ
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
-        portfolioMessage.setUrl(API.getBaseUrl() + API.getPortfolioUri());
-        String nextPageNo = request.getParameter("nextPageNo");
-        String portfolioQueryString = API.getPortfolioQueryString();
-        if (!StringUtils.isBlank(nextPageNo)) {
-            if (StringUtils.isNumeric(nextPageNo)) {
-                portfolioQueryString += "&pageNumber=" + nextPageNo;
+        String positionId = request.getParameter("positionId");
+        if (positionId != null) {
+            if (StringUtils.isNumeric(positionId)) {
+                portfolioMessage.setUrl(API.getBaseUrl() + API.getPortfolioUri() + "/" + positionId);
             } else {
                 throw new InvalidParameterException(
-                        "Query parameter 'nextPageNo' should have a numeric value, got: '" + nextPageNo + "'");
+                        "Query parameter 'positionId' should have a numeric value, got: '" + positionId + "'");
             }
+        } else {
+            throw new InvalidParameterException("Query parameter 'positionId' is required");
         }
-        portfolioMessage.setQueryString(portfolioQueryString);
         return portfolioMessage;
     }
 }

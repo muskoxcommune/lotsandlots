@@ -32,6 +32,17 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>EtradeLotServlet</servlet-name>
+        <servlet-class>io.lotsandlots.web.servlet.EtradeLotServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+        <async-supported>true</async-supported>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EtradeLotServlet</servlet-name>
+        <url-pattern>/etrade/lots</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>EtradePortfolioServlet</servlet-name>
         <servlet-class>io.lotsandlots.web.servlet.EtradePortfolioServlet</servlet-class>
         <load-on-startup>1</load-on-startup>

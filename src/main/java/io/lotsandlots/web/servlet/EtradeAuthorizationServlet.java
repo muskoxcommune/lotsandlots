@@ -78,7 +78,7 @@ public class EtradeAuthorizationServlet extends HttpServlet {
                     + "authorization. Access tokens expire at midnight US Eastern time.",
             nickname = "authorize")
     @ApiImplicitParams(
-            {@ApiImplicitParam(name = "verifier", dataType = "string", paramType = "query", required = false,
+            {@ApiImplicitParam(name = "verifier", dataType = "string", paramType = "query",
                                value = "Code provided by E*Trade after authorization.",
                                example = "XXXXX")})
     @ApiResponses({
