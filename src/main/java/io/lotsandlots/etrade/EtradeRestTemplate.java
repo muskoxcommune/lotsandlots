@@ -32,7 +32,7 @@ public class EtradeRestTemplate extends RestTemplate {
         if (StringUtils.isNotBlank(message.getOauthHeader())) {
             headers.add("Authorization", message.getOauthHeader());
         }
-        LOG.info("Executing Message, method={} url={} headers={}", message.getHttpMethod(), url, headers);
+        LOG.debug("Executing Message, method={} url={} headers={}", message.getHttpMethod(), url, headers);
         switch (message.getHttpMethod()) {
             case "GET":
                 HttpEntity<String> entity = new HttpEntity<>(headers);

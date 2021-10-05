@@ -98,7 +98,7 @@ public class EtradeAuthorizationServlet extends HttpServlet {
             tokenMessage.setRequiresOauth(true);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getRequestTokenHttpMethod());
             tokenMessage.setUrl(securityContext.getOAuthConfig().getRequestTokenUrl());
-            LOG.info("Initialized tokenMessage: {}", tokenMessage);
+            LOG.debug("Initialized tokenMessage: {}", tokenMessage);
             try {
                 OAuthToken requestToken = getOauthToken(
                         securityContext, tokenMessage, OAuthToken.TokenType.REQUEST);
@@ -119,7 +119,7 @@ public class EtradeAuthorizationServlet extends HttpServlet {
             tokenMessage.setVerifierCode(verifierCode);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getAccessTokenHttpMethod());
             tokenMessage.setUrl(securityContext.getOAuthConfig().getAccessTokenUrl());
-            LOG.info("Updated url and verifierCode, tokenMessage={}", tokenMessage);
+            LOG.debug("Updated url and verifierCode, tokenMessage={}", tokenMessage);
             try {
                 getOauthToken(securityContext, tokenMessage, OAuthToken.TokenType.ACCESS);
                 securityContext.setInitialized(true);

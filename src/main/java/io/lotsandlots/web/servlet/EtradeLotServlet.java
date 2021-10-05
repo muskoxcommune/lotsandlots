@@ -39,7 +39,9 @@ public class EtradeLotServlet extends HttpServlet implements EtradeApiServlet {
             @ApiResponse(code = 500, message = "If unable to return lot data.")})
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        long timeStartedMillis = System.currentTimeMillis();
         doEtradeGet(request, response);
+        LOG.info("Completed request in {}ms", System.currentTimeMillis() - timeStartedMillis);
     }
 
     @Override
