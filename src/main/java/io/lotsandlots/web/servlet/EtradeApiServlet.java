@@ -22,11 +22,11 @@ public interface EtradeApiServlet extends EtradeApiClient {
         try {
             Message message = newMessage(request);
             setOauthHeader(securityContext, message);
-            ResponseEntity<String> accountListResponse = EtradeRestTemplateFactory
+            ResponseEntity<String> responseEntity = EtradeRestTemplateFactory
                     .getClient()
                     .newCustomRestTemplate()
                     .execute(message, String.class);
-            String responseBody = accountListResponse.getBody();
+            String responseBody = responseEntity.getBody();
             if (StringUtils.isBlank(responseBody)) {
                 throw new RuntimeException("Empty response");
             }
