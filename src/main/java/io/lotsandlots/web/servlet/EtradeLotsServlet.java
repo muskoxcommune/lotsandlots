@@ -3,7 +3,6 @@ package io.lotsandlots.web.servlet;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.api.ApiConfig;
-import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -20,10 +19,10 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Api(value = "/etrade")
-public class EtradeLotServlet extends HttpServlet implements EtradeApiServlet {
+public class EtradeLotsServlet extends HttpServlet implements EtradeApiServlet {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
-    private static final Logger LOG = LoggerFactory.getLogger(EtradeLotServlet.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EtradeLotsServlet.class);
 
     @ApiOperation(
             httpMethod = "GET",
