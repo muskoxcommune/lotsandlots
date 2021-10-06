@@ -45,7 +45,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApi
             Message tokenMessage,
             OAuthToken.TokenType tokenType)
             throws UnsupportedEncodingException, GeneralSecurityException{
-        setOauthHeader(securityContext, tokenMessage);
+        setOAuthHeader(securityContext, tokenMessage);
 
         ResponseEntity<AuthorizationLinkedMultiValueMap> tokenMessageResponse =
                 new AuthorizationRestTemplate(EtradeRestTemplateFactory.getClient().getClientHttpRequestFactory())

@@ -7,7 +7,6 @@ public class OAuthConfig {
     private String requestTokenUrl;
     private String authorizeUrl;
     private String accessTokenUrl;
-    private Signer signatureMethod;
     private String requestTokenHttpMethod = "GET";
     private String accessTokenHttpMethod = "GET";
 
@@ -44,13 +43,6 @@ public class OAuthConfig {
     }
     public void setAccessTokenUrl(String accessTokenUrl) {
         this.accessTokenUrl = accessTokenUrl;
-    }
-
-    public Signer getSignatureMethod() {
-        return signatureMethod;
-    }
-    public void setSignatureMethod(Signer signatureMethod) {
-        this.signatureMethod = signatureMethod;
     }
 
     public String getRequestTokenHttpMethod() {

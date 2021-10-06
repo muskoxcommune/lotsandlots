@@ -1,7 +1,6 @@
 package io.lotsandlots.etrade.oauth;
 
 import io.lotsandlots.etrade.Message;
-import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.commons.lang3.StringUtils;
@@ -10,7 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -22,32 +24,29 @@ import java.util.TreeMap;
 
 public class OAuth1Helper {
 
+    private static final String CALLBACK = "oob";
+    private static final Logger LOG = LoggerFactory.getLogger(OAuth1Helper.class);
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final BitSet WWW_FORM_URL_SAFE = new BitSet(256);
-    /*
-     * Characters in the unreserved character set MUST NOT be encoded
-     */
+    // Characters in the unreserved character set MUST NOT be encoded
     static {
-        // alpha characters
+        // Alpha characters
         for (int i = 'a'; i <= 'z'; i++) {
             WWW_FORM_URL_SAFE.set(i);
         }
         for (int i = 'A'; i <= 'Z'; i++) {
             WWW_FORM_URL_SAFE.set(i);
         }
-        // numeric characters
+        // Numeric characters
         for (int i = '0'; i <= '9'; i++) {
             WWW_FORM_URL_SAFE.set(i);
         }
-        // special chars
+        // Special chars
         WWW_FORM_URL_SAFE.set('-');
         WWW_FORM_URL_SAFE.set('_');
         WWW_FORM_URL_SAFE.set('.');
         WWW_FORM_URL_SAFE.set('~');
     }
-
-    private static final String CALLBACK = "oob";
-    private static final Logger LOG = LoggerFactory.getLogger(OAuth1Helper.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final Message message;
     private final SecurityContext securityContext;
@@ -63,51 +62,67 @@ public class OAuth1Helper {
         this.securityContext = securityContext;
     }
 
-    /**
-     *
-     * @param buf - Buffer to  append the key=value seperated by coma
-     * @param key - Key name to append to buffer
-     * @param value - value to append to buffer
-     * Format : OAuth realm="",oauth_signature="y%2Fkoia4FeOmALwM9Zl94pAKxjiw%3D",oauth_nonce="MTE2OTUzMzA0NDM4MDg2NzQwMw%3D%3D",
-     *          oauth_signature_method="HMAC-SHA1",oauth_consumer_key="xxxxxxxxxxxxxxxxxxx",
-     *          oauth_token="yyyyyyyyyyyyyyyyyyyyyyyyyyyy",oauth_timestamp="1557366622"
-     */
-    private void append(StringBuilder buf, final String key, final String value){
-        buf.append(key).append("=\"").append(value).append("\",");
-    }
-
-    public void computeOauthSignature()
-            throws UnsupportedEncodingException, GeneralSecurityException {
+    public void computeOAuthSignature() throws UnsupportedEncodingException, GeneralSecurityException {
         oauthNonce = new String(Base64.encodeBase64(String.valueOf(RANDOM.nextLong()).getBytes()));
         timestamp = Long.toString(System.currentTimeMillis() / 1000);
 
-        Map<String, String[]> requestMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        requestMap.put("oauth_consumer_key", new String[] {securityContext.getOAuthConfig().getConsumerKey()});
-        requestMap.put("oauth_timestamp", new String[] {timestamp});
-        requestMap.put("oauth_nonce", new String[] {oauthNonce});
-        requestMap.put("oauth_signature_method", new String[] {oauthSigner.getSignatureMethod()});
+        Map<String, String[]> params = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        params.put("oauth_consumer_key", new String[] {securityContext.getOAuthConfig().getConsumerKey()});
+        params.put("oauth_timestamp", new String[] {timestamp});
+        params.put("oauth_nonce", new String[] {oauthNonce});
+        params.put("oauth_signature_method", new String[] {oauthSigner.getSignatureMethod()});
 
         OAuthToken oauthtoken = securityContext.getToken();
         if (oauthtoken != null){
-            requestMap.put("oauth_token", new String[]{oauthtoken.getOauthToken()});
+            params.put("oauth_token", new String[]{oauthtoken.getOauthToken()});
             if (StringUtils.isNotBlank(message.getVerifierCode())) {
-                requestMap.put("oauth_verifier", new String[]{encode(message.getVerifierCode())});
+                params.put("oauth_verifier", new String[]{encode(message.getVerifierCode())});
             }
         } else {
-            requestMap.put("oauth_callback", new String[] {CALLBACK});
-            requestMap.put("oauth_version", new String[] {"1.0"});
+            params.put("oauth_callback", new String[] {CALLBACK});
+            params.put("oauth_version", new String[] {"1.0"});
         }
 
-        if( StringUtils.isNotBlank(message.getQueryString())) {
-            Map<String,String[]> qParamMap = getQueryStringMap(message.getQueryString());
-            if( !qParamMap.isEmpty()){
-                requestMap.putAll(qParamMap);
+        if (StringUtils.isNotBlank(message.getQueryString())) {
+            Map<String, String[]> queryStringMap = new HashMap<>();
+            if (!StringUtils.isBlank(message.getQueryString())) {
+                for (String keyValue : message.getQueryString().split("&")) {
+                    String[] p = keyValue.split("=");
+                    queryStringMap.put(p[0], new String[] {p[1]});
+                }
+            }
+            if( !queryStringMap.isEmpty()){
+                params.putAll(queryStringMap);
             }
         }
 
-        String encodedParams = encode(getNormalizedParams(requestMap));
-        String encodedUri = encode(message.getUrl());
-        String baseString = message.getHttpMethod().toUpperCase() + "&" + encodedUri + "&" + encodedParams;
+        TreeMap<String, String[]> sortedParams = new TreeMap<>();
+        for (String key : params.keySet()) {
+            // The value can be null, in which case we do not want an array
+            String[] encodedValues = (params.get(key) != null) ? new String[params.get(key).length]
+                    : new String[0];
+            // Encode keys, and sort the array
+            for (int i=0; i< encodedValues.length; i++) {
+                encodedValues[i] = encode(params.get(key)[i]);
+            }
+            Arrays.sort(encodedValues);
+            sortedParams.put(encode(key), encodedValues);
+        }
+        // Generate a string in key=value&key1=value1 format
+        StringBuilder normalizedParams = new StringBuilder();
+        for (String key: sortedParams.keySet()) {
+            if (sortedParams.get(key) == null || sortedParams.get(key).length==0) {
+                normalizedParams.append(key).append("=&");
+            }
+            for (String value: sortedParams.get(key)) {
+                normalizedParams.append(key).append("=").append(value).append("&");
+            }
+        }
+
+        String baseString =
+                message.getHttpMethod().toUpperCase()
+                + "&" + encode(message.getUrl())
+                + "&" + encode(normalizedParams.substring(0, normalizedParams.length()-1));
         signature = oauthSigner.computeSignature(baseString, securityContext);
     }
 
@@ -116,69 +131,27 @@ public class OAuth1Helper {
      * @param value to encode
      * @return encoded string
      */
-    public static String encode(String value) {
+    public static String encode(String value) throws UnsupportedEncodingException {
         if (value == null) {
             return "";
         }
-        try {
-            return new String(URLCodec.encodeUrl(WWW_FORM_URL_SAFE, value.getBytes("UTF-8")), "US-ASCII");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    public static String decode(String value)  {
-        if (value == null) {
-            return "";
-        }
-        try {
-            return new String(URLCodec.decodeUrl(value.getBytes("US-ASCII")), "UTF-8");
-        } catch (UnsupportedEncodingException | DecoderException e) {
-            throw new RuntimeException(e);
-        }
+        return new String(URLCodec.encodeUrl(
+                WWW_FORM_URL_SAFE, value.getBytes(StandardCharsets.UTF_8)), StandardCharsets.US_ASCII);
     }
 
-    /**
-     * It is a single string and separated generally by a comma and named Authorization.
-     * @return String - oauth header string for oauth/api request
-     */
-    public String getAuthorizationHeader() {
-        MultiValueMap<String, String> requestMap = getHeaderMap();
-        StringBuilder buf = new StringBuilder("");
-        if (securityContext.isInitialized() || message.isRequiresOauth()) {
-            buf.append("OAuth ");
-
-            for (Map.Entry<String, List<String>> e : requestMap.entrySet()) {
-                append(buf, encode(e.getKey()), encode(e.getValue().get(0)));
-            }
-            return buf.substring(0, buf.length() - 1);
-        } else {
-            message.setQueryString("consumerKey="+ securityContext.getOAuthConfig().getConsumerKey());
-        }
-        return "";
-    }
-
-    /**
-     *
-     * The OAuth header is a part of the signed request, it contains the oauth_signature
-     * and oauth_signature_method parameters and their values.
-     *
-     * @return String - oauth header map for  oaut/api request
-     */
-    public MultiValueMap<String, String> getHeaderMap() {
-
+    public void setAuthorizationHeader() throws UnsupportedEncodingException {
         MultiValueMap<String, String> requestMap = new LinkedMultiValueMap<>();
-        if ( securityContext.isInitialized() || message.isRequiresOauth()) {
+        if (securityContext.isInitialized() || message.isRequiresOauth()) {
             requestMap.add("oauth_consumer_key", securityContext.getOAuthConfig().getConsumerKey());
             requestMap.add("oauth_timestamp",  timestamp );
-            requestMap.add("oauth_nonce",oauthNonce);
-            requestMap.add("oauth_signature_method", securityContext.getOAuthConfig().getSignatureMethod().getValue());
+            requestMap.add("oauth_nonce", oauthNonce);
+            requestMap.add("oauth_signature_method", oauthSigner.getSignatureMethod());
             requestMap.add("oauth_signature", signature);
-            if (securityContext != null && securityContext.getToken() !=  null) {
+            if (securityContext.getToken() != null) {
                 OAuthToken oAuthToken = securityContext.getToken();
-                requestMap.add("oauth_token", /*encode(*/oAuthToken.getOauthToken()/*)*/);
+                requestMap.add("oauth_token", oAuthToken.getOauthToken());
                 if (StringUtils.isNotBlank(message.getVerifierCode())) {
-                    requestMap.add("oauth_verifier", /*encode(*/message.getVerifierCode()/*)*/);
+                    requestMap.add("oauth_verifier", message.getVerifierCode());
                 }
             } else {
                 requestMap.add("oauth_callback", CALLBACK);
@@ -193,58 +166,62 @@ public class OAuth1Helper {
         } else {
             //in case of quotes api call, delayed quotes will be returned
             requestMap.add("consumerKey", securityContext.getOAuthConfig().getConsumerKey());
-
         }
-        return requestMap;
+
+        // Format:
+        // OAuth realm="",oauth_signature="xxxxxxxxxxxxxxxxxxx",oauth_nonce="xxxxxxxxxxxxxxxxxxx%3D%3D",
+        // oauth_signature_method="HMAC-SHA1",oauth_consumer_key="xxxxxxxxxxxxxxxxxxx",
+        // oauth_token="xxxxxxxxxxxxxxxxxxx",oauth_timestamp="1557366622"
+        StringBuilder stringBuilder = new StringBuilder();
+        if (securityContext.isInitialized() || message.isRequiresOauth()) {
+            stringBuilder.append("OAuth ");
+            for (Map.Entry<String, List<String>> e : requestMap.entrySet()) {
+                stringBuilder
+                        .append(encode(e.getKey()))
+                        .append("=\"")
+                        .append(encode(e.getValue().get(0)))
+                        .append("\",");
+            }
+            message.setOAuthHeader(stringBuilder.substring(0, stringBuilder.length() - 1));
+        } else {
+            message.setQueryString("consumerKey=" + securityContext.getOAuthConfig().getConsumerKey());
+        }
     }
 
-    /**
-     * The request parameters are collected, sorted and concatenated into a normalized string
-     * Parameters in the OAuth HTTP Authorization header excluding the realm parameter.
-     * HTTP GET parameters added to the URLs in the query part (as defined by [RFC3986] section 3).
-     * @param paramMap - Request parameter for normalization process.
-     * @return String - Normalized string
-     */
-    private String getNormalizedParams(Map<String,String[]> paramMap){
-        StringBuilder combinedParams = new StringBuilder();
-        TreeMap<String,String[]> sortedMap = new TreeMap<String,String[]>();
-        for (String key:paramMap.keySet()) {
-            //the value can be null, in which case we do not want any associated array here
-            String[] encodedValues = (paramMap.get(key)!=null) ? new String[paramMap.get(key).length] : new String[0];
-            //encode keys, and sort the array
-            for (int i=0; i< encodedValues.length; i++) {
-                encodedValues[i] = encode(paramMap.get(key)[i]);
-            }
-            Arrays.sort(encodedValues);
-            sortedMap.put(encode(key), encodedValues);
-        }
-        //now we generate a string for the map in key=value&key1=value1 format by concatenating the values
-        StringBuilder normalizedRequest = new StringBuilder();
-        for (String key: sortedMap.keySet()) {
-            //we need to handle the case if the value is null
-            if (sortedMap.get(key)==null || sortedMap.get(key).length==0) {
-                normalizedRequest.append(key + "=&");
-            }
-            for (String value: sortedMap.get(key)) {
-                //this for loop will not execute if the value is null or empty
-                normalizedRequest.append(key + "=" + value + "&");
-            }
-        }
-        return normalizedRequest.toString().substring(0,normalizedRequest.length()-1);
+    interface OAuthSigner {
 
+        String getSignatureMethod();
+
+        String computeSignature(String signatureBaseString, SecurityContext context)
+                throws GeneralSecurityException, UnsupportedEncodingException;
     }
 
-    /**
-     * HTTP GET parameters added to the URLs in the query part (as defined by [RFC3986] section 3).
-     */
-    private Map<String, String[]> getQueryStringMap(String queryString){
-        Map<String,String[]> queryParamMap = new HashMap<>();
-        if (queryString != null && queryString.length() > 0) {
-            for (String keyValue : queryString.split("&")) {
-                String[] p = keyValue.split("=");
-                queryParamMap.put(p[0],new String[] {p[1]});
-            }
+    static class HmacSha1Signer implements OAuthSigner {
+
+        private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
+
+        @Override
+        public String getSignatureMethod() {
+            return "HMAC-SHA1";
         }
-        return queryParamMap;
+
+        @Override
+        public String computeSignature(String signatureBaseString, SecurityContext context)
+                throws GeneralSecurityException, UnsupportedEncodingException {
+            String key;
+            OAuthToken token = context.getToken();
+            if (token != null) {
+                key = StringUtils.isEmpty(token.getOauthTokenSecret())
+                        ? context.getOAuthConfig().getSharedSecret() + "&"
+                        : context.getOAuthConfig().getSharedSecret() + "&" + OAuth1Helper.encode(token.getOauthTokenSecret());
+            } else {
+                key = context.getOAuthConfig().getSharedSecret() + "&";
+            }
+            SecretKeySpec signingKey = new SecretKeySpec(key.getBytes(), HMAC_SHA1_ALGORITHM);
+
+            Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+            mac.init(signingKey);
+            return new String(Base64.encodeBase64(mac.doFinal(signatureBaseString.getBytes())));
+        }
     }
 }

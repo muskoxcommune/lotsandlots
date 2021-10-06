@@ -64,7 +64,7 @@ public class Message {
     public String getOauthHeader() {
         return oauthHeader;
     }
-    public void setOauthHeader(String oauthHeader) {
+    public void setOAuthHeader(String oauthHeader) {
         this.oauthHeader = oauthHeader;
     }
 

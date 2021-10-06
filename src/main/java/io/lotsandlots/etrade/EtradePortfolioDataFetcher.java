@@ -56,7 +56,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         }
         portfolioMessage.setQueryString(portfolioQueryString);
         try {
-            setOauthHeader(securityContext, portfolioMessage);
+            setOAuthHeader(securityContext, portfolioMessage);
             ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = EtradeRestTemplateFactory
                     .getClient()
                     .newCustomRestTemplate()
@@ -100,7 +100,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         lotsMessage.setHttpMethod("GET");
         lotsMessage.setUrl(lotsDetailsUrl);
         try {
-            setOauthHeader(securityContext, lotsMessage);
+            setOAuthHeader(securityContext, lotsMessage);
             ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = EtradeRestTemplateFactory
                     .getClient()
                     .newCustomRestTemplate()

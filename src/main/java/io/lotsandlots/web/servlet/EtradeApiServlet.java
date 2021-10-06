@@ -21,7 +21,7 @@ public interface EtradeApiServlet extends EtradeApiClient {
         }
         try {
             Message message = newMessage(request);
-            setOauthHeader(securityContext, message);
+            setOAuthHeader(securityContext, message);
             ResponseEntity<String> responseEntity = EtradeRestTemplateFactory
                     .getClient()
                     .newCustomRestTemplate()

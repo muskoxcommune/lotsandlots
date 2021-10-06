@@ -6,7 +6,6 @@ import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.oauth.OAuthConfig;
 import io.lotsandlots.etrade.oauth.SecurityContext;
-import io.lotsandlots.etrade.oauth.Signer;
 import io.lotsandlots.util.ConfigWrapper;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -75,7 +74,6 @@ public class EtradeRestTemplateFactory {
         oauthOAuthConfig.setRequestTokenHttpMethod("GET");
         oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
         oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
-        oauthOAuthConfig.setSignatureMethod(Signer.getSigner("HMAC-SHA1"));
         securityContext.setOAuthConfig(oauthOAuthConfig);
         return securityContext;
     }

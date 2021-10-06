@@ -8,10 +8,10 @@ import java.security.GeneralSecurityException;
 
 public interface EtradeApiClient {
 
-    default void setOauthHeader(SecurityContext securityContext, Message message)
+    default void setOAuthHeader(SecurityContext securityContext, Message message)
             throws UnsupportedEncodingException, GeneralSecurityException {
         OAuth1Helper oAuth1Helper = new OAuth1Helper(securityContext, message);
-        oAuth1Helper.computeOauthSignature();
-        message.setOauthHeader(oAuth1Helper.getAuthorizationHeader());
+        oAuth1Helper.computeOAuthSignature();
+        oAuth1Helper.setAuthorizationHeader();
     }
 }
