@@ -31,7 +31,7 @@ public class HmacSha1Signer implements OAuthSigner {
         if (token != null) {
             key = StringUtils.isEmpty(token.getOauthTokenSecret())
                     ? context.getOAuthConfig().getSharedSecret() + "&"
-                    : context.getOAuthConfig().getSharedSecret() + "&" + OAuth1Template.encode(token.getOauthTokenSecret());
+                    : context.getOAuthConfig().getSharedSecret() + "&" + OAuth1Helper.encode(token.getOauthTokenSecret());
         } else {
             key = context.getOAuthConfig().getSharedSecret() + "&";
         }

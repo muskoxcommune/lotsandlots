@@ -1,7 +1,7 @@
 package io.lotsandlots.web.servlet;
 
+import io.lotsandlots.etrade.EtradeApiClient;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
-import io.lotsandlots.etrade.oauth.OAuth1Template;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -34,27 +34,18 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Api(value = "/etrade")
-public class EtradeAuthorizationServlet extends HttpServlet {
+public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApiClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAuthorizationServlet.class);
 
     private Message tokenMessage;
-
-    private void setTokenMessageOauthHeader(SecurityContext securityContext, Message tokenMessage)
-            throws UnsupportedEncodingException, GeneralSecurityException {
-        OAuth1Template oAuth1Template = new OAuth1Template(securityContext, tokenMessage);
-        oAuth1Template.computeOauthSignature(
-                securityContext.getOAuthConfig().getRequestTokenHttpMethod(),
-                securityContext.getOAuthConfig().getRequestTokenUrl());
-        tokenMessage.setOauthHeader(oAuth1Template.getAuthorizationHeader());
-    }
 
     private OAuthToken getOauthToken(
             SecurityContext securityContext,
             Message tokenMessage,
             OAuthToken.TokenType tokenType)
             throws UnsupportedEncodingException, GeneralSecurityException{
-        setTokenMessageOauthHeader(securityContext, tokenMessage);
+        setOauthHeader(securityContext, tokenMessage);
 
         ResponseEntity<AuthorizationLinkedMultiValueMap> tokenMessageResponse =
                 new AuthorizationRestTemplate(EtradeRestTemplateFactory.getClient().getClientHttpRequestFactory())
