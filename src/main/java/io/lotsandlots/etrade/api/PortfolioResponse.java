@@ -2,7 +2,6 @@ package io.lotsandlots.etrade.api;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.math.BigInteger;
 import java.util.List;
 
 public class PortfolioResponse {
@@ -139,13 +138,13 @@ public class PortfolioResponse {
     public static class Position {
 
         private Float costPerShare;
-        private BigInteger dateAcquired;
+        private Long dateAcquired;
         private Float daysGain;
         private Float daysGainPct;
         private String lotsDetails;
         private Float marketValue;
         private Float pctOfPortfolio;
-        private BigInteger positionId;
+        private Long positionId;
         private String positionType;
         private Float pricePaid;
         private Integer quantity;
@@ -162,10 +161,10 @@ public class PortfolioResponse {
             this.costPerShare = costPerShare;
         }
 
-        public BigInteger getDateAcquired() {
+        public Long getDateAcquired() {
             return dateAcquired;
         }
-        public void setDateAcquired(BigInteger dateAcquired) {
+        public void setDateAcquired(Long dateAcquired) {
             this.dateAcquired = dateAcquired;
         }
 
@@ -204,10 +203,10 @@ public class PortfolioResponse {
             this.pctOfPortfolio = pctOfPortfolio;
         }
 
-        public BigInteger getPositionId() {
+        public Long getPositionId() {
             return positionId;
         }
-        public void setPositionId(BigInteger positionId) {
+        public void setPositionId(Long positionId) {
             this.positionId = positionId;
         }
 
