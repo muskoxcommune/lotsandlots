@@ -4,6 +4,7 @@ public class ApiConfig {
 
     private String acctListUri;
     private String baseUrl;
+    private String ordersUri;
     private String portfolioUri;
     private String portfolioQueryString;
 
@@ -19,6 +20,13 @@ public class ApiConfig {
     }
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getOrdersUri() {
+        return ordersUri;
+    }
+    public void setOrdersUri(String ordersUri) {
+        this.ordersUri = ordersUri;
     }
 
     public String getPortfolioUri() {
