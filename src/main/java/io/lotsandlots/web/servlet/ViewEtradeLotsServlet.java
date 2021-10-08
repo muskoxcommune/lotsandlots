@@ -27,7 +27,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        Map<String, List<PositionLotsResponse.PositionLot>> lotsCache = EtradePortfolioDataFetcher.getLotsCache();
+        Map<String, List<PositionLotsResponse.PositionLot>> lotsCache = EtradePortfolioDataFetcher.getLots();
         for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry : lotsCache.entrySet()) {
             List<PositionLotsResponse.PositionLot> lots = entry.getValue();
             if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {

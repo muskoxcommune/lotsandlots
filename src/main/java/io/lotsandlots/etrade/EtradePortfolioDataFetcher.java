@@ -1,5 +1,8 @@
 package io.lotsandlots.etrade;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalListener;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
@@ -20,20 +23,30 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
-    private static final Map<String, List<PositionLotsResponse.PositionLot>> LOTS_CACHE = new HashMap<>();
-    private static final Map<String, PortfolioResponse.Position> POSITION_CACHE = new HashMap<>();
+    private static final Map<String, List<PositionLotsResponse.PositionLot>> LOTS = new HashMap<>();
+    private static final Cache<String, PortfolioResponse.Position> POSITIONS = CacheBuilder
+            .newBuilder()
+            .expireAfterWrite(90, TimeUnit.SECONDS)
+            .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
+                if (notification.wasEvicted()) {
+                    LOG.info("Removing lots for evicted position '{}', cause={}",
+                            notification.getKey(), notification.getCause());
+                    LOTS.remove(notification.getKey());
+                }
+            })
+            .build();
     private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
     private static PortfolioResponse.Totals TOTALS = new PortfolioResponse.Totals();
 
     private EtradePortfolioDataFetcher() {
-        SCHEDULED_EXECUTOR.scheduleAtFixedRate(this, 0, 1, TimeUnit.MINUTES);
+        SCHEDULED_EXECUTOR.scheduleAtFixedRate(this, 0, 60, TimeUnit.SECONDS);
     }
 
     public int aggregateLotCount() {
         int lotCount = 0;
-        for (List<PositionLotsResponse.PositionLot> lots : LOTS_CACHE.values()) {
+        for (List<PositionLotsResponse.PositionLot> lots : LOTS.values()) {
             lotCount += lots.size();
         }
         return lotCount;
@@ -65,22 +78,14 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             } else {
                 TOTALS = portfolioResponse.getTotals(); // Update portfolio totals
                 PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
-                for (PortfolioResponse.Position position : accountPortfolio.getPositionList()) {
-                    String symbolDescription = position.getSymbolDescription();
-                    if (POSITION_CACHE.containsKey(symbolDescription)) {
-                        // Compare retrieved data with cached data.
-                        // If quantity owned changes, refresh lots.
-                        PortfolioResponse.Position cachedPosition = POSITION_CACHE.get(symbolDescription);
-                        if (!cachedPosition.getQuantity().equals(position.getQuantity())) {
-                            // Fetch lots.
-                            fetchPositionLotsResponse(securityContext, symbolDescription, position);
-                        }
-                    } else {
-                        // Fetch lots.
-                        fetchPositionLotsResponse(securityContext, symbolDescription, position);
+                for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
+                    String symbol = freshPositionData.getSymbolDescription();
+
+                    PortfolioResponse.Position cachedPositionData = POSITIONS.getIfPresent(symbol);
+                    if (cachedPositionData == null || !cachedPositionData.getQuantity().equals(freshPositionData.getQuantity())) {
+                        fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                     }
-                    // - Update cache
-                    POSITION_CACHE.put(symbolDescription, position);
+                    POSITIONS.put(symbol, freshPositionData);
                 }
                 if (accountPortfolio.hasNextPageNo()) {
                     fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
@@ -92,7 +97,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
     }
 
     private void fetchPositionLotsResponse(
-            SecurityContext securityContext, String symbolDescription, PortfolioResponse.Position position) {
+            SecurityContext securityContext, String symbol, PortfolioResponse.Position position) {
         Message lotsMessage = new Message();
         lotsMessage.setRequiresOauth(true);
         lotsMessage.setHttpMethod("GET");
@@ -109,31 +114,31 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             } else {
                 Integer lotCount = positionLotsResponse.getPositionLots().size();
                 for (PositionLotsResponse.PositionLot lot : positionLotsResponse.getPositionLots()) {
-                    lot.setSymbol(symbolDescription);
+                    lot.setSymbol(symbol);
                     lot.setTotalLotCount(lotCount);
                     lot.setTotalPositionCost(position.getTotalCost());
                     lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
                     lot.setTargetPrice(lot.getPrice() * 1.03F);
                 }
-                LOTS_CACHE.put(symbolDescription, positionLotsResponse.getPositionLots());
+                LOTS.put(symbol, positionLotsResponse.getPositionLots());
             }
         } catch (Exception e) {
             LOG.error("Failed to fetch lots data", e);
         }
     }
 
-    public static Map<String, List<PositionLotsResponse.PositionLot>> getLotsCache() {
-        if (LOTS_CACHE.isEmpty()) {
+    public static Map<String, List<PositionLotsResponse.PositionLot>> getLots() {
+        if (LOTS.isEmpty()) {
             SCHEDULED_EXECUTOR.submit(DATA_FETCHER);
         }
-        return LOTS_CACHE;
+        return LOTS;
     }
 
-    public static Map<String, PortfolioResponse.Position> getPositionCache() {
-        if (POSITION_CACHE.isEmpty()) {
+    public static Cache<String, PortfolioResponse.Position> getPositions() {
+        if (POSITIONS.size() == 0) {
             SCHEDULED_EXECUTOR.submit(DATA_FETCHER);
         }
-        return POSITION_CACHE;
+        return POSITIONS;
     }
 
     public static void init() {
@@ -152,6 +157,6 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         long timeStartedMillis = System.currentTimeMillis();
         fetchPortfolioResponse(securityContext, null);
         LOG.info("Updated caches in {}ms, positions={} lots={}",
-                System.currentTimeMillis() - timeStartedMillis, POSITION_CACHE.size(), aggregateLotCount());
+                System.currentTimeMillis() - timeStartedMillis, POSITIONS.size(), aggregateLotCount());
     }
 }

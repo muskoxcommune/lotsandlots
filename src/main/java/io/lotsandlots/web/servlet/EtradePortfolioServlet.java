@@ -3,7 +3,6 @@ package io.lotsandlots.web.servlet;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
-import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
