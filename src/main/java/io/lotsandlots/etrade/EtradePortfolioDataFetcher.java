@@ -83,7 +83,9 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
 
                     PortfolioResponse.Position cachedPositionData = POSITIONS.getIfPresent(symbol);
                     if (cachedPositionData == null
-                            || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
+                            || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
+                            || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())
+                    ) {
                         fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                     }
                     POSITIONS.put(symbol, freshPositionData);

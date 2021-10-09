@@ -4,9 +4,10 @@ public class ApiConfig {
 
     private String acctListUri;
     private String baseUrl;
+    private String ordersQueryString;
     private String ordersUri;
-    private String portfolioUri;
     private String portfolioQueryString;
+    private String portfolioUri;
 
     public String getAcctListUri() {
         return acctListUri;
@@ -22,6 +23,13 @@ public class ApiConfig {
         this.baseUrl = baseUrl;
     }
 
+    public String getOrdersQueryString() {
+        return ordersQueryString;
+    }
+    public void setOrdersQueryString(String ordersQueryString) {
+        this.ordersQueryString = ordersQueryString;
+    }
+
     public String getOrdersUri() {
         return ordersUri;
     }
@@ -29,17 +37,17 @@ public class ApiConfig {
         this.ordersUri = ordersUri;
     }
 
-    public String getPortfolioUri() {
-        return portfolioUri;
-    }
-    public void setPortfolioUri(String portfolioUri) {
-        this.portfolioUri = portfolioUri;
-    }
-
     public String getPortfolioQueryString() {
         return portfolioQueryString;
     }
     public void setPortfolioQueryString(String portfolioQueryString) {
         this.portfolioQueryString = portfolioQueryString;
+    }
+
+    public String getPortfolioUri() {
+        return portfolioUri;
+    }
+    public void setPortfolioUri(String portfolioUri) {
+        this.portfolioUri = portfolioUri;
     }
 }

@@ -84,9 +84,17 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         for (PositionLotsResponse.PositionLot lot : includedLots) {
             htmlBuilder.append("<tr");
             if (lot.getTotalCostForGainPct() > 0) {
-                htmlBuilder.append(" style=\"background-color:LightGreen\"");
+                if (lot.getTotalCostForGainPct() > 3) {
+                    htmlBuilder.append(" style=\"background-color: MediumSeaGreen\"");
+                } else {
+                    htmlBuilder.append(" style=\"background-color: PaleGreen\"");
+                }
             } else {
-                htmlBuilder.append(" style=\"background-color:LightCoral\"");
+                if (lot.getTotalCostForGainPct() < -3) {
+                    htmlBuilder.append(" style=\"background-color: LightCoral\"");
+                } else {
+                    htmlBuilder.append(" style=\"background-color: Pink\"");
+                }
             }
             htmlBuilder.append(">");
             htmlBuilder
