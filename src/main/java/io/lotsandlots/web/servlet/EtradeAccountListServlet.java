@@ -46,7 +46,7 @@ public class EtradeAccountListServlet extends HttpServlet implements EtradeApiSe
         Message accountListMessage = new Message();
         accountListMessage.setRequiresOauth(true);
         accountListMessage.setHttpMethod("GET");
-        accountListMessage.setUrl(API.getBaseUrl() + API.getAcctListUri());
+        accountListMessage.setUrl(API.getAccountListUrl());
         return accountListMessage;
     }
 }

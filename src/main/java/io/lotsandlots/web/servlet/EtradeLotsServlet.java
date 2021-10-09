@@ -61,7 +61,7 @@ public class EtradeLotsServlet extends HttpServlet implements EtradeApiServlet {
         String positionId = request.getParameter("positionId");
         if (positionId != null) {
             if (StringUtils.isNumeric(positionId)) {
-                portfolioMessage.setUrl(API.getBaseUrl() + API.getPortfolioUri() + "/" + positionId);
+                portfolioMessage.setUrl(API.getPortfolioUrl() + "/" + positionId);
             } else {
                 throw new InvalidParameterException(
                         "Query parameter 'positionId' should have a numeric value, got: '" + positionId + "'");

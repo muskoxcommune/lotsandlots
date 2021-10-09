@@ -12,8 +12,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
 
 @Api(value = "/etrade")
 public class EtradeOrdersServlet extends HttpServlet implements EtradeApiServlet {
@@ -65,7 +63,7 @@ public class EtradeOrdersServlet extends HttpServlet implements EtradeApiServlet
         Message ordersMessage = new Message();
         ordersMessage.setRequiresOauth(true);
         ordersMessage.setHttpMethod("GET");
-        ordersMessage.setUrl(API.getBaseUrl() + API.getOrdersUri());
+        ordersMessage.setUrl(API.getOrdersUrl());
         String ordersQueryString = API.getOrdersQueryString();
         String marker = request.getParameter("marker");
         String status = request.getParameter("status");

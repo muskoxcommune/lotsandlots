@@ -60,7 +60,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
-        portfolioMessage.setUrl(API.getBaseUrl() + API.getPortfolioUri());
+        portfolioMessage.setUrl(API.getPortfolioUrl());
         String portfolioQueryString = API.getPortfolioQueryString();
         if (!StringUtils.isBlank(pageNumber)) {
             portfolioQueryString += "&pageNumber=" + pageNumber;
@@ -84,8 +84,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
                     PortfolioResponse.Position cachedPositionData = POSITIONS.getIfPresent(symbol);
                     if (cachedPositionData == null
                             || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
-                            || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())
-                    ) {
+                            || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
                         fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                     }
                     POSITIONS.put(symbol, freshPositionData);
@@ -159,7 +158,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         }
         long timeStartedMillis = System.currentTimeMillis();
         fetchPortfolioResponse(securityContext, null);
-        LOG.info("Updated caches in {}ms, positions={} lots={}",
+        LOG.info("Updated portfolio and lots in {}ms, positions={} lots={}",
                 System.currentTimeMillis() - timeStartedMillis, POSITIONS.size(), aggregateLotCount());
     }
 }

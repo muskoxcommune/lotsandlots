@@ -13,6 +13,8 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.LaxRedirectStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
@@ -29,6 +31,7 @@ import java.util.List;
 
 public class EtradeRestTemplateFactory {
 
+    private static final Logger LOG = LoggerFactory.getLogger(EtradeRestTemplateFactory.class);
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static EtradeRestTemplateFactory TEMPLATE_FACTORY = null;
 
@@ -38,17 +41,23 @@ public class EtradeRestTemplateFactory {
     private SecurityContext securityContext;
 
     private EtradeRestTemplateFactory() throws GeneralSecurityException {
-        apiConfig = new ApiConfig();
-        apiConfig.setAcctListUri(CONFIG.getString("etrade.accountListUri"));
-        apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
-        apiConfig.setOrdersQueryString(CONFIG.getString("etrade.ordersQueryParams"));
-        apiConfig.setOrdersUri(CONFIG.getString("etrade.ordersUri"));
-        apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
-        apiConfig.setPortfolioUri(CONFIG.getString("etrade.portfolioUri"));
+        try {
+            apiConfig = new ApiConfig();
+            apiConfig.setAccountIdKey(CONFIG.getString("etrade.accountIdKey"));
+            apiConfig.setAccountListUrl(CONFIG.getString("etrade.accountListUrl"));
+            apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
+            apiConfig.setOrdersQueryString(CONFIG.getString("etrade.ordersQueryParams"));
+            apiConfig.setOrdersUrl(CONFIG.getString("etrade.ordersUrl"));
+            apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
+            apiConfig.setPortfolioUrl(CONFIG.getString("etrade.portfolioUrl"));
 
-        clientHttpRequestFactory = newClientHttpRequestFactory();
+            clientHttpRequestFactory = newClientHttpRequestFactory();
 
-        newSecurityContext();
+            newSecurityContext();
+        } catch (Exception e) {
+            LOG.error("Failed to initialize EtradeRestTemplateFactory", e);
+            throw e;
+        }
     }
 
     public ApiConfig getApiConfig() {
@@ -70,11 +79,11 @@ public class EtradeRestTemplateFactory {
         securityContext = new SecurityContext();
         OAuthConfig oauthOAuthConfig = new OAuthConfig();
         oauthOAuthConfig.setAccessTokenHttpMethod("GET");
-        oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.accessTokenUrl"));
+        oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.accessTokenUrl"));
         oauthOAuthConfig.setAuthorizeUrl(CONFIG.getString("etrade.authorizeUrl"));
         oauthOAuthConfig.setConsumerKey(CONFIG.getString("etrade.consumerKey"));
         oauthOAuthConfig.setRequestTokenHttpMethod("GET");
-        oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.oauthBaseUrl") + CONFIG.getString("etrade.requestTokenUrl"));
+        oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.requestTokenUrl"));
         oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
         securityContext.setOAuthConfig(oauthOAuthConfig);
         return securityContext;

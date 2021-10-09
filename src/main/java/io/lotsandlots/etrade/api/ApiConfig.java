@@ -2,18 +2,26 @@ package io.lotsandlots.etrade.api;
 
 public class ApiConfig {
 
-    private String acctListUri;
+    private String accountIdKey;
+    private String accountListUrl;
     private String baseUrl;
     private String ordersQueryString;
-    private String ordersUri;
+    private String ordersUrl;
     private String portfolioQueryString;
-    private String portfolioUri;
+    private String portfolioUrl;
 
-    public String getAcctListUri() {
-        return acctListUri;
+    public String getAccountIdKey() {
+        return accountIdKey;
     }
-    public void setAcctListUri(String acctListUri) {
-        this.acctListUri = acctListUri;
+    public void setAccountIdKey(String accountIdKey) {
+        this.accountIdKey = accountIdKey;
+    }
+
+    public String getAccountListUrl() {
+        return accountListUrl;
+    }
+    public void setAccountListUrl(String accountListUrl) {
+        this.accountListUrl = accountListUrl;
     }
 
     public String getBaseUrl() {
@@ -30,11 +38,11 @@ public class ApiConfig {
         this.ordersQueryString = ordersQueryString;
     }
 
-    public String getOrdersUri() {
-        return ordersUri;
+    public String getOrdersUrl() {
+        return ordersUrl;
     }
-    public void setOrdersUri(String ordersUri) {
-        this.ordersUri = ordersUri;
+    public void setOrdersUrl(String ordersUrl) {
+        this.ordersUrl = ordersUrl;
     }
 
     public String getPortfolioQueryString() {
@@ -44,10 +52,10 @@ public class ApiConfig {
         this.portfolioQueryString = portfolioQueryString;
     }
 
-    public String getPortfolioUri() {
-        return portfolioUri;
+    public String getPortfolioUrl() {
+        return portfolioUrl;
     }
-    public void setPortfolioUri(String portfolioUri) {
-        this.portfolioUri = portfolioUri;
+    public void setPortfolioUrl(String portfolioUrl) {
+        this.portfolioUrl = portfolioUrl;
     }
 }
