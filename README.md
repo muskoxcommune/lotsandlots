@@ -60,6 +60,6 @@ etrade {
 Restart the app to reload the updated config. This completes app setup.
 
 ## API Documentation
-This app uses swagger for API documentation. Just go to `http://localhost:5000` in a browser.
+This app uses https://swagger.io/ for API documentation. You can load the Swagger UI by going to `http://localhost:5000` in a browser.
 
 <img width="999" alt="Screen Shot" src="https://user-images.githubusercontent.com/5027883/136674448-e08a8f47-1c61-4ffb-88bb-32ae86c0be40.png">
