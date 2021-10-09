@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +58,9 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
         SCHEDULED_EXECUTOR.shutdown();
     }
 
-    private void fetchPortfolioResponse(SecurityContext securityContext, String pageNumber) {
+    private void fetchPortfolioResponse(SecurityContext securityContext,
+                                        String pageNumber)
+            throws GeneralSecurityException, UnsupportedEncodingException {
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
@@ -66,66 +70,60 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             portfolioQueryString += "&pageNumber=" + pageNumber;
         }
         portfolioMessage.setQueryString(portfolioQueryString);
-        try {
-            setOAuthHeader(securityContext, portfolioMessage);
-            ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = EtradeRestTemplateFactory
-                    .getClient()
-                    .newCustomRestTemplate()
-                    .execute(portfolioMessage, PortfolioResponse.class);
-            PortfolioResponse portfolioResponse = portfolioResponseResponseEntity.getBody();
-            if (portfolioResponse == null) {
-                throw new RuntimeException("Empty response");
-            } else {
-                TOTALS = portfolioResponse.getTotals(); // Update portfolio totals
-                PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
-                for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
-                    String symbol = freshPositionData.getSymbolDescription();
+        setOAuthHeader(securityContext, portfolioMessage);
+        ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = EtradeRestTemplateFactory
+                .getClient()
+                .newCustomRestTemplate()
+                .execute(portfolioMessage, PortfolioResponse.class);
+        PortfolioResponse portfolioResponse = portfolioResponseResponseEntity.getBody();
+        if (portfolioResponse == null) {
+            throw new RuntimeException("Empty response");
+        } else {
+            TOTALS = portfolioResponse.getTotals(); // Update portfolio totals
+            PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
+            for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
+                String symbol = freshPositionData.getSymbolDescription();
 
-                    PortfolioResponse.Position cachedPositionData = POSITIONS.getIfPresent(symbol);
-                    if (cachedPositionData == null
-                            || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
-                            || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
-                        fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
-                    }
-                    POSITIONS.put(symbol, freshPositionData);
+                PortfolioResponse.Position cachedPositionData = POSITIONS.getIfPresent(symbol);
+                if (cachedPositionData == null
+                        || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
+                        || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
+                    fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                 }
-                if (accountPortfolio.hasNextPageNo()) {
-                    fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
-                }
+                POSITIONS.put(symbol, freshPositionData);
             }
-        } catch (Exception e) {
-            LOG.error("Failed to fetch portfolio data", e);
+            if (accountPortfolio.hasNextPageNo()) {
+                fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
+            }
         }
     }
 
-    private void fetchPositionLotsResponse(
-            SecurityContext securityContext, String symbol, PortfolioResponse.Position position) {
+    private void fetchPositionLotsResponse(SecurityContext securityContext,
+                                           String symbol,
+                                           PortfolioResponse.Position position)
+            throws GeneralSecurityException, UnsupportedEncodingException{
         Message lotsMessage = new Message();
         lotsMessage.setRequiresOauth(true);
         lotsMessage.setHttpMethod("GET");
         lotsMessage.setUrl(position.getLotsDetails());
-        try {
-            setOAuthHeader(securityContext, lotsMessage);
-            ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = EtradeRestTemplateFactory
-                    .getClient()
-                    .newCustomRestTemplate()
-                    .execute(lotsMessage, PositionLotsResponse.class);
-            PositionLotsResponse positionLotsResponse = positionLotsResponseResponseEntity.getBody();
-            if (positionLotsResponse == null) {
-                throw new RuntimeException("Empty response");
-            } else {
-                Integer lotCount = positionLotsResponse.getPositionLots().size();
-                for (PositionLotsResponse.PositionLot lot : positionLotsResponse.getPositionLots()) {
-                    lot.setSymbol(symbol);
-                    lot.setTotalLotCount(lotCount);
-                    lot.setTotalPositionCost(position.getTotalCost());
-                    lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
-                    lot.setTargetPrice(lot.getPrice() * 1.03F);
-                }
-                LOTS.put(symbol, positionLotsResponse.getPositionLots());
+        setOAuthHeader(securityContext, lotsMessage);
+        ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = EtradeRestTemplateFactory
+                .getClient()
+                .newCustomRestTemplate()
+                .execute(lotsMessage, PositionLotsResponse.class);
+        PositionLotsResponse positionLotsResponse = positionLotsResponseResponseEntity.getBody();
+        if (positionLotsResponse == null) {
+            throw new RuntimeException("Empty response");
+        } else {
+            Integer lotCount = positionLotsResponse.getPositionLots().size();
+            for (PositionLotsResponse.PositionLot lot : positionLotsResponse.getPositionLots()) {
+                lot.setSymbol(symbol);
+                lot.setTotalLotCount(lotCount);
+                lot.setTotalPositionCost(position.getTotalCost());
+                lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
+                lot.setTargetPrice(lot.getPrice() * 1.03F);
             }
-        } catch (Exception e) {
-            LOG.error("Failed to fetch lots data", e);
+            LOTS.put(symbol, positionLotsResponse.getPositionLots());
         }
     }
 
@@ -161,8 +159,13 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             return;
         }
         long timeStartedMillis = System.currentTimeMillis();
-        fetchPortfolioResponse(securityContext, null);
-        LOG.info("Updated portfolio and lots in {}ms, positions={} lots={}",
-                System.currentTimeMillis() - timeStartedMillis, POSITIONS.size(), aggregateLotCount());
+        try {
+            fetchPortfolioResponse(securityContext, null);
+            LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
+                    System.currentTimeMillis() - timeStartedMillis, POSITIONS.size(), aggregateLotCount());
+        } catch (Exception e) {
+            LOG.info("Failed to fetch portfolio and lots data, duration={}ms",
+                    System.currentTimeMillis() - timeStartedMillis, e);
+        }
     }
 }

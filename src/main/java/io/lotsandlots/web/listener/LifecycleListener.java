@@ -1,6 +1,7 @@
 package io.lotsandlots.web.listener;
 
 import com.typesafe.config.Config;
+import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.util.ConfigWrapper;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
@@ -23,6 +24,7 @@ public class LifecycleListener implements ServletContextListener {
         if (etradeConfig != null) {
             try {
                 EtradeRestTemplateFactory.init();
+                EtradeOrdersDataFetcher.init();
                 EtradePortfolioDataFetcher.init();
                 LOG.info("Initialized EtradeRestTemplateFactory");
                 if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
@@ -37,6 +39,7 @@ public class LifecycleListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent contextEvent) {
+        EtradeOrdersDataFetcher.destroy();
         EtradePortfolioDataFetcher.destroy();
         LOG.info("Servlet context destroyed");
     }
