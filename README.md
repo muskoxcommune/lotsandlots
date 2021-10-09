@@ -17,7 +17,7 @@ etrade {
 ```
 You can get a key and secret by going to https://developer.etrade.com/home. You will get a prod key and a sandbox key but only the sandbox key will be immediately enabled. The prod key will only be enabled after you go to https://developer.etrade.com/getting-started and fill out some forms. **Don't** share your key or secret with anyone!
 
-<img width="1003" alt="Screen Shot 2021-10-09 at 2 22 49 PM" src="https://user-images.githubusercontent.com/5027883/136674121-10af6a80-bc75-4f3b-8961-d611c3046409.png">
+<img width="1003" alt="Screen Shot" src="https://user-images.githubusercontent.com/5027883/136674121-10af6a80-bc75-4f3b-8961-d611c3046409.png">
 
 ### Step 2:
 In a terminal, clone this project and change into the project root directory, then execute `make run`.
@@ -38,14 +38,14 @@ Hit accept and copy the verifier code ETrade returns.
 ### Step 4:
 In a browser, paste this code into the URL bar after `/etrade/authorize?verifier=` as shown below and hit enter.
 
-<img width="493" alt="Screen Shot 2021-10-09 at 12 55 14 PM" src="https://user-images.githubusercontent.com/5027883/136672616-50f7b9a6-a531-47b9-8076-ea0f5546cc19.png">
+<img width="493" alt="Screen Shot" src="https://user-images.githubusercontent.com/5027883/136672616-50f7b9a6-a531-47b9-8076-ea0f5546cc19.png">
 
 This completes ETrade's authorization flow. You need to do this every time the app is restarted and also when access tokens expire at midnight US Eastern time as per [ETrade's documentation](https://apisb.etrade.com/docs/api/authorization/get_access_token.html).
 
 ### Step 5:
 In a browser, go to `/etrade/accounts` as shown below.
 
-<img width="449" alt="Screen Shot 2021-10-09 at 2 02 29 PM" src="https://user-images.githubusercontent.com/5027883/136673751-dba5a2e5-a99e-4c09-83b9-caa1c285cd2f.png">
+<img width="449" alt="Screen Shot" src="https://user-images.githubusercontent.com/5027883/136673751-dba5a2e5-a99e-4c09-83b9-caa1c285cd2f.png">
 
 Copy the accountIdKey of the account you wish to use and add it to the config file you created. It should now look like this.
 ```
@@ -58,3 +58,8 @@ etrade {
 }
 ```
 Restart the app to reload the updated config. This completes app setup.
+
+## API Documentation
+This app uses swagger for API documentation. Just go to `http://localhost:5000` in a browser.
+
+<img width="999" alt="Screen Shot" src="https://user-images.githubusercontent.com/5027883/136674448-e08a8f47-1c61-4ffb-88bb-32ae86c0be40.png">
