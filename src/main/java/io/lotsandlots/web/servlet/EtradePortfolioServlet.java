@@ -57,7 +57,13 @@ public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServ
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
-        portfolioMessage.setUrl(API.getPortfolioUrl());
+
+        String portfolioUrl = API.getPortfolioUrl();
+        if (portfolioUrl == null) {
+            throw new InvalidParameterException("Please configure etrade.accountIdKey");
+        }
+        portfolioMessage.setUrl(portfolioUrl);
+
         String nextPageNo = request.getParameter("nextPageNo");
         String portfolioQueryString = API.getPortfolioQueryString();
         if (!StringUtils.isBlank(nextPageNo)) {

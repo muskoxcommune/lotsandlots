@@ -63,7 +63,13 @@ public class EtradeOrdersServlet extends HttpServlet implements EtradeApiServlet
         Message ordersMessage = new Message();
         ordersMessage.setRequiresOauth(true);
         ordersMessage.setHttpMethod("GET");
-        ordersMessage.setUrl(API.getOrdersUrl());
+
+        String ordersUrl = API.getOrdersUrl();
+        if (ordersUrl == null) {
+            throw new InvalidParameterException("Please configure etrade.accountIdKey");
+        }
+        ordersMessage.setUrl(ordersUrl);
+
         String ordersQueryString = API.getOrdersQueryString();
         String marker = request.getParameter("marker");
         String status = request.getParameter("status");

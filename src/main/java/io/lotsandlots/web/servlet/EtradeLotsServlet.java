@@ -58,10 +58,16 @@ public class EtradeLotsServlet extends HttpServlet implements EtradeApiServlet {
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
+
+        String portfolioUrl = API.getPortfolioUrl();
+        if (portfolioUrl == null) {
+            throw new InvalidParameterException("Please configure etrade.accountIdKey");
+        }
+
         String positionId = request.getParameter("positionId");
         if (positionId != null) {
             if (StringUtils.isNumeric(positionId)) {
-                portfolioMessage.setUrl(API.getPortfolioUrl() + "/" + positionId);
+                portfolioMessage.setUrl(portfolioUrl + "/" + positionId);
             } else {
                 throw new InvalidParameterException(
                         "Query parameter 'positionId' should have a numeric value, got: '" + positionId + "'");

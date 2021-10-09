@@ -43,13 +43,21 @@ public class EtradeRestTemplateFactory {
     private EtradeRestTemplateFactory() throws GeneralSecurityException {
         try {
             apiConfig = new ApiConfig();
-            apiConfig.setAccountIdKey(CONFIG.getString("etrade.accountIdKey"));
+            if (CONFIG.hasPath("etrade.accountIdKey")) {
+                apiConfig.setAccountIdKey(CONFIG.getString("etrade.accountIdKey"));
+                apiConfig.setOrdersUrl(CONFIG.getString("etrade.ordersUrl")
+                        .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
+                apiConfig.setPortfolioUrl(CONFIG.getString("etrade.portfolioUrl")
+                        .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
+            } else {
+                apiConfig.setAccountIdKey(null);
+                apiConfig.setOrdersUrl(null);
+                apiConfig.setPortfolioUrl(null);
+            }
             apiConfig.setAccountListUrl(CONFIG.getString("etrade.accountListUrl"));
             apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
             apiConfig.setOrdersQueryString(CONFIG.getString("etrade.ordersQueryParams"));
-            apiConfig.setOrdersUrl(CONFIG.getString("etrade.ordersUrl"));
             apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
-            apiConfig.setPortfolioUrl(CONFIG.getString("etrade.portfolioUrl"));
 
             clientHttpRequestFactory = newClientHttpRequestFactory();
 

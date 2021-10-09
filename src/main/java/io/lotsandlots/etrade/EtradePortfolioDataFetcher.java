@@ -156,6 +156,10 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
             return;
         }
+        if (API.getPortfolioUrl() == null) {
+            LOG.warn("Please configure etrade.accountIdKey");
+            return;
+        }
         long timeStartedMillis = System.currentTimeMillis();
         fetchPortfolioResponse(securityContext, null);
         LOG.info("Updated portfolio and lots in {}ms, positions={} lots={}",
