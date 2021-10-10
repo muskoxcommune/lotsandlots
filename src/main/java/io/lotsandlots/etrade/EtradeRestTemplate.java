@@ -10,8 +10,6 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponents;
-import org.springframework.web.util.UriComponentsBuilder;
 
 public class EtradeRestTemplate extends RestTemplate {
 
@@ -39,33 +37,6 @@ public class EtradeRestTemplate extends RestTemplate {
                 return super.exchange(url, HttpMethod.GET, entity, responseType);
             default:
                 return null;
-        }
-    }
-
-    @Deprecated
-    public String execute(Message message) {
-        String url;
-
-        if ( StringUtils.isNotBlank(message.getQueryString())) {
-            url = String.format("%s?%s", message.getUrl(),message.getQueryString());
-        } else {
-            url = message.getUrl();
-        }
-        UriComponents uriComponents = UriComponentsBuilder
-                .fromHttpUrl(url)
-                .queryParams(message.getHeaderMap())
-                .build();
-
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        if (StringUtils.isNotBlank(message.getOauthHeader())) {
-            headers.add("Authorization", message.getOauthHeader());
-        }
-        switch (message.getHttpMethod()) {
-            case "POST":
-                HttpEntity<String> request = new HttpEntity<>(message.getBody(),headers);
-                return super.postForObject(uriComponents.toString(), request, String.class);
-            default:
-                return "";
         }
     }
 }
