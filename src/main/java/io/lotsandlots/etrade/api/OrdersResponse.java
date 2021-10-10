@@ -130,11 +130,19 @@ public class OrdersResponse {
 
         public static class Instrument {
 
+            Float filledQuantity;
             String orderAction;
             Long orderedQuantity;
 
             @JsonProperty("Product")
             Product product;
+
+            public Float getFilledQuantity() {
+                return filledQuantity;
+            }
+            public void setFilledQuantity(Float filledQuantity) {
+                this.filledQuantity = filledQuantity;
+            }
 
             public String getOrderAction() {
                 return orderAction;

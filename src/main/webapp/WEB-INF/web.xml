@@ -75,6 +75,17 @@
         <url-pattern>/view/etrade/lots</url-pattern>
     </servlet-mapping>
 
+    <servlet>
+        <servlet-name>ViewEtradeOrdersServlet</servlet-name>
+        <servlet-class>io.lotsandlots.web.servlet.ViewEtradeOrdersServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+        <async-supported>true</async-supported>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ViewEtradeOrdersServlet</servlet-name>
+        <url-pattern>/view/etrade/orders</url-pattern>
+    </servlet-mapping>
+
     <!-- swagger servlet reader -->
     <servlet>
         <servlet-name>DefaultServletConfig</servlet-name>
