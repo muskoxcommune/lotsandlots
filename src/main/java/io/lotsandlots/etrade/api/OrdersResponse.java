@@ -41,6 +41,7 @@ public class OrdersResponse {
         String details;
         Float filledQuantity; // From Instrument. Not a part of E*Trade's response
         Float limitPrice; // From OrderDetail. Not a part of E*Trade's response
+        String orderAction; // From Instrument. Not a part of E*Trade's response
 
         @JsonProperty("OrderDetail")
         List<OrderDetail> orderDetailList;
@@ -73,6 +74,13 @@ public class OrdersResponse {
         }
         public void setLimitPrice(Float limitPrice) {
             this.limitPrice = limitPrice;
+        }
+
+        public String getOrderAction() {
+            return orderAction;
+        }
+        public void setOrderAction(String orderAction) {
+            this.orderAction = orderAction;
         }
 
         public List<OrderDetail> getOrderDetailList() {

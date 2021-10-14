@@ -79,25 +79,24 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                     List<OrdersResponse.OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
                     if (instruments.size() == 1) {
                         OrdersResponse.OrderDetail.Instrument instrument = instruments.get(0);
-                        switch (instrument.getOrderAction()) {
-                            case "SELL":
-                                String symbol = instrument.getProduct().getSymbol();
-                                order.setFilledQuantity(instrument.getFilledQuantity());
-                                order.setLimitPrice(orderDetail.getLimitPrice());
-                                order.setOrderedQuantity(instrument.getOrderedQuantity());
-                                order.setOrderValue(orderDetail.getOrderValue());
-                                order.setPlacedTime(orderDetail.getPlacedTime());
-                                order.setStatus(orderDetail.getStatus());
-                                order.setSymbol(symbol);
-                                List<OrdersResponse.Order> orderList = SELL_ORDERS.getIfPresent(symbol);
-                                if (orderList == null) {
-                                    List<OrdersResponse.Order> newOrderList = new LinkedList<>();
-                                    newOrderList.add(order);
-                                    SELL_ORDERS.put(symbol, newOrderList);
-                                } else {
-                                    orderList.add(order);
-                                }
-                                break;
+                        if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
+                            String symbol = instrument.getProduct().getSymbol();
+                            order.setFilledQuantity(instrument.getFilledQuantity());
+                            order.setLimitPrice(orderDetail.getLimitPrice());
+                            order.setOrderAction(instrument.getOrderAction());
+                            order.setOrderedQuantity(instrument.getOrderedQuantity());
+                            order.setOrderValue(orderDetail.getOrderValue());
+                            order.setPlacedTime(orderDetail.getPlacedTime());
+                            order.setStatus(orderDetail.getStatus());
+                            order.setSymbol(symbol);
+                            List<OrdersResponse.Order> orderList = SELL_ORDERS.getIfPresent(symbol);
+                            if (orderList == null) {
+                                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+                                newOrderList.add(order);
+                                SELL_ORDERS.put(symbol, newOrderList);
+                            } else {
+                                orderList.add(order);
+                            }
                         }
                     } else {
                         LOG.warn("Expected OrderDetail to include one Instrument");

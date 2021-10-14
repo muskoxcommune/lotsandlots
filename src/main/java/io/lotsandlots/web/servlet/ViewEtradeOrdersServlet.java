@@ -50,7 +50,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
 
         htmlBuilder.append("<table id=\"orders\" class=\"display\" style=\"width:100%\">");
         HtmlHelper.appendTableHeaderRow(htmlBuilder,
-                "placed", "symbol", "quantity", "limit", "value", "status");
+                "placed", "symbol", "quantity", "limit", "value", "action", "status");
         htmlBuilder.append("<tbody>");
         for (OrdersResponse.Order order : includedOrders) {
             htmlBuilder.append("<tr>");
@@ -61,6 +61,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
             htmlBuilder.append("<td>").append(order.getOrderedQuantity()).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getLimitPrice())).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getOrderValue())).append("</td>");
+            htmlBuilder.append("<td>").append(order.getOrderAction()).append("</td>");
             htmlBuilder.append("<td>").append(order.getStatus()).append("</td>");
             htmlBuilder.append("</tr>");
         }
