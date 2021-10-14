@@ -4,6 +4,7 @@ import com.google.common.cache.Cache;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.util.DateFormatter;
+import io.lotsandlots.util.HtmlHelper;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServlet;
@@ -39,34 +40,17 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
 
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");
-
         htmlBuilder.append("<head>");
         htmlBuilder.append("<title>").append((symbol != null) ? symbol + " orders" : "Orders").append("</title>");
-        htmlBuilder.append("<link rel=\"stylesheet\" href=\"https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css\">");
-        htmlBuilder.append("<script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>");
-        htmlBuilder.append("<script src=\"https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js\"></script>");
-        htmlBuilder.append("<script>").append("$(document).ready(function() {").append("$('#lots').DataTable({");
-
-        // DataTable settings
-        //htmlBuilder.append("\"order\": [[6, \"desc\"]],"); // Increment when adding new <th>
-        htmlBuilder.append("\"pageLength\": ").append(pageLength);
-
-        htmlBuilder.append("});").append("});").append("</script>");
+        HtmlHelper.appendDataTablesTags(htmlBuilder);
+        HtmlHelper.appendDataTablesFeatures(htmlBuilder, "orders",
+                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + pageLength);
         htmlBuilder.append("</head>");
         htmlBuilder.append("<body>");
 
-        htmlBuilder.append("<table id=\"lots\" class=\"display\" style=\"width:100%\">");
-        htmlBuilder.append("<thead>");
-        htmlBuilder.append("<tr>");
-        htmlBuilder.append("<th>placed</th>");
-        htmlBuilder.append("<th>symbol</th>");
-        htmlBuilder.append("<th>quantity</th>");
-        htmlBuilder.append("<th>filled</th>");
-        htmlBuilder.append("<th>limit</th>");
-        htmlBuilder.append("<th>value</th>");
-        htmlBuilder.append("<th>status</th>");
-        htmlBuilder.append("</tr>");
-        htmlBuilder.append("</thead>");
+        htmlBuilder.append("<table id=\"orders\" class=\"display\" style=\"width:100%\">");
+        HtmlHelper.appendTableHeaderRow(htmlBuilder,
+                "placed", "symbol", "quantity", "limit", "value", "status");
         htmlBuilder.append("<tbody>");
         for (OrdersResponse.Order order : includedOrders) {
             htmlBuilder.append("<tr>");
@@ -75,7 +59,6 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
                        .append("</td>");
             htmlBuilder.append("<td>").append(order.getSymbol()).append("</td>");
             htmlBuilder.append("<td>").append(order.getOrderedQuantity()).append("</td>");
-            htmlBuilder.append("<td>").append(order.getFilledQuantity()).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getLimitPrice())).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getOrderValue())).append("</td>");
             htmlBuilder.append("<td>").append(order.getStatus()).append("</td>");

@@ -3,6 +3,7 @@ package io.lotsandlots.web.servlet;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.util.DateFormatter;
+import io.lotsandlots.util.HtmlHelper;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServlet;
@@ -10,9 +11,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.text.DecimalFormat;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -55,32 +53,15 @@ public class ViewEtradeLotsServlet extends HttpServlet {
 
         htmlBuilder.append("<head>");
         htmlBuilder.append("<title>").append((symbol != null) ? symbol + " lots" : "Lots").append("</title>");
-        htmlBuilder.append("<link rel=\"stylesheet\" href=\"https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css\">");
-        htmlBuilder.append("<script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>");
-        htmlBuilder.append("<script src=\"https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js\"></script>");
-        htmlBuilder.append("<script>").append("$(document).ready(function() {").append("$('#lots').DataTable({");
-
-        // DataTable settings
-        htmlBuilder.append("\"order\": [[7, \"desc\"]],"); // Increment when adding new <th>
-        htmlBuilder.append("\"pageLength\": ").append(pageLength);
-
-        htmlBuilder.append("});").append("});").append("</script>");
+        HtmlHelper.appendDataTablesTags(htmlBuilder);
+        HtmlHelper.appendDataTablesFeatures(htmlBuilder, "lots",
+                "\"order\": [[7, \"desc\"]],", "\"pageLength\": " + pageLength);
         htmlBuilder.append("</head>");
         htmlBuilder.append("<body>");
 
         htmlBuilder.append("<table id=\"lots\" class=\"display\" style=\"width:100%\">");
-        htmlBuilder.append("<thead>");
-        htmlBuilder.append("<tr>");
-        htmlBuilder.append("<th>acquired</th>");
-        htmlBuilder.append("<th>symbol</th>");
-        htmlBuilder.append("<th>lots</th>");
-        htmlBuilder.append("<th>exposure</th>");
-        htmlBuilder.append("<th>total</th>");
-        htmlBuilder.append("<th>price</th>");
-        htmlBuilder.append("<th>target</th>");
-        htmlBuilder.append("<th>unrealized</th>");
-        htmlBuilder.append("</tr>");
-        htmlBuilder.append("</thead>");
+        HtmlHelper.appendTableHeaderRow(htmlBuilder,
+                "acquired", "symbol", "lots", "exposure", "total", "price", "target", "unrealized");
         htmlBuilder.append("<tbody>");
         for (PositionLotsResponse.PositionLot lot : includedLots) {
             htmlBuilder.append("<tr");
