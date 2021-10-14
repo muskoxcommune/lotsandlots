@@ -3,6 +3,7 @@ package io.lotsandlots.web.servlet;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.api.ApiConfig;
+import io.lotsandlots.util.DateFormatter;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -69,8 +70,15 @@ public class EtradeOrdersServlet extends HttpServlet implements EtradeApiServlet
             throw new InvalidParameterException("Please configure etrade.accountIdKey");
         }
         ordersMessage.setUrl(ordersUrl);
-
         String ordersQueryString = API.getOrdersQueryString();
+
+        long currentTimeMillis = System.currentTimeMillis();
+        // 60 seconds * 60 minutes * 24 hours * 180 days = 15552000 seconds
+        ordersQueryString += "&fromDate=" + DateFormatter.epochSecondsToDateString(
+                (currentTimeMillis  / 1000L) - 15552000, "MMddyyyy");
+        ordersQueryString += "&toDate=" + DateFormatter.epochSecondsToDateString(
+                currentTimeMillis / 1000L, "MMddyyyy");
+
         String marker = request.getParameter("marker");
         String status = request.getParameter("status");
         String symbol = request.getParameter("symbol");

@@ -5,6 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.util.DateFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,10 +13,8 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +48,14 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         ordersMessage.setHttpMethod("GET");
         ordersMessage.setUrl(API.getOrdersUrl());
         String ordersQueryString = API.getOrdersQueryString();
+
+        long currentTimeMillis = System.currentTimeMillis();
+        // 60 seconds * 60 minutes * 24 hours * 180 days = 15552000 seconds
+        ordersQueryString += "&fromDate=" + DateFormatter.epochSecondsToDateString(
+                (currentTimeMillis  / 1000L) - 15552000, "MMddyyyy");
+        ordersQueryString += "&toDate=" + DateFormatter.epochSecondsToDateString(
+                currentTimeMillis / 1000L, "MMddyyyy");
+
         if (!StringUtils.isBlank(marker)) {
             ordersQueryString += "&marker=" + marker;
         }
@@ -62,8 +69,6 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         if (ordersResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
-            // Cache data
-            Map<String, List<OrdersResponse.Order>> freshSellOrdersData = new HashMap<>();
             for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
                 List<OrdersResponse.OrderDetail> orderDetails = order.getOrderDetailList();
                 if (orderDetails.size() == 1) {
@@ -84,12 +89,13 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                                 order.setPlacedTime(orderDetail.getPlacedTime());
                                 order.setStatus(orderDetail.getStatus());
                                 order.setSymbol(symbol);
-                                if (freshSellOrdersData.containsKey(symbol)) {
-                                    freshSellOrdersData.get(symbol).add(order);
-                                } else {
+                                List<OrdersResponse.Order> orderList = SELL_ORDERS.getIfPresent(symbol);
+                                if (orderList == null) {
                                     List<OrdersResponse.Order> newOrderList = new LinkedList<>();
                                     newOrderList.add(order);
-                                    freshSellOrdersData.put(symbol, newOrderList);
+                                    SELL_ORDERS.put(symbol, newOrderList);
+                                } else {
+                                    orderList.add(order);
                                 }
                                 break;
                         }
@@ -99,9 +105,6 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                 } else {
                     LOG.warn("Expected Order to include one OrderDetail");
                 }
-            }
-            for (Map.Entry<String, List<OrdersResponse.Order>> entry : freshSellOrdersData.entrySet()) {
-                SELL_ORDERS.put(entry.getKey(), entry.getValue());
             }
             if (ordersResponse.hasMarker()) {
                 fetchOrdersResponse(securityContext, ordersResponse.getMarker().toString());
