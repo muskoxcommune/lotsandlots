@@ -77,6 +77,13 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                         switch (instrument.getOrderAction()) {
                             case "SELL":
                                 String symbol = instrument.getProduct().getSymbol();
+                                order.setFilledQuantity(instrument.getFilledQuantity());
+                                order.setLimitPrice(orderDetail.getLimitPrice());
+                                order.setOrderedQuantity(instrument.getOrderedQuantity());
+                                order.setOrderValue(orderDetail.getOrderValue());
+                                order.setPlacedTime(orderDetail.getPlacedTime());
+                                order.setStatus(orderDetail.getStatus());
+                                order.setSymbol(symbol);
                                 if (freshSellOrdersData.containsKey(symbol)) {
                                     freshSellOrdersData.get(symbol).add(order);
                                 } else {

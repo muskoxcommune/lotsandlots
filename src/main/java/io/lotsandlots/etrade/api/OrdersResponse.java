@@ -39,18 +39,40 @@ public class OrdersResponse {
     public static class Order {
 
         String details;
+        Float filledQuantity; // From Instrument. Not a part of E*Trade's response
+        Float limitPrice; // From OrderDetail. Not a part of E*Trade's response
 
         @JsonProperty("OrderDetail")
         List<OrderDetail> orderDetailList;
 
         Long orderId;
+        Long orderedQuantity; // From Instrument. Not a part of E*Trade's response
         String orderType;
+        Float orderValue; // From OrderDetail. Not a part of E*Trade's response
+        Long placedTime; // From OrderDetail. Not a part of E*Trade's response
+        String status; // From OrderDetail. Not a part of E*Trade's response
+        String symbol; // From Instrument. Not a part of E*Trade's response
+
 
         public String getDetails() {
             return details;
         }
         public void setDetails(String details) {
             this.details = details;
+        }
+
+        public Float getFilledQuantity() {
+            return filledQuantity;
+        }
+        public void setFilledQuantity(Float filledQuantity) {
+            this.filledQuantity = filledQuantity;
+        }
+
+        public Float getLimitPrice() {
+            return limitPrice;
+        }
+        public void setLimitPrice(Float limitPrice) {
+            this.limitPrice = limitPrice;
         }
 
         public List<OrderDetail> getOrderDetailList() {
@@ -67,11 +89,46 @@ public class OrdersResponse {
             this.orderId = orderId;
         }
 
+        public Long getOrderedQuantity() {
+            return orderedQuantity;
+        }
+        public void setOrderedQuantity(Long orderedQuantity) {
+            this.orderedQuantity = orderedQuantity;
+        }
+
         public String getOrderType() {
             return orderType;
         }
         public void setOrderType(String orderType) {
             this.orderType = orderType;
+        }
+
+        public Float getOrderValue() {
+            return orderValue;
+        }
+        public void setOrderValue(Float orderValue) {
+            this.orderValue = orderValue;
+        }
+
+        public Long getPlacedTime() {
+            return placedTime;
+        }
+        public void setPlacedTime(Long placedTime) {
+            this.placedTime = placedTime;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getSymbol() {
+            return symbol;
+        }
+        public void setSymbol(String symbol) {
+            this.symbol = symbol;
         }
     }
 
@@ -80,11 +137,19 @@ public class OrdersResponse {
         @JsonProperty("Instrument")
         List<Instrument> instrumentList;
 
+        Float limitPrice;
         String orderTerm;
         Float orderValue;
         Long placedTime;
         String priceType;
         String status;
+
+        public Float getLimitPrice() {
+            return limitPrice;
+        }
+        public void setLimitPrice(Float limitPrice) {
+            this.limitPrice = limitPrice;
+        }
 
         public List<Instrument> getInstrumentList() {
             return instrumentList;

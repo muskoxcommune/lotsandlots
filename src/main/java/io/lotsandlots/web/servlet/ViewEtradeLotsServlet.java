@@ -2,6 +2,7 @@ package io.lotsandlots.web.servlet;
 
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
+import io.lotsandlots.util.DateFormatter;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServlet;
@@ -97,15 +98,9 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 }
             }
             htmlBuilder.append(">");
-            htmlBuilder
-                    .append("<td>")
-                    .append( DateTimeFormatter
-                            .ofPattern("yyyy/MM/dd")
-                            .format(LocalDateTime.ofEpochSecond(
-                                    lot.getAcquiredDate() / 1000L,
-                                    0,
-                                    ZoneOffset.UTC)))
-                    .append("</td>");
+            htmlBuilder.append("<td>")
+                       .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
+                       .append("</td>");
             htmlBuilder.append("<td>").append(lot.getSymbol()).append("</td>");
             htmlBuilder.append("<td>").append(lot.getTotalLotCount()).append("</td>");
             htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getPositionPctOfPortfolio())).append("%</td>");
