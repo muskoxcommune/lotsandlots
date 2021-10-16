@@ -6,6 +6,8 @@ import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServlet;
@@ -17,10 +19,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+@Api(value = "/view/etrade")
 public class ViewEtradeLotsServlet extends HttpServlet {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.00");
 
+    @ApiOperation(
+            httpMethod = "GET",
+            value = "Get view of E*Trade lots.",
+            nickname = "lots")
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String pageLength = request.getParameter("pageLength");
