@@ -1,6 +1,8 @@
 package io.lotsandlots.web.servlet;
 
+import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
+import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
@@ -26,8 +28,8 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        Map<String, List<PositionLotsResponse.PositionLot>> lotsCache = EtradePortfolioDataFetcher.getLots();
-        for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry : lotsCache.entrySet()) {
+        for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
+                EtradePortfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
             List<PositionLotsResponse.PositionLot> lots = entry.getValue();
             if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
                 continue;
@@ -48,6 +50,8 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             pageLength = "999";
         }
 
+        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = EtradeOrdersDataFetcher.getSymbolToOrdersIndex();
+
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");
 
@@ -55,13 +59,20 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         htmlBuilder.append("<title>").append((symbol != null) ? symbol + " lots" : "Lots").append("</title>");
         HtmlHelper.appendDataTablesTags(htmlBuilder);
         HtmlHelper.appendDataTablesFeatures(htmlBuilder, "lots",
-                "\"order\": [[7, \"desc\"]],", "\"pageLength\": " + pageLength);
+                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + pageLength);
         htmlBuilder.append("</head>");
         htmlBuilder.append("<body>");
 
         htmlBuilder.append("<table id=\"lots\" class=\"display\" style=\"width:100%\">");
         HtmlHelper.appendTableHeaderRow(htmlBuilder,
-                "acquired", "symbol", "lots", "exposure", "total", "price", "target", "unrealized");
+                "% unrealized",
+                "orderStatus",
+                "symbol",
+                "% exposed",
+                "$ exposed",
+                "lotValue",
+                "dateAcquired"
+        );
         htmlBuilder.append("<tbody>");
         for (PositionLotsResponse.PositionLot lot : includedLots) {
             htmlBuilder.append("<tr");
@@ -79,16 +90,25 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 }
             }
             htmlBuilder.append(">");
-            htmlBuilder.append("<td>")
-                       .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
-                       .append("</td>");
+
+            htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getTotalCostForGainPct())).append("%</td>");
+            if (!symbolToOrdersIndex.containsKey(lot.getSymbol())) {
+                htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISSING</b></p>").append("</td>");
+            } else {
+                List<OrdersResponse.Order> orders = symbolToOrdersIndex.get(lot.getSymbol());
+                if (orders.size() == lot.getTotalLotCount()) {
+                    htmlBuilder.append("<td>").append("OK").append("</td>");
+                } else {
+                    htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISMATCH</b></p>").append("</td>");
+                }
+            }
             htmlBuilder.append("<td>").append(lot.getSymbol()).append("</td>");
-            htmlBuilder.append("<td>").append(lot.getTotalLotCount()).append("</td>");
             htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getPositionPctOfPortfolio())).append("%</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getTotalPositionCost())).append("</td>");
-            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getPrice())).append("</td>");
-            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getTargetPrice())).append("</td>");
-            htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getTotalCostForGainPct())).append("%</td>");
+            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getMarketValue())).append("</td>");
+            htmlBuilder.append("<td>")
+                    .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
+                    .append("</td>");
             htmlBuilder.append("</tr>");
         }
         htmlBuilder.append("</tbody>");

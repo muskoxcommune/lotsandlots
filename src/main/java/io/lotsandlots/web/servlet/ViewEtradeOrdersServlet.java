@@ -26,8 +26,8 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<OrdersResponse.Order> includedOrders = new LinkedList<>();
-        Cache<String, List<OrdersResponse.Order>> sellOrdersCache = EtradeOrdersDataFetcher.getSellOrders();
-        for (Map.Entry<String, List<OrdersResponse.Order>> entry : sellOrdersCache.asMap().entrySet()) {
+        for (Map.Entry<String, List<OrdersResponse.Order>> entry :
+                EtradeOrdersDataFetcher.getSymbolToOrdersIndex().entrySet()) {
             List<OrdersResponse.Order> orders = entry.getValue();
             if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
                 continue;
@@ -50,7 +50,14 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
 
         htmlBuilder.append("<table id=\"orders\" class=\"display\" style=\"width:100%\">");
         HtmlHelper.appendTableHeaderRow(htmlBuilder,
-                "placed", "symbol", "quantity", "limit", "value", "action", "status");
+                "datePlaced",
+                "symbol",
+                "quantity",
+                "limit",
+                "value",
+                "action",
+                "status"
+        );
         htmlBuilder.append("<tbody>");
         for (OrdersResponse.Order order : includedOrders) {
             htmlBuilder.append("<tr>");

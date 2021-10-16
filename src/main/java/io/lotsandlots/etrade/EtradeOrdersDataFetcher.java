@@ -13,8 +13,10 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,14 +25,14 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
-    private static final Cache<String, List<OrdersResponse.Order>> SELL_ORDERS = CacheBuilder
+    private static final Cache<Long, OrdersResponse.Order> ORDER_CACHE = CacheBuilder
             .newBuilder()
             .expireAfterWrite(90, TimeUnit.SECONDS)
             .build();
-
     private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
+    private static Map<String, List<OrdersResponse.Order>> SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
 
     private EtradeOrdersDataFetcher () {
         SCHEDULED_EXECUTOR.scheduleAtFixedRate(this, 0, 60, TimeUnit.SECONDS);
@@ -89,14 +91,7 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                             order.setPlacedTime(orderDetail.getPlacedTime());
                             order.setStatus(orderDetail.getStatus());
                             order.setSymbol(symbol);
-                            List<OrdersResponse.Order> orderList = SELL_ORDERS.getIfPresent(symbol);
-                            if (orderList == null) {
-                                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
-                                newOrderList.add(order);
-                                SELL_ORDERS.put(symbol, newOrderList);
-                            } else {
-                                orderList.add(order);
-                            }
+                            ORDER_CACHE.put(order.getOrderId(), order);
                         }
                     } else {
                         LOG.warn("Expected OrderDetail to include one Instrument");
@@ -111,11 +106,11 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         }
     }
 
-    public static Cache<String, List<OrdersResponse.Order>> getSellOrders() {
-        if (SELL_ORDERS.size() == 0) {
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex() {
+        if (SYMBOL_TO_ORDERS_INDEX.size() == 0) {
             SCHEDULED_EXECUTOR.submit(DATA_FETCHER);
         }
-        return SELL_ORDERS;
+        return SYMBOL_TO_ORDERS_INDEX;
     }
 
     public static void init() {
@@ -144,5 +139,17 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
             LOG.info("Failed to fetch orders data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
+        Map<String, List<OrdersResponse.Order>> newSymbolToOrdersIndex = new HashMap<>();
+        for (Map.Entry<Long, OrdersResponse.Order> entry : ORDER_CACHE.asMap().entrySet()) {
+            OrdersResponse.Order order = entry.getValue();
+            if (newSymbolToOrdersIndex.containsKey(order.getSymbol())) {
+                newSymbolToOrdersIndex.get(order.getSymbol()).add(order);
+            } else {
+                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+                newOrderList.add(order);
+                newSymbolToOrdersIndex.put(order.getSymbol(), newOrderList);
+            }
+        }
+        SYMBOL_TO_ORDERS_INDEX = newSymbolToOrdersIndex;
     }
 }
