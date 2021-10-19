@@ -25,18 +25,15 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
 
     private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
-    private static final Cache<Long, OrdersResponse.Order> ORDER_CACHE = CacheBuilder
-            .newBuilder()
-            .expireAfterWrite(90, TimeUnit.SECONDS)
-            .build();
     private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
     private static Map<String, List<OrdersResponse.Order>> SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
 
-    private EtradeOrdersDataFetcher () {
-        SCHEDULED_EXECUTOR.scheduleAtFixedRate(this, 0, 60, TimeUnit.SECONDS);
-    }
+    private final Cache<Long, OrdersResponse.Order> orderCache = CacheBuilder
+            .newBuilder()
+            .expireAfterWrite(90, TimeUnit.SECONDS)
+            .build();
 
     public static void destroy() {
         SCHEDULED_EXECUTOR.shutdown();
@@ -71,39 +68,15 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         if (ordersResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
-            for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
-                List<OrdersResponse.OrderDetail> orderDetails = order.getOrderDetailList();
-                if (orderDetails.size() == 1) {
-                    OrdersResponse.OrderDetail orderDetail = orderDetails.get(0);
-                    if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
-                        continue;
-                    }
-                    List<OrdersResponse.OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
-                    if (instruments.size() == 1) {
-                        OrdersResponse.OrderDetail.Instrument instrument = instruments.get(0);
-                        if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
-                            String symbol = instrument.getProduct().getSymbol();
-                            order.setFilledQuantity(instrument.getFilledQuantity());
-                            order.setLimitPrice(orderDetail.getLimitPrice());
-                            order.setOrderAction(instrument.getOrderAction());
-                            order.setOrderedQuantity(instrument.getOrderedQuantity());
-                            order.setOrderValue(orderDetail.getOrderValue());
-                            order.setPlacedTime(orderDetail.getPlacedTime());
-                            order.setStatus(orderDetail.getStatus());
-                            order.setSymbol(symbol);
-                            ORDER_CACHE.put(order.getOrderId(), order);
-                        }
-                    } else {
-                        LOG.warn("Expected OrderDetail to include one Instrument");
-                    }
-                } else {
-                    LOG.warn("Expected Order to include one OrderDetail");
-                }
-            }
+            handleOrderResponse(ordersResponse);
             if (ordersResponse.hasMarker()) {
                 fetchOrdersResponse(securityContext, ordersResponse.getMarker().toString());
             }
         }
+    }
+
+    public Cache<Long, OrdersResponse.Order> getOrderCache() {
+        return orderCache;
     }
 
     public static Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex() {
@@ -113,9 +86,42 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         return SYMBOL_TO_ORDERS_INDEX;
     }
 
+    public void handleOrderResponse(OrdersResponse ordersResponse) {
+        for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
+            List<OrdersResponse.OrderDetail> orderDetails = order.getOrderDetailList();
+            if (orderDetails.size() == 1) {
+                OrdersResponse.OrderDetail orderDetail = orderDetails.get(0);
+                if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
+                    continue;
+                }
+                List<OrdersResponse.OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
+                if (instruments.size() == 1) {
+                    OrdersResponse.OrderDetail.Instrument instrument = instruments.get(0);
+                    if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
+                        String symbol = instrument.getProduct().getSymbol();
+                        order.setFilledQuantity(instrument.getFilledQuantity());
+                        order.setLimitPrice(orderDetail.getLimitPrice());
+                        order.setOrderAction(instrument.getOrderAction());
+                        order.setOrderedQuantity(instrument.getOrderedQuantity());
+                        order.setOrderValue(orderDetail.getOrderValue());
+                        order.setPlacedTime(orderDetail.getPlacedTime());
+                        order.setStatus(orderDetail.getStatus());
+                        order.setSymbol(symbol);
+                        orderCache.put(order.getOrderId(), order);
+                    }
+                } else {
+                    LOG.warn("Expected OrderDetail to include one Instrument");
+                }
+            } else {
+                LOG.warn("Expected Order to include one OrderDetail");
+            }
+        }
+    }
+
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradeOrdersDataFetcher();
+            SCHEDULED_EXECUTOR.scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
@@ -140,7 +146,7 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
         Map<String, List<OrdersResponse.Order>> newSymbolToOrdersIndex = new HashMap<>();
-        for (Map.Entry<Long, OrdersResponse.Order> entry : ORDER_CACHE.asMap().entrySet()) {
+        for (Map.Entry<Long, OrdersResponse.Order> entry : orderCache.asMap().entrySet()) {
             OrdersResponse.Order order = entry.getValue();
             if (newSymbolToOrdersIndex.containsKey(order.getSymbol())) {
                 newSymbolToOrdersIndex.get(order.getSymbol()).add(order);
