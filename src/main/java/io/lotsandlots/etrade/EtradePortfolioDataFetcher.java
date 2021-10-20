@@ -3,7 +3,6 @@ package io.lotsandlots.etrade;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
-import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -17,13 +16,10 @@ import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
+public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
-    private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
     private static final Map<String, List<PositionLotsResponse.PositionLot>> SYMBOL_TO_LOTS_INDEX = new HashMap<>();
     private static final Cache<String, PortfolioResponse.Position> POSITION_CACHE = CacheBuilder
@@ -37,14 +33,9 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
                 }
             })
             .build();
-    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
     private static PortfolioResponse.Totals TOTALS = new PortfolioResponse.Totals();
-
-    private EtradePortfolioDataFetcher() {
-        SCHEDULED_EXECUTOR.scheduleAtFixedRate(this, 0, 60, TimeUnit.SECONDS);
-    }
 
     public int aggregateLotCount() {
         int lotCount = 0;
@@ -52,10 +43,6 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
             lotCount += lots.size();
         }
         return lotCount;
-    }
-
-    public static void destroy() {
-        SCHEDULED_EXECUTOR.shutdown();
     }
 
     private void fetchPortfolioResponse(SecurityContext securityContext,
@@ -77,7 +64,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
                 .execute(portfolioMessage, PortfolioResponse.class);
         PortfolioResponse portfolioResponse = portfolioResponseResponseEntity.getBody();
         if (portfolioResponse == null) {
-            throw new RuntimeException("Empty response");
+            throw new RuntimeException("Empty portfolio response");
         } else {
             TOTALS = portfolioResponse.getTotals(); // Update portfolio totals
             PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
@@ -137,6 +124,7 @@ public class EtradePortfolioDataFetcher implements EtradeApiClient, Runnable {
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradePortfolioDataFetcher();
+            SCHEDULED_EXECUTOR.scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 

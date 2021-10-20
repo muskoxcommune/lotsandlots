@@ -2,7 +2,6 @@ package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.util.DateFormatter;
@@ -17,56 +16,31 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
+public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
-    private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
-    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
-    private static Map<String, List<OrdersResponse.Order>> SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
 
     private final Cache<Long, OrdersResponse.Order> orderCache = CacheBuilder
             .newBuilder()
             .expireAfterWrite(90, TimeUnit.SECONDS)
             .build();
-
-    public static void destroy() {
-        SCHEDULED_EXECUTOR.shutdown();
-    }
+    private Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = new HashMap<>();
 
     private void fetchOrdersResponse(SecurityContext securityContext,
                                      String marker)
             throws GeneralSecurityException, UnsupportedEncodingException {
-        Message ordersMessage = new Message();
-        ordersMessage.setRequiresOauth(true);
-        ordersMessage.setHttpMethod("GET");
-        ordersMessage.setUrl(API.getOrdersUrl());
-        String ordersQueryString = API.getOrdersQueryString();
-
-        long currentTimeMillis = System.currentTimeMillis();
-        // 60 seconds * 60 minutes * 24 hours * 180 days = 15552000 seconds
-        ordersQueryString += "&fromDate=" + DateFormatter.epochSecondsToDateString(
-                (currentTimeMillis  / 1000L) - 15552000, "MMddyyyy");
-        ordersQueryString += "&toDate=" + DateFormatter.epochSecondsToDateString(
-                currentTimeMillis / 1000L, "MMddyyyy");
-
-        if (!StringUtils.isBlank(marker)) {
-            ordersQueryString += "&marker=" + marker;
-        }
-        ordersMessage.setQueryString(ordersQueryString);
+        Message ordersMessage = newOrdersMessage(marker);
         setOAuthHeader(securityContext, ordersMessage);
-        ResponseEntity<OrdersResponse> ordersResponseResponseEntity = EtradeRestTemplateFactory
-                .getClient()
+        ResponseEntity<OrdersResponse> ordersResponseResponseEntity = REST_TEMPLATE_FACTORY
                 .newCustomRestTemplate()
                 .execute(ordersMessage, OrdersResponse.class);
         OrdersResponse ordersResponse = ordersResponseResponseEntity.getBody();
         if (ordersResponse == null) {
-            throw new RuntimeException("Empty response");
+            throw new RuntimeException("Empty orders response");
         } else {
             handleOrderResponse(ordersResponse);
             if (ordersResponse.hasMarker()) {
@@ -75,18 +49,22 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         }
     }
 
-    public Cache<Long, OrdersResponse.Order> getOrderCache() {
+    Cache<Long, OrdersResponse.Order> getOrderCache() {
         return orderCache;
     }
 
     public static Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex() {
-        if (SYMBOL_TO_ORDERS_INDEX.size() == 0) {
-            SCHEDULED_EXECUTOR.submit(DATA_FETCHER);
-        }
-        return SYMBOL_TO_ORDERS_INDEX;
+        return DATA_FETCHER.getSymbolToOrdersIndex(true);
     }
 
-    public void handleOrderResponse(OrdersResponse ordersResponse) {
+    Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex(boolean runIfEmpty) {
+        if (symbolToOrdersIndex.size() == 0 && runIfEmpty) {
+            SCHEDULED_EXECUTOR.submit(this);
+        }
+        return symbolToOrdersIndex;
+    }
+
+    void handleOrderResponse(OrdersResponse ordersResponse) {
         for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
             List<OrdersResponse.OrderDetail> orderDetails = order.getOrderDetailList();
             if (orderDetails.size() == 1) {
@@ -118,11 +96,47 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
         }
     }
 
+    void indexOrdersBySymbol() {
+        Map<String, List<OrdersResponse.Order>> newSymbolToOrdersIndex = new HashMap<>();
+        for (Map.Entry<Long, OrdersResponse.Order> entry : orderCache.asMap().entrySet()) {
+            OrdersResponse.Order order = entry.getValue();
+            if (newSymbolToOrdersIndex.containsKey(order.getSymbol())) {
+                newSymbolToOrdersIndex.get(order.getSymbol()).add(order);
+            } else {
+                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+                newOrderList.add(order);
+                newSymbolToOrdersIndex.put(order.getSymbol(), newOrderList);
+            }
+        }
+        symbolToOrdersIndex = newSymbolToOrdersIndex;
+    }
+
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradeOrdersDataFetcher();
             SCHEDULED_EXECUTOR.scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
+    }
+
+    static Message newOrdersMessage(String marker) {
+        Message ordersMessage = new Message();
+        ordersMessage.setRequiresOauth(true);
+        ordersMessage.setHttpMethod("GET");
+        ordersMessage.setUrl(API.getOrdersUrl());
+        String ordersQueryString = API.getOrdersQueryString();
+
+        long currentTimeMillis = System.currentTimeMillis();
+        // 60 seconds * 60 minutes * 24 hours * 180 days = 15552000 seconds
+        ordersQueryString += "&fromDate=" + DateFormatter.epochSecondsToDateString(
+                (currentTimeMillis  / 1000L) - 15552000, "MMddyyyy");
+        ordersQueryString += "&toDate=" + DateFormatter.epochSecondsToDateString(
+                currentTimeMillis / 1000L, "MMddyyyy");
+
+        if (!StringUtils.isBlank(marker)) {
+            ordersQueryString += "&marker=" + marker;
+        }
+        ordersMessage.setQueryString(ordersQueryString);
+        return ordersMessage;
     }
 
     @Override
@@ -145,17 +159,6 @@ public class EtradeOrdersDataFetcher implements EtradeApiClient, Runnable {
             LOG.info("Failed to fetch orders data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
-        Map<String, List<OrdersResponse.Order>> newSymbolToOrdersIndex = new HashMap<>();
-        for (Map.Entry<Long, OrdersResponse.Order> entry : orderCache.asMap().entrySet()) {
-            OrdersResponse.Order order = entry.getValue();
-            if (newSymbolToOrdersIndex.containsKey(order.getSymbol())) {
-                newSymbolToOrdersIndex.get(order.getSymbol()).add(order);
-            } else {
-                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
-                newOrderList.add(order);
-                newSymbolToOrdersIndex.put(order.getSymbol(), newOrderList);
-            }
-        }
-        SYMBOL_TO_ORDERS_INDEX = newSymbolToOrdersIndex;
+        indexOrdersBySymbol();
     }
 }
