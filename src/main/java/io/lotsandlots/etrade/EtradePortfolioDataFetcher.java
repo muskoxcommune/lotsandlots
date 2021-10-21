@@ -21,31 +21,33 @@ import java.util.concurrent.TimeUnit;
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
-    private static final Map<String, List<PositionLotsResponse.PositionLot>> SYMBOL_TO_LOTS_INDEX = new HashMap<>();
-    private static final Cache<String, PortfolioResponse.Position> POSITION_CACHE = CacheBuilder
+
+    private static EtradePortfolioDataFetcher DATA_FETCHER = null;
+
+    private final Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
+    private final Cache<String, PortfolioResponse.Position> positionCache = CacheBuilder
             .newBuilder()
             .expireAfterWrite(90, TimeUnit.SECONDS)
             .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
                 if (notification.wasEvicted()) {
                     LOG.info("Removing lots for evicted position '{}', cause={}",
                             notification.getKey(), notification.getCause());
-                    SYMBOL_TO_LOTS_INDEX.remove(notification.getKey());
+                    symbolToLotsIndex.remove(notification.getKey());
                 }
             })
             .build();
 
-    private static EtradePortfolioDataFetcher DATA_FETCHER = null;
-    private static PortfolioResponse.Totals TOTALS = new PortfolioResponse.Totals();
+    private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
 
     public int aggregateLotCount() {
         int lotCount = 0;
-        for (List<PositionLotsResponse.PositionLot> lots : SYMBOL_TO_LOTS_INDEX.values()) {
+        for (List<PositionLotsResponse.PositionLot> lots : symbolToLotsIndex.values()) {
             lotCount += lots.size();
         }
         return lotCount;
     }
 
-    private void fetchPortfolioResponse(SecurityContext securityContext,
+    void fetchPortfolioResponse(SecurityContext securityContext,
                                         String pageNumber)
             throws GeneralSecurityException, UnsupportedEncodingException {
         Message portfolioMessage = new Message();
@@ -58,26 +60,25 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
         portfolioMessage.setQueryString(portfolioQueryString);
         setOAuthHeader(securityContext, portfolioMessage);
-        ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = EtradeRestTemplateFactory
-                .getClient()
+        ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
                 .execute(portfolioMessage, PortfolioResponse.class);
         PortfolioResponse portfolioResponse = portfolioResponseResponseEntity.getBody();
         if (portfolioResponse == null) {
             throw new RuntimeException("Empty portfolio response");
         } else {
-            TOTALS = portfolioResponse.getTotals(); // Update portfolio totals
+            totals = portfolioResponse.getTotals(); // Update portfolio totals
             PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
             for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
                 String symbol = freshPositionData.getSymbolDescription();
 
-                PortfolioResponse.Position cachedPositionData = POSITION_CACHE.getIfPresent(symbol);
+                PortfolioResponse.Position cachedPositionData = positionCache.getIfPresent(symbol);
                 if (cachedPositionData == null
                         || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
                         || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
                     fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                 }
-                POSITION_CACHE.put(symbol, freshPositionData);
+                positionCache.put(symbol, freshPositionData);
             }
             if (accountPortfolio.hasNextPageNo()) {
                 fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
@@ -85,17 +86,16 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    private void fetchPositionLotsResponse(SecurityContext securityContext,
-                                           String symbol,
-                                           PortfolioResponse.Position position)
+    void fetchPositionLotsResponse(SecurityContext securityContext,
+                                   String symbol,
+                                   PortfolioResponse.Position position)
             throws GeneralSecurityException, UnsupportedEncodingException{
         Message lotsMessage = new Message();
         lotsMessage.setRequiresOauth(true);
         lotsMessage.setHttpMethod("GET");
         lotsMessage.setUrl(position.getLotsDetails());
         setOAuthHeader(securityContext, lotsMessage);
-        ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = EtradeRestTemplateFactory
-                .getClient()
+        ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
                 .execute(lotsMessage, PositionLotsResponse.class);
         PositionLotsResponse positionLotsResponse = positionLotsResponseResponseEntity.getBody();
@@ -110,27 +110,35 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
                 lot.setTargetPrice(lot.getPrice() * 1.03F);
             }
-            SYMBOL_TO_LOTS_INDEX.put(symbol, positionLotsResponse.getPositionLots());
+            symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
         }
     }
 
+    Cache<String, PortfolioResponse.Position> getPositionCache() {
+        return positionCache;
+    }
+
     public static Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
-        if (SYMBOL_TO_LOTS_INDEX.isEmpty()) {
-            SCHEDULED_EXECUTOR.submit(DATA_FETCHER);
+        return DATA_FETCHER.getSymbolToLotsIndex(true);
+    }
+
+    Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex(boolean runIfEmpty) {
+        if (symbolToLotsIndex.isEmpty() && runIfEmpty) {
+            getScheduledExecutor().submit(this);
         }
-        return SYMBOL_TO_LOTS_INDEX;
+        return symbolToLotsIndex;
     }
 
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradePortfolioDataFetcher();
-            SCHEDULED_EXECUTOR.scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
+            DATA_FETCHER.getScheduledExecutor().scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
     @Override
     public void run() {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
+        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
         if (!securityContext.isInitialized()) {
             LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
             return;
@@ -143,10 +151,14 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         try {
             fetchPortfolioResponse(securityContext, null);
             LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
-                    System.currentTimeMillis() - timeStartedMillis, POSITION_CACHE.size(), aggregateLotCount());
+                    System.currentTimeMillis() - timeStartedMillis, positionCache.size(), aggregateLotCount());
         } catch (Exception e) {
             LOG.info("Failed to fetch portfolio and lots data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
+    }
+
+    public static void shutdown() {
+        DATA_FETCHER.getScheduledExecutor().shutdown();
     }
 }

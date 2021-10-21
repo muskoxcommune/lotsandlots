@@ -12,6 +12,9 @@ public class PositionLotsResponse {
     public List<PositionLot> getPositionLots() {
         return positionLots;
     }
+    public void setPositionLots(List<PositionLot> positionLots) {
+        this.positionLots = positionLots;
+    }
 
     public static class PositionLot {
 

@@ -40,7 +40,7 @@ public class EtradeRestTemplateFactory {
 
     private SecurityContext securityContext;
 
-    private EtradeRestTemplateFactory() throws GeneralSecurityException {
+    EtradeRestTemplateFactory() throws GeneralSecurityException {
         try {
             apiConfig = new ApiConfig();
             if (CONFIG.hasPath("etrade.accountIdKey")) {
@@ -61,7 +61,7 @@ public class EtradeRestTemplateFactory {
 
             clientHttpRequestFactory = newClientHttpRequestFactory();
 
-            newSecurityContext();
+            securityContext = newSecurityContext();
         } catch (Exception e) {
             LOG.error("Failed to initialize EtradeRestTemplateFactory", e);
             throw e;
@@ -72,7 +72,7 @@ public class EtradeRestTemplateFactory {
         return apiConfig;
     }
 
-    public static EtradeRestTemplateFactory getClient() {
+    public static EtradeRestTemplateFactory getTemplateFactory() {
         return TEMPLATE_FACTORY;
     }
 
@@ -84,7 +84,7 @@ public class EtradeRestTemplateFactory {
         return securityContext;
     }
     public SecurityContext newSecurityContext() {
-        securityContext = new SecurityContext();
+        SecurityContext newSecurityContext = new SecurityContext();
         OAuthConfig oauthOAuthConfig = new OAuthConfig();
         oauthOAuthConfig.setAccessTokenHttpMethod("GET");
         oauthOAuthConfig.setAccessTokenUrl(CONFIG.getString("etrade.accessTokenUrl"));
@@ -93,8 +93,11 @@ public class EtradeRestTemplateFactory {
         oauthOAuthConfig.setRequestTokenHttpMethod("GET");
         oauthOAuthConfig.setRequestTokenUrl(CONFIG.getString("etrade.requestTokenUrl"));
         oauthOAuthConfig.setSharedSecret(CONFIG.getString("etrade.consumerSecret"));
-        securityContext.setOAuthConfig(oauthOAuthConfig);
-        return securityContext;
+        newSecurityContext.setOAuthConfig(oauthOAuthConfig);
+        return newSecurityContext;
+    }
+    public void setSecurityContext(SecurityContext securityContext) {
+        this.securityContext = securityContext;
     }
 
     public static void init() throws GeneralSecurityException {
@@ -126,7 +129,7 @@ public class EtradeRestTemplateFactory {
         return new HttpComponentsClientHttpRequestFactory(client);
     }
 
-    public EtradeRestTemplate newCustomRestTemplate(){
+    public EtradeRestTemplate newCustomRestTemplate() {
         List<HttpMessageConverter<?>> converters = new ArrayList<>(2);
         converters.add(new FormHttpMessageConverter() {
             public boolean canRead(Class<?> clazz, MediaType mediaType) {

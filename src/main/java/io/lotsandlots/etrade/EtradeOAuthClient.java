@@ -6,7 +6,7 @@ import io.lotsandlots.etrade.oauth.SecurityContext;
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 
-public interface EtradeApiClient {
+public interface EtradeOAuthClient {
 
     default void setOAuthHeader(SecurityContext securityContext, Message message)
             throws UnsupportedEncodingException, GeneralSecurityException {

@@ -39,8 +39,8 @@ public class LifecycleListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent contextEvent) {
-        EtradeOrdersDataFetcher.destroy();
-        EtradePortfolioDataFetcher.destroy();
+        EtradeOrdersDataFetcher.shutdown();
+        EtradePortfolioDataFetcher.shutdown();
         LOG.info("Servlet context destroyed");
     }
 }

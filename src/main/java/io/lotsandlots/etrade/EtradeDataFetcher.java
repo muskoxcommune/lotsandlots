@@ -5,13 +5,26 @@ import io.lotsandlots.etrade.api.ApiConfig;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-public abstract class EtradeDataFetcher implements EtradeApiClient, Runnable {
+public abstract class EtradeDataFetcher implements EtradeOAuthClient, Runnable {
 
-    protected static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
-    protected static final EtradeRestTemplateFactory REST_TEMPLATE_FACTORY = EtradeRestTemplateFactory.getClient();
-    protected static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private static final EtradeRestTemplateFactory DEFAULT_REST_TEMPLATE_FACTORY = EtradeRestTemplateFactory.getTemplateFactory();
+    private static final ScheduledExecutorService DEFAULT_SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    protected static final ApiConfig API = EtradeRestTemplateFactory.getTemplateFactory().getApiConfig();
 
-    public static void destroy() {
-        SCHEDULED_EXECUTOR.shutdown();
+    private EtradeRestTemplateFactory restTemplateFactory = DEFAULT_REST_TEMPLATE_FACTORY;
+    private ScheduledExecutorService scheduledExecutor = DEFAULT_SCHEDULED_EXECUTOR;
+
+    EtradeRestTemplateFactory getRestTemplateFactory() {
+        return restTemplateFactory;
+    }
+    void setRestTemplateFactory(EtradeRestTemplateFactory restTemplateFactory) {
+        this.restTemplateFactory = restTemplateFactory;
+    }
+
+    ScheduledExecutorService getScheduledExecutor() {
+        return scheduledExecutor;
+    }
+    void setScheduledExecutor(ScheduledExecutorService scheduledExecutor) {
+        this.scheduledExecutor = scheduledExecutor;
     }
 }

@@ -1,6 +1,6 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.EtradeApiClient;
+import io.lotsandlots.etrade.EtradeOAuthClient;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
@@ -34,7 +34,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Api(value = "/etrade")
-public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApiClient {
+public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAuthClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAuthorizationServlet.class);
 
@@ -48,7 +48,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApi
         setOAuthHeader(securityContext, tokenMessage);
 
         ResponseEntity<AuthorizationLinkedMultiValueMap> tokenMessageResponse =
-                new AuthorizationRestTemplate(EtradeRestTemplateFactory.getClient().getClientHttpRequestFactory())
+                new AuthorizationRestTemplate(EtradeRestTemplateFactory.getTemplateFactory().getClientHttpRequestFactory())
                         .execute(tokenMessage);
         MultiValueMap<String, String> tokenMessageResponseBody = tokenMessageResponse.getBody();
 
@@ -84,7 +84,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApi
         if (verifierCode == null) {
             // If a verifier code is not provided, redirect to E*Trade to get one.
             LOG.info("Verifier code not provided, will redirect to E*Trade");
-            securityContext = EtradeRestTemplateFactory.getClient().newSecurityContext();
+            securityContext = EtradeRestTemplateFactory.getTemplateFactory().newSecurityContext();
+            EtradeRestTemplateFactory.getTemplateFactory().setSecurityContext(securityContext);
             tokenMessage = new Message();
             tokenMessage.setRequiresOauth(true);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getRequestTokenHttpMethod());
@@ -106,7 +107,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeApi
         } else {
             // If a verifier code parameter is found, complete authorization flow.
             LOG.info("Verifier code found, verifier={}", verifierCode);
-            securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
+            securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
             tokenMessage.setVerifierCode(verifierCode);
             tokenMessage.setHttpMethod(securityContext.getOAuthConfig().getAccessTokenHttpMethod());
             tokenMessage.setUrl(securityContext.getOAuthConfig().getAccessTokenUrl());

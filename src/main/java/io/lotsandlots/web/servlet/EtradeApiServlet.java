@@ -1,6 +1,6 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.EtradeApiClient;
+import io.lotsandlots.etrade.EtradeOAuthClient;
 import io.lotsandlots.etrade.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.Message;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -11,10 +11,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-public interface EtradeApiServlet extends EtradeApiClient {
+public interface EtradeApiServlet extends EtradeOAuthClient {
 
     default void doEtradeGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
+        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
         if (!securityContext.isInitialized()) {
             response.sendError(400, "Please go to /etrade/authorize");
             return;
@@ -23,7 +23,7 @@ public interface EtradeApiServlet extends EtradeApiClient {
             Message message = newMessage(request);
             setOAuthHeader(securityContext, message);
             ResponseEntity<String> responseEntity = EtradeRestTemplateFactory
-                    .getClient()
+                    .getTemplateFactory()
                     .newCustomRestTemplate()
                     .execute(message, String.class);
             String responseBody = responseEntity.getBody();

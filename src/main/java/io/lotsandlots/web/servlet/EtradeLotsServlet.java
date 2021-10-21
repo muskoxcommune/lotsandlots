@@ -21,7 +21,7 @@ import java.io.IOException;
 @Api(value = "/etrade")
 public class EtradeLotsServlet extends HttpServlet implements EtradeApiServlet {
 
-    private static final ApiConfig API = EtradeRestTemplateFactory.getClient().getApiConfig();
+    private static final ApiConfig API = EtradeRestTemplateFactory.getTemplateFactory().getApiConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeLotsServlet.class);
 
     @ApiOperation(

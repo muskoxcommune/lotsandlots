@@ -35,7 +35,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             throws GeneralSecurityException, UnsupportedEncodingException {
         Message ordersMessage = newOrdersMessage(marker);
         setOAuthHeader(securityContext, ordersMessage);
-        ResponseEntity<OrdersResponse> ordersResponseResponseEntity = REST_TEMPLATE_FACTORY
+        ResponseEntity<OrdersResponse> ordersResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
                 .execute(ordersMessage, OrdersResponse.class);
         OrdersResponse ordersResponse = ordersResponseResponseEntity.getBody();
@@ -59,7 +59,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex(boolean runIfEmpty) {
         if (symbolToOrdersIndex.size() == 0 && runIfEmpty) {
-            SCHEDULED_EXECUTOR.submit(this);
+            getScheduledExecutor().submit(this);
         }
         return symbolToOrdersIndex;
     }
@@ -114,7 +114,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradeOrdersDataFetcher();
-            SCHEDULED_EXECUTOR.scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
+            DATA_FETCHER.getScheduledExecutor().scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
@@ -141,7 +141,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     @Override
     public void run() {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getClient().getSecurityContext();
+        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
         if (!securityContext.isInitialized()) {
             LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
             return;
@@ -160,5 +160,9 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
         indexOrdersBySymbol();
+    }
+
+    public static void shutdown() {
+        DATA_FETCHER.getScheduledExecutor().shutdown();
     }
 }
