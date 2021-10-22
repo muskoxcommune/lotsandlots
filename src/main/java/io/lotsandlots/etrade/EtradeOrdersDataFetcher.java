@@ -153,8 +153,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchOrdersResponse(securityContext, null);
-            LOG.info("Fetched orders data, duration={}ms",
-                    System.currentTimeMillis() - timeStartedMillis);
+            LOG.info("Fetched orders data, duration={}ms orders={}",
+                    System.currentTimeMillis() - timeStartedMillis, getOrderCache().size());
         } catch (Exception e) {
             LOG.info("Failed to fetch orders data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
