@@ -22,7 +22,7 @@ public class EtradeRestTemplate extends RestTemplate {
     public <T> ResponseEntity<T> execute(Message message, Class<T> responseType) {
         String url;
         if ( StringUtils.isNotBlank(message.getQueryString())) {
-            url = String.format("%s?%s", message.getUrl(),message.getQueryString());
+            url = String.format("%s?%s", message.getUrl(), message.getQueryString());
         } else {
             url = message.getUrl();
         }
@@ -30,13 +30,18 @@ public class EtradeRestTemplate extends RestTemplate {
         if (StringUtils.isNotBlank(message.getOauthHeader())) {
             headers.add("Authorization", message.getOauthHeader());
         }
-        LOG.debug("Executing Message, method={} url={} headers={}", message.getHttpMethod(), url, headers);
+        LOG.info("Executing Message, method={} url={} headers={}", message.getHttpMethod(), url, headers);
         switch (message.getHttpMethod()) {
             case "GET":
                 HttpEntity<String> entity = new HttpEntity<>(headers);
-                return super.exchange(url, HttpMethod.GET, entity, responseType);
+                return doExchange(url, HttpMethod.GET, entity, responseType);
             default:
                 return null;
         }
     }
+
+   <T> ResponseEntity<T>  doExchange(String url, HttpMethod httpMethod, HttpEntity<String> headers, Class<T> responseType) {
+        // Wrapper for easier testing
+        return super.exchange(url, httpMethod, headers, responseType);
+   }
 }
