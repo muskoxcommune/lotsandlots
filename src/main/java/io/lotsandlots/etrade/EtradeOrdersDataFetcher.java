@@ -30,7 +30,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             .build();
     private Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = new HashMap<>();
 
-    private void fetchOrdersResponse(SecurityContext securityContext,
+    void fetchOrdersResponse(SecurityContext securityContext,
                                      String marker)
             throws GeneralSecurityException, UnsupportedEncodingException {
         Message ordersMessage = newOrdersMessage(marker);

@@ -2,10 +2,14 @@ package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
 import io.lotsandlots.etrade.api.OrdersResponse;
+import io.lotsandlots.etrade.oauth.SecurityContext;
+import org.mockito.Mockito;
+import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,36 +23,45 @@ public class EtradeOrdersDataFetcherTest {
         EtradeRestTemplateFactory.init();
     }
 
-    public void testHandleOrderResponse1L() {
-        List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
-        OrdersResponse testResponse = new OrdersResponse();
-        OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
-
+    public void testFetchOrdersResponse() throws GeneralSecurityException, UnsupportedEncodingException {
         Long testTimeMillis = System.currentTimeMillis();
+        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
         product1.setSymbol("TEST1");
+        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
         instrument1.setFilledQuantity(0.0F);
         instrument1.setOrderAction("SELL");
         instrument1.setOrderedQuantity(10L);
         instrument1.setProduct(product1);
+        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
         instrumentList1.add(instrument1);
+        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
         orderDetail1.setInstrumentList(instrumentList1);
         orderDetail1.setLimitPrice(99.99F);
         orderDetail1.setOrderValue(999.90F);
         orderDetail1.setPlacedTime(testTimeMillis);
         orderDetail1.setStatus("OPEN");
+        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
         orderDetailList1.add(orderDetail1);
+        OrdersResponse.Order order1 = new OrdersResponse.Order();
         order1.setOrderDetailList(orderDetailList1);
         order1.setOrderId(1L);
+        List<OrdersResponse.Order> testOrderList = new LinkedList<>();
         testOrderList.add(order1);
+        OrdersResponse testResponse = new OrdersResponse();
         testResponse.setOrderList(testOrderList);
 
-        EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
-        dataFetcher.handleOrderResponse(testResponse);
+        ResponseEntity<OrdersResponse> mockResponseEntity = Mockito.mock(ResponseEntity.class);
+        Mockito.doReturn(testResponse).when(mockResponseEntity).getBody();
+        EtradeRestTemplate mockRestTemplate = Mockito.mock(EtradeRestTemplate.class);
+        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).execute(Mockito.any(Message.class), Mockito.any());
+        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
+        Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
+
+        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().newSecurityContext();
+        EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
+        dataFetcher.setRestTemplateFactory(mockTemplateFactory);
+        dataFetcher.fetchOrdersResponse(securityContext, null);
+
         Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
         OrdersResponse.Order cachedOrder = orderCache.getIfPresent(1L);
         Assert.assertNotNull(cachedOrder);
