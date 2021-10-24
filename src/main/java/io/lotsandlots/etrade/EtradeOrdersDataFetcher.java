@@ -154,6 +154,9 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchOrdersResponse(securityContext, null);
+            // Expired entries are not guaranteed to be cleaned up immediately.
+            // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
+            orderCache.cleanUp();
             LOG.info("Fetched orders data, duration={}ms orders={}",
                     System.currentTimeMillis() - timeStartedMillis, getOrderCache().size());
             indexOrdersBySymbol();
