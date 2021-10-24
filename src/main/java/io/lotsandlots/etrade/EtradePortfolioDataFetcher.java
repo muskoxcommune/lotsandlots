@@ -25,19 +25,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
-    private final Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
-    private final Cache<String, PortfolioResponse.Position> positionCache = CacheBuilder
-            .newBuilder()
-            .expireAfterWrite(90, TimeUnit.SECONDS)
-            .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
-                if (notification.wasEvicted()) {
-                    LOG.info("Removing lots for evicted position '{}', cause={}",
-                            notification.getKey(), notification.getCause());
-                    symbolToLotsIndex.remove(notification.getKey());
-                }
-            })
-            .build();
-
+    private Cache<String, PortfolioResponse.Position> positionCache = newCacheFromCacheBuilder(
+            CacheBuilder.newBuilder(), 90);
+    private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
 
     public int aggregateLotCount() {
@@ -48,6 +38,14 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         return lotCount;
     }
 
+    /**
+     * Call E*Trade's portfolio API and process position data.
+     *
+     * @param securityContext SecurityContext object from EtradeRestTemplateFactory.
+     * @param pageNumber String for paginating results. Null for initial invocation.
+     * @throws GeneralSecurityException
+     * @throws UnsupportedEncodingException
+     */
     void fetchPortfolioResponse(SecurityContext securityContext,
                                 String pageNumber)
             throws GeneralSecurityException, UnsupportedEncodingException {
@@ -75,8 +73,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
                 PortfolioResponse.Position cachedPositionData = positionCache.getIfPresent(symbol);
                 if (cachedPositionData == null
-                        || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())
-                        || !cachedPositionData.getPricePaid().equals(freshPositionData.getPricePaid())) {
+                        // Market value will change throughout a trading session. While trading is ongoing,
+                        // we should refresh data regularly.
+                        || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())) {
                     fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                 }
                 positionCache.put(symbol, freshPositionData);
@@ -118,16 +117,21 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     Cache<String, PortfolioResponse.Position> getPositionCache() {
         return positionCache;
     }
+    void setPositionCache(Cache<String, PortfolioResponse.Position> positionCache) {
+        this.positionCache = positionCache;
+    }
 
     public static Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
         return DATA_FETCHER.getSymbolToLotsIndex(true);
     }
-
     Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex(boolean runIfEmpty) {
         if (symbolToLotsIndex.isEmpty() && runIfEmpty) {
             getScheduledExecutor().submit(this);
         }
         return symbolToLotsIndex;
+    }
+    void setSymbolToLotsIndex(Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex) {
+        this.symbolToLotsIndex = symbolToLotsIndex;
     }
 
     public static void init() {
@@ -135,6 +139,25 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             DATA_FETCHER = new EtradePortfolioDataFetcher();
             DATA_FETCHER.getScheduledExecutor().scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
+    }
+
+    Cache<String, PortfolioResponse.Position> newCacheFromCacheBuilder(CacheBuilder<Object, Object> cacheBuilder,
+                                                                       Integer expirationSeconds) {
+        return cacheBuilder
+                .expireAfterWrite(expirationSeconds, TimeUnit.SECONDS)
+                .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
+                    if (notification.wasEvicted()) {
+                        LOG.info("Removing lots for evicted position '{}', cause={}",
+                                notification.getKey(), notification.getCause());
+                        String symbol = notification.getKey();
+                        if (symbolToLotsIndex.containsKey(symbol)) {
+                            symbolToLotsIndex.remove(notification.getKey());
+                        } else {
+                            LOG.error("Expected lots for symbol={}, but cache missed", symbol);
+                        }
+                    }
+                })
+                .build();
     }
 
     @Override
@@ -151,6 +174,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchPortfolioResponse(securityContext, null);
+            // Expired entries are not guaranteed to be cleaned up immediately.
+            // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
+            positionCache.cleanUp();
             LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
                     System.currentTimeMillis() - timeStartedMillis, positionCache.size(), aggregateLotCount());
         } catch (Exception e) {

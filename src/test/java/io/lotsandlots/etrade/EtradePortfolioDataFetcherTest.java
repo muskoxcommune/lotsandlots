@@ -1,6 +1,7 @@
 package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
@@ -16,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +101,22 @@ public class EtradePortfolioDataFetcherTest {
         Assert.assertEquals(indexedLot.getTotalPositionCost(), 1000.00F);
         Assert.assertEquals(indexedLot.getPositionPctOfPortfolio(), 1.0F);
         Assert.assertEquals(indexedLot.getTargetPrice(), 103.00F);
+    }
+
+    public void testPositionExpiration() throws InterruptedException {
+        String ticker = "TEST1";
+        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = Mockito.spy(new HashMap<>());
+        EtradePortfolioDataFetcher dataFetcher = new EtradePortfolioDataFetcher();
+        dataFetcher.setSymbolToLotsIndex(symbolToLotsIndex);
+        Cache<String, PortfolioResponse.Position> positionCache = dataFetcher.newCacheFromCacheBuilder(
+                CacheBuilder.newBuilder(), 1);
+        dataFetcher.setPositionCache(positionCache);
+
+        symbolToLotsIndex.put(ticker, new LinkedList<>());
+        positionCache.put(ticker, new PortfolioResponse.Position());
+        Thread.sleep(1500);
+        positionCache.cleanUp();
+        Mockito.verify(symbolToLotsIndex).remove(Mockito.any(String.class));
     }
 
     public void testRun() throws GeneralSecurityException, UnsupportedEncodingException {
