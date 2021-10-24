@@ -2,7 +2,7 @@ package io.lotsandlots.web.listener;
 
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
-import io.lotsandlots.etrade.EtradeRestTemplateFactory;
+import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.util.ConfigWrapper;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
 import org.slf4j.Logger;

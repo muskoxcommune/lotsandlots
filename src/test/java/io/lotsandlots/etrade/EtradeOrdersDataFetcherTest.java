@@ -1,8 +1,13 @@
 package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
+import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.etrade.rest.EtradeRestTemplate;
+import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
+import io.lotsandlots.etrade.rest.Message;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
@@ -273,16 +278,89 @@ public class EtradeOrdersDataFetcherTest {
     }
 
     public void testNewOrdersMessageWithMarker() {
-        Message ordersMessage = EtradeOrdersDataFetcher.newOrdersMessage("test");
+        Message ordersMessage = new EtradeOrdersDataFetcher().newOrdersMessage("test");
         Assert.assertTrue(ordersMessage.getQueryString().contains("fromDate"));
         Assert.assertTrue(ordersMessage.getQueryString().contains("toDate"));
         Assert.assertTrue(ordersMessage.getQueryString().contains("marker=test"));
     }
 
     public void testNewOrdersMessageWithoutMarker() {
-        Message ordersMessage = EtradeOrdersDataFetcher.newOrdersMessage(null);
+        Message ordersMessage = new EtradeOrdersDataFetcher().newOrdersMessage(null);
         Assert.assertTrue(ordersMessage.getQueryString().contains("fromDate"));
         Assert.assertTrue(ordersMessage.getQueryString().contains("toDate"));
         Assert.assertFalse(ordersMessage.getQueryString().contains("marker"));
+    }
+
+    public void testRun() throws GeneralSecurityException, UnsupportedEncodingException {
+        SecurityContext mockSecurityContext = Mockito.mock(SecurityContext.class);
+        Mockito.doReturn(true).when(mockSecurityContext).isInitialized();
+        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
+        Mockito.doReturn(mockSecurityContext).when(mockTemplateFactory).getSecurityContext();
+
+        EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
+        dataFetcher.setRestTemplateFactory(mockTemplateFactory);
+        Mockito.doAnswer(invocation -> null).when(dataFetcher)
+                .fetchOrdersResponse(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(invocation -> null).when(dataFetcher).indexOrdersBySymbol();
+        dataFetcher.run();
+        Mockito.verify(dataFetcher).fetchOrdersResponse(Mockito.any(SecurityContext.class), ArgumentMatchers.any());
+        Mockito.verify(dataFetcher).indexOrdersBySymbol();
+    }
+
+    public void testRunWithException() throws GeneralSecurityException, UnsupportedEncodingException {
+        SecurityContext mockSecurityContext = Mockito.mock(SecurityContext.class);
+        Mockito.doReturn(true).when(mockSecurityContext).isInitialized();
+        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
+        Mockito.doReturn(mockSecurityContext).when(mockTemplateFactory).getSecurityContext();
+
+        EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
+        dataFetcher.setRestTemplateFactory(mockTemplateFactory);
+        Mockito.doThrow(new RuntimeException("Thrown for test")).when(dataFetcher)
+                .fetchOrdersResponse(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(invocation -> null).when(dataFetcher).indexOrdersBySymbol();
+        dataFetcher.run();
+        Mockito.verify(dataFetcher).fetchOrdersResponse(Mockito.any(SecurityContext.class), ArgumentMatchers.any());
+        Mockito.verify(dataFetcher, Mockito.times(0))
+                .indexOrdersBySymbol();
+    }
+
+    public void testRunWithoutOrdersUrl() throws GeneralSecurityException, UnsupportedEncodingException {
+        SecurityContext mockSecurityContext = Mockito.mock(SecurityContext.class);
+        Mockito.doReturn(true).when(mockSecurityContext).isInitialized();
+        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
+        Mockito.doReturn(mockSecurityContext).when(mockTemplateFactory).getSecurityContext();
+
+        ApiConfig mockApiConfig = Mockito.mock(ApiConfig.class);
+        EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
+        dataFetcher.setApiConfig(mockApiConfig);
+        dataFetcher.setRestTemplateFactory(mockTemplateFactory);
+        Mockito.doAnswer(invocation -> null).when(dataFetcher)
+                .fetchOrdersResponse(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(invocation -> null).when(dataFetcher).indexOrdersBySymbol();
+        dataFetcher.run();
+        Mockito.verify(dataFetcher).getApiConfig();
+        Mockito.verify(mockApiConfig).getOrdersUrl();
+        Mockito.verify(dataFetcher, Mockito.times(0))
+                .fetchOrdersResponse(Mockito.any(SecurityContext.class), ArgumentMatchers.any());
+        Mockito.verify(dataFetcher, Mockito.times(0))
+                .indexOrdersBySymbol();
+    }
+
+    public void testRunWithUninitializedSecurityContext() throws GeneralSecurityException, UnsupportedEncodingException {
+        SecurityContext mockSecurityContext = Mockito.mock(SecurityContext.class);
+        Mockito.doReturn(false).when(mockSecurityContext).isInitialized();
+        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
+        Mockito.doReturn(mockSecurityContext).when(mockTemplateFactory).getSecurityContext();
+
+        EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
+        dataFetcher.setRestTemplateFactory(mockTemplateFactory);
+        Mockito.doAnswer(invocation -> null).when(dataFetcher)
+                .fetchOrdersResponse(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(invocation -> null).when(dataFetcher).indexOrdersBySymbol();
+        dataFetcher.run();
+        Mockito.verify(dataFetcher, Mockito.times(0))
+                .fetchOrdersResponse(Mockito.any(SecurityContext.class), ArgumentMatchers.any());
+        Mockito.verify(dataFetcher, Mockito.times(0))
+                .indexOrdersBySymbol();
     }
 }

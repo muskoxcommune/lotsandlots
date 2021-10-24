@@ -1,7 +1,6 @@
-package io.lotsandlots.etrade;
+package io.lotsandlots.etrade.oauth;
 
-import io.lotsandlots.etrade.oauth.OAuth1Helper;
-import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.etrade.rest.Message;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;

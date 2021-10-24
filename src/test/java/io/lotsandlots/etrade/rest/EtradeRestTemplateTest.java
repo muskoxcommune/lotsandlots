@@ -1,4 +1,4 @@
-package io.lotsandlots.etrade;
+package io.lotsandlots.etrade.rest;
 
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;

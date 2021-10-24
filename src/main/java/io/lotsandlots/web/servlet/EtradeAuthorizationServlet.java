@@ -1,8 +1,8 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.EtradeOAuthClient;
-import io.lotsandlots.etrade.EtradeRestTemplateFactory;
-import io.lotsandlots.etrade.Message;
+import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
+import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
+import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.swagger.annotations.Api;

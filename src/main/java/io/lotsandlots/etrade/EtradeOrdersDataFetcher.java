@@ -4,6 +4,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.util.DateFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     private Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = new HashMap<>();
 
     void fetchOrdersResponse(SecurityContext securityContext,
-                                     String marker)
+                             String marker)
             throws GeneralSecurityException, UnsupportedEncodingException {
         Message ordersMessage = newOrdersMessage(marker);
         setOAuthHeader(securityContext, ordersMessage);
@@ -118,12 +119,12 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    static Message newOrdersMessage(String marker) {
+    Message newOrdersMessage(String marker) {
         Message ordersMessage = new Message();
         ordersMessage.setRequiresOauth(true);
         ordersMessage.setHttpMethod("GET");
-        ordersMessage.setUrl(API.getOrdersUrl());
-        String ordersQueryString = API.getOrdersQueryString();
+        ordersMessage.setUrl(getApiConfig().getOrdersUrl());
+        String ordersQueryString = getApiConfig().getOrdersQueryString();
 
         long currentTimeMillis = System.currentTimeMillis();
         // 60 seconds * 60 minutes * 24 hours * 180 days = 15552000 seconds
@@ -141,12 +142,12 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     @Override
     public void run() {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
+        SecurityContext securityContext = getRestTemplateFactory().getSecurityContext();
         if (!securityContext.isInitialized()) {
             LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
             return;
         }
-        if (API.getOrdersUrl() == null) {
+        if (getApiConfig().getOrdersUrl() == null) {
             LOG.warn("Please configure etrade.accountIdKey");
             return;
         }
@@ -155,11 +156,11 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             fetchOrdersResponse(securityContext, null);
             LOG.info("Fetched orders data, duration={}ms orders={}",
                     System.currentTimeMillis() - timeStartedMillis, getOrderCache().size());
+            indexOrdersBySymbol();
         } catch (Exception e) {
             LOG.info("Failed to fetch orders data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
-        indexOrdersBySymbol();
     }
 
     public static void shutdown() {

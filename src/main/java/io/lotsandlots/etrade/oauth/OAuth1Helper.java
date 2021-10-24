@@ -1,6 +1,6 @@
 package io.lotsandlots.etrade.oauth;
 
-import io.lotsandlots.etrade.Message;
+import io.lotsandlots.etrade.rest.Message;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.commons.lang3.StringUtils;

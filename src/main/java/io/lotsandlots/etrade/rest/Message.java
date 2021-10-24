@@ -1,4 +1,4 @@
-package io.lotsandlots.etrade;
+package io.lotsandlots.etrade.rest;
 
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;

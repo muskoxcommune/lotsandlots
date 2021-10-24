@@ -6,6 +6,7 @@ import com.google.common.cache.RemovalListener;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.etrade.rest.Message;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,13 +49,13 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     }
 
     void fetchPortfolioResponse(SecurityContext securityContext,
-                                        String pageNumber)
+                                String pageNumber)
             throws GeneralSecurityException, UnsupportedEncodingException {
         Message portfolioMessage = new Message();
         portfolioMessage.setRequiresOauth(true);
         portfolioMessage.setHttpMethod("GET");
-        portfolioMessage.setUrl(API.getPortfolioUrl());
-        String portfolioQueryString = API.getPortfolioQueryString();
+        portfolioMessage.setUrl(getApiConfig().getPortfolioUrl());
+        String portfolioQueryString = getApiConfig().getPortfolioQueryString();
         if (!StringUtils.isBlank(pageNumber)) {
             portfolioQueryString += "&pageNumber=" + pageNumber;
         }
@@ -138,12 +139,12 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     @Override
     public void run() {
-        SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
+        SecurityContext securityContext = getRestTemplateFactory().getSecurityContext();
         if (!securityContext.isInitialized()) {
             LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
             return;
         }
-        if (API.getPortfolioUrl() == null) {
+        if (getApiConfig().getPortfolioUrl() == null) {
             LOG.warn("Please configure etrade.accountIdKey");
             return;
         }
