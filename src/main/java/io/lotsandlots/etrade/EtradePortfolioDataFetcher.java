@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -22,13 +23,17 @@ import java.util.concurrent.TimeUnit;
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
-
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
+    private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
     private Cache<String, PortfolioResponse.Position> positionCache = newCacheFromCacheBuilder(
             CacheBuilder.newBuilder(), 90);
     private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
+
+    public static void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler putHandler) {
+        DATA_FETCHER.symbolToLotsIndexPutHandlers.add(putHandler);
+    }
 
     public int aggregateLotCount() {
         int lotCount = 0;
@@ -111,6 +116,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setTargetPrice(lot.getPrice() * 1.03F);
             }
             symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
+            for (SymbolToLotsIndexPutHandler putHandler : symbolToLotsIndexPutHandlers) {
+                putHandler.handlePut(symbol, positionLotsResponse.getPositionLots(), totals);
+            }
         }
     }
 
@@ -137,7 +145,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradePortfolioDataFetcher();
-            DATA_FETCHER.getScheduledExecutor().scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
+            DATA_FETCHER
+                    .getScheduledExecutor()
+                    .scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
@@ -185,7 +195,8 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public static void shutdown() {
-        DATA_FETCHER.getScheduledExecutor().shutdown();
+    public interface SymbolToLotsIndexPutHandler {
+
+        void handlePut(String symbol, List<PositionLotsResponse.PositionLot> lots, PortfolioResponse.Totals totals);
     }
 }

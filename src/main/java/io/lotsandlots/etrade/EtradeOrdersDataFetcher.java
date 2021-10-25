@@ -115,7 +115,9 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradeOrdersDataFetcher();
-            DATA_FETCHER.getScheduledExecutor().scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
+            DATA_FETCHER
+                    .getScheduledExecutor()
+                    .scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
@@ -164,9 +166,5 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             LOG.info("Failed to fetch orders data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
         }
-    }
-
-    public static void shutdown() {
-        DATA_FETCHER.getScheduledExecutor().shutdown();
     }
 }
