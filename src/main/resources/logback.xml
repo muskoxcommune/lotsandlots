@@ -8,5 +8,7 @@
     <root level="info">
         <appender-ref ref="CONSOLE"/>
     </root>
-    <logger name="io.lotsandlots" level="debug" />
+    <logger name="io.lotsandlots.etrade.EtradeBuyOrderCreator" level="debug" />
+    <logger name="io.lotsandlots.etrade.EtradeOrdersDataFetcher" level="debug" />
+    <logger name="io.lotsandlots.etrade.EtradePortfolioDataFetcher" level="debug" />
 </configuration>
