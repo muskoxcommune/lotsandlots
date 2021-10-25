@@ -1,8 +1,10 @@
 package io.lotsandlots.etrade;
 
+import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
+import io.lotsandlots.util.ConfigWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,20 +15,24 @@ import java.util.concurrent.Executors;
 public class EtradeBuyOrderCreator implements
         EtradeOAuthClient, EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
+    private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderCreator.class);
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
 
+    private Long haltBuyOrderCashBalance;
     private ExecutorService executor;
 
     public EtradeBuyOrderCreator() {
         executor = DEFAULT_EXECUTOR;
+        haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
+        LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={}", haltBuyOrderCashBalance);
     }
 
     @Override
     public void handlePut(String symbol,
                           List<PositionLotsResponse.PositionLot> lots,
                           PortfolioResponse.Totals totals) {
-        executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots, totals));
+        executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots, totals, haltBuyOrderCashBalance));
     }
 
     void setExecutor(ExecutorService executor) {
@@ -35,21 +41,47 @@ public class EtradeBuyOrderCreator implements
 
     static class SymbolToLotsIndexPutEvent implements Runnable {
 
-        private final List<PositionLotsResponse.PositionLot> lots;
         private final String symbol;
-        private final PortfolioResponse.Totals totals;
+        private List<PositionLotsResponse.PositionLot> lots;
+        private PortfolioResponse.Totals totals;
+        private Long haltBuyOrderCashBalance;
 
         SymbolToLotsIndexPutEvent(String symbol,
                                   List<PositionLotsResponse.PositionLot> lots,
-                                  PortfolioResponse.Totals totals) {
+                                  PortfolioResponse.Totals totals,
+                                  Long haltBuyOrderCashBalance) {
             this.symbol = symbol;
             this.lots = lots;
+            this.totals = totals;
+            this.haltBuyOrderCashBalance = haltBuyOrderCashBalance;
+            LOG.debug("New SymbolToLotsIndexPutEvent, symbol={}", symbol);
+        }
+
+        void setHaltBuyOrderCashBalance(Long haltBuyOrderCashBalance) {
+            this.haltBuyOrderCashBalance = haltBuyOrderCashBalance;
+        }
+
+        List<PositionLotsResponse.PositionLot> getLots() {
+            return lots;
+        }
+        void setLots(List<PositionLotsResponse.PositionLot> lots) {
+            this.lots = lots;
+        }
+
+        void setTotals(PortfolioResponse.Totals totals) {
             this.totals = totals;
         }
 
         @Override
         public void run() {
-            LOG.debug("New SymbolToLotsIndexPutEvent, symbol={}", symbol);
+            if (totals.getCashBalance() > haltBuyOrderCashBalance) {
+                PositionLotsResponse.PositionLot lowestPricedLot = null;
+                for (PositionLotsResponse.PositionLot lot : getLots()) {
+                    if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
+                        lowestPricedLot = lot;
+                    }
+                }
+            }
         }
     }
 }

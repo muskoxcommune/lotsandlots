@@ -72,6 +72,16 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             throw new RuntimeException("Empty portfolio response");
         } else {
             totals = portfolioResponse.getTotals(); // Update portfolio totals
+            LOG.info("Portfolio cash={}, todaysGainLossPct={}, todaysGainLoss={}, "
+                            + "totalGainLossPct={}, totalGainLoss={}, totalPaid={}, totalValue={}",
+                    totals.getCashBalance(),
+                    totals.getTodaysGainLossPct(),
+                    totals.getTodaysGainLoss(),
+                    totals.getTotalGainLossPct(),
+                    totals.getTotalGainLoss(),
+                    totals.getTotalPricePaid(),
+                    totals.getTotalMarketValue()
+            );
             PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
             for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
                 String symbol = freshPositionData.getSymbolDescription();
