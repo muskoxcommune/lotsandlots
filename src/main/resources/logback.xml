@@ -4,11 +4,22 @@
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <file>${user.home}/lotsandlots.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${user.home}/lotsandlots.%d.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+    </appender>
 
     <root level="info">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
     </root>
-    <logger name="io.lotsandlots.etrade.EtradeBuyOrderCreator" level="debug" />
-    <logger name="io.lotsandlots.etrade.EtradeOrdersDataFetcher" level="debug" />
-    <logger name="io.lotsandlots.etrade.EtradePortfolioDataFetcher" level="debug" />
+    <logger name="io.lotsandlots.etrade.EtradeBuyOrderCreator" level="debug"/>
+    <logger name="io.lotsandlots.etrade.EtradeOrdersDataFetcher" level="debug"/>
+    <logger name="io.lotsandlots.etrade.EtradePortfolioDataFetcher" level="debug"/>
 </configuration>
