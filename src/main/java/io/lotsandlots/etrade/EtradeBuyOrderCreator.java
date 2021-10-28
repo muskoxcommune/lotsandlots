@@ -29,9 +29,9 @@ public class EtradeBuyOrderCreator implements
     }
 
     @Override
-    public void handlePut(String symbol,
-                          List<PositionLotsResponse.PositionLot> lots,
-                          PortfolioResponse.Totals totals) {
+    public void handleSymbolToLotsIndexPut(String symbol,
+                                           List<PositionLotsResponse.PositionLot> lots,
+                                           PortfolioResponse.Totals totals) {
         executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots, totals, haltBuyOrderCashBalance));
     }
 
@@ -54,7 +54,6 @@ public class EtradeBuyOrderCreator implements
             this.lots = lots;
             this.totals = totals;
             this.haltBuyOrderCashBalance = haltBuyOrderCashBalance;
-            LOG.debug("New SymbolToLotsIndexPutEvent, symbol={}", symbol);
         }
 
         void setHaltBuyOrderCashBalance(Long haltBuyOrderCashBalance) {
@@ -81,6 +80,8 @@ public class EtradeBuyOrderCreator implements
                         lowestPricedLot = lot;
                     }
                 }
+                // If lowestPricedLot is down below threshold, open new buy order.
+                // Update local caches immediately
             }
         }
     }

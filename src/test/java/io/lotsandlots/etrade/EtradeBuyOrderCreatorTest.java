@@ -26,7 +26,7 @@ public class EtradeBuyOrderCreatorTest {
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
         orderCreator.setExecutor(mockExecutor);
-        orderCreator.handlePut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
+        orderCreator.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
     }
 
@@ -45,7 +45,7 @@ public class EtradeBuyOrderCreatorTest {
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
         orderCreator.setExecutor(mockExecutor);
-        orderCreator.handlePut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
+        orderCreator.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
     }
 }

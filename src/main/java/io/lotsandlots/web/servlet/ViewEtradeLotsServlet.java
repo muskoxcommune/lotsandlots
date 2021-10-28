@@ -57,7 +57,8 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             pageLength = "999";
         }
 
-        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = EtradeOrdersDataFetcher.getSymbolToOrdersIndex();
+        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
+                EtradeOrdersDataFetcher.getSymbolToSellOrdersIndex();
 
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");

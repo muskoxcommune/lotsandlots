@@ -127,7 +127,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             }
             symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
             for (SymbolToLotsIndexPutHandler putHandler : symbolToLotsIndexPutHandlers) {
-                putHandler.handlePut(symbol, positionLotsResponse.getPositionLots(), totals);
+                putHandler.handleSymbolToLotsIndexPut(symbol, positionLotsResponse.getPositionLots(), totals);
             }
         }
     }
@@ -191,6 +191,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             LOG.warn("Please configure etrade.accountIdKey");
             return;
         }
+        LOG.info("Fetching portfolio data");
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchPortfolioResponse(securityContext, null);
@@ -207,6 +208,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     public interface SymbolToLotsIndexPutHandler {
 
-        void handlePut(String symbol, List<PositionLotsResponse.PositionLot> lots, PortfolioResponse.Totals totals);
+        void handleSymbolToLotsIndexPut(String symbol, List<PositionLotsResponse.PositionLot> lots, PortfolioResponse.Totals totals);
     }
 }

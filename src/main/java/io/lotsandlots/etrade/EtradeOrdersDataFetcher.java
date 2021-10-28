@@ -29,7 +29,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             .newBuilder()
             .expireAfterWrite(90, TimeUnit.SECONDS)
             .build();
-    private Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = new HashMap<>();
+    private Map<String, List<OrdersResponse.Order>> symbolToBuyOrdersIndex = new HashMap<>();
+    private Map<String, List<OrdersResponse.Order>> symbolToSellOrdersIndex = new HashMap<>();
 
     void fetchOrdersResponse(SecurityContext securityContext,
                              String marker)
@@ -50,19 +51,32 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex() {
+        return getSymbolToBuyOrdersIndex(true);
+    }
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
+        if (DATA_FETCHER.symbolToBuyOrdersIndex.size() == 0 && runIfEmpty) {
+            DATA_FETCHER.getScheduledExecutor().submit(DATA_FETCHER);
+        }
+        return DATA_FETCHER.symbolToBuyOrdersIndex;
+    }
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(
+            EtradeOrdersDataFetcher dataFetcher) {
+        return dataFetcher.symbolToBuyOrdersIndex;
+    }
+
     Cache<Long, OrdersResponse.Order> getOrderCache() {
         return orderCache;
     }
 
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex() {
-        return DATA_FETCHER.getSymbolToOrdersIndex(true);
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex() {
+        return getSymbolToSellOrdersIndex(true);
     }
-
-    Map<String, List<OrdersResponse.Order>> getSymbolToOrdersIndex(boolean runIfEmpty) {
-        if (symbolToOrdersIndex.size() == 0 && runIfEmpty) {
-            getScheduledExecutor().submit(this);
+    public static Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
+        if (DATA_FETCHER.symbolToSellOrdersIndex.size() == 0 && runIfEmpty) {
+            DATA_FETCHER.getScheduledExecutor().submit(DATA_FETCHER);
         }
-        return symbolToOrdersIndex;
+        return DATA_FETCHER.symbolToSellOrdersIndex;
     }
 
     void handleOrderResponse(OrdersResponse ordersResponse) {
@@ -97,19 +111,34 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
+    List<OrdersResponse.Order> newOrderList(OrdersResponse.Order order) {
+        List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+        newOrderList.add(order);
+        return newOrderList;
+    }
+
     void indexOrdersBySymbol() {
-        Map<String, List<OrdersResponse.Order>> newSymbolToOrdersIndex = new HashMap<>();
+        Map<String, List<OrdersResponse.Order>> newSymbolToBuyOrdersIndex = new HashMap<>();
+        Map<String, List<OrdersResponse.Order>> newSymbolToSellOrdersIndex = new HashMap<>();
         for (Map.Entry<Long, OrdersResponse.Order> entry : orderCache.asMap().entrySet()) {
             OrdersResponse.Order order = entry.getValue();
-            if (newSymbolToOrdersIndex.containsKey(order.getSymbol())) {
-                newSymbolToOrdersIndex.get(order.getSymbol()).add(order);
-            } else {
-                List<OrdersResponse.Order> newOrderList = new LinkedList<>();
-                newOrderList.add(order);
-                newSymbolToOrdersIndex.put(order.getSymbol(), newOrderList);
+            String action = order.getOrderDetailList().get(0).getInstrumentList().get(0).getOrderAction();
+            if (action.equals("BUY")) {
+                if (newSymbolToBuyOrdersIndex.containsKey(order.getSymbol())) {
+                    newSymbolToBuyOrdersIndex.get(order.getSymbol()).add(order);
+                } else {
+                    newSymbolToBuyOrdersIndex.put(order.getSymbol(), newOrderList(order));
+                }
+            } else if (action.equals("SELL")) {
+                if (newSymbolToSellOrdersIndex.containsKey(order.getSymbol())) {
+                    newSymbolToSellOrdersIndex.get(order.getSymbol()).add(order);
+                } else {
+                    newSymbolToSellOrdersIndex.put(order.getSymbol(), newOrderList(order));
+                }
             }
         }
-        symbolToOrdersIndex = newSymbolToOrdersIndex;
+        symbolToBuyOrdersIndex = newSymbolToBuyOrdersIndex;
+        symbolToSellOrdersIndex = newSymbolToSellOrdersIndex;
     }
 
     public static void init() {
@@ -160,7 +189,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
             orderCache.cleanUp();
             LOG.info("Fetched orders data, duration={}ms orders={}",
-                    System.currentTimeMillis() - timeStartedMillis, getOrderCache().size());
+                    System.currentTimeMillis() - timeStartedMillis, orderCache.size());
             indexOrdersBySymbol();
         } catch (Exception e) {
             LOG.info("Failed to fetch orders data, duration={}ms",
