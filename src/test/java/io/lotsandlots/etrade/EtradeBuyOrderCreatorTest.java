@@ -11,7 +11,7 @@ import java.util.concurrent.ExecutorService;
 @Test(groups = {"unit"})
 public class EtradeBuyOrderCreatorTest {
 
-    public void testHandlePut() {
+    public void testHandleSymbolToLotsIndexPut() {
         EtradeBuyOrderCreator orderCreator = new EtradeBuyOrderCreator();
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
@@ -30,7 +30,7 @@ public class EtradeBuyOrderCreatorTest {
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
     }
 
-    public void testHandlePutNotEnoughCashBalance() {
+    public void testHandleSymbolToLotsIndexPutWithNotEnoughCashBalance() {
         EtradeBuyOrderCreator orderCreator = new EtradeBuyOrderCreator();
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
