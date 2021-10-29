@@ -51,7 +51,7 @@ public class EtradePortfolioDataFetcherTest {
         portfolioResponse.setAccountPortfolioList(accountPortfolioList);
 
         Mockito.doReturn(portfolioResponse).when(mockResponseEntity).getBody();
-        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).execute(Mockito.any(Message.class), Mockito.any());
+        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).doGet(Mockito.any(Message.class), Mockito.any());
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
         SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().newSecurityContext();
@@ -84,7 +84,7 @@ public class EtradePortfolioDataFetcherTest {
         positionLotsResponse.setPositionLots(positionLots);
 
         Mockito.doReturn(positionLotsResponse).when(mockResponseEntity).getBody();
-        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).execute(Mockito.any(Message.class), Mockito.any());
+        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).doGet(Mockito.any(Message.class), Mockito.any());
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
         SecurityContext securityContext = EtradeRestTemplateFactory.getTemplateFactory().newSecurityContext();

@@ -58,7 +58,7 @@ public class EtradeOrdersDataFetcherTest {
         ResponseEntity<OrdersResponse> mockResponseEntity = Mockito.mock(ResponseEntity.class);
         Mockito.doReturn(testResponse).when(mockResponseEntity).getBody();
         EtradeRestTemplate mockRestTemplate = Mockito.mock(EtradeRestTemplate.class);
-        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).execute(Mockito.any(Message.class), Mockito.any());
+        Mockito.doReturn(mockResponseEntity).when(mockRestTemplate).doGet(Mockito.any(Message.class), Mockito.any());
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 

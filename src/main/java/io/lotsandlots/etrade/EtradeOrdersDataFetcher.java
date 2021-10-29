@@ -39,7 +39,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         setOAuthHeader(securityContext, ordersMessage);
         ResponseEntity<OrdersResponse> ordersResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
-                .execute(ordersMessage, OrdersResponse.class);
+                .doGet(ordersMessage, OrdersResponse.class);
         OrdersResponse ordersResponse = ordersResponseResponseEntity.getBody();
         if (ordersResponse == null) {
             throw new RuntimeException("Empty orders response");

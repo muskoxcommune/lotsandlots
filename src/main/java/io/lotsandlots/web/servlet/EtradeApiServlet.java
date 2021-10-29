@@ -25,7 +25,7 @@ public interface EtradeApiServlet extends EtradeOAuthClient {
             ResponseEntity<String> responseEntity = EtradeRestTemplateFactory
                     .getTemplateFactory()
                     .newCustomRestTemplate()
-                    .execute(message, String.class);
+                    .doGet(message, String.class);
             String responseBody = responseEntity.getBody();
             if (StringUtils.isBlank(responseBody)) {
                 throw new RuntimeException("Empty response");

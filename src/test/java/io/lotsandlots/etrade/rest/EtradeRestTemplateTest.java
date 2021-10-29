@@ -35,12 +35,11 @@ public class EtradeRestTemplateTest {
         EtradeRestTemplate restTemplate = Mockito.spy(new EtradeRestTemplate(requestFactory));
         Mockito.doAnswer((Answer<ResponseEntity<String>>) invocation -> {
             Assert.assertEquals(invocation.getArgument(0, String.class), testUrl);
-            Assert.assertEquals(invocation.getArgument(1, HttpMethod.class), HttpMethod.GET);
-            Assert.assertTrue(invocation.getArgument(2, HttpEntity.class).getHeaders().containsKey("Authorization"));
-            Assert.assertEquals(invocation.getArgument(3, Class.class), responseClass);
+            Assert.assertTrue(invocation.getArgument(1, HttpEntity.class).getHeaders().containsKey("Authorization"));
+            Assert.assertEquals(invocation.getArgument(2, Class.class), responseClass);
             return Mockito.mock(ResponseEntity.class);
-        }).when(restTemplate).doExchange(
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        restTemplate.execute(testMessage, responseClass);
+        }).when(restTemplate).doGetExchange(
+                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        restTemplate.doGet(testMessage, responseClass);
     }
 }

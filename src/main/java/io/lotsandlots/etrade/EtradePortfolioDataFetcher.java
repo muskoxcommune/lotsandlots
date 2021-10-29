@@ -66,7 +66,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         setOAuthHeader(securityContext, portfolioMessage);
         ResponseEntity<PortfolioResponse> portfolioResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
-                .execute(portfolioMessage, PortfolioResponse.class);
+                .doGet(portfolioMessage, PortfolioResponse.class);
         PortfolioResponse portfolioResponse = portfolioResponseResponseEntity.getBody();
         if (portfolioResponse == null) {
             throw new RuntimeException("Empty portfolio response");
@@ -112,7 +112,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         setOAuthHeader(securityContext, lotsMessage);
         ResponseEntity<PositionLotsResponse> positionLotsResponseResponseEntity = getRestTemplateFactory()
                 .newCustomRestTemplate()
-                .execute(lotsMessage, PositionLotsResponse.class);
+                .doGet(lotsMessage, PositionLotsResponse.class);
         PositionLotsResponse positionLotsResponse = positionLotsResponseResponseEntity.getBody();
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
