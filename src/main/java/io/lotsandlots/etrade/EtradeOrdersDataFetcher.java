@@ -182,6 +182,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             LOG.warn("Please configure etrade.accountIdKey");
             return;
         }
+        LOG.info("Fetching orders data");
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchOrdersResponse(securityContext, null);

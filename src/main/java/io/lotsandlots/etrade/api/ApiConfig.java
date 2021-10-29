@@ -5,6 +5,8 @@ public class ApiConfig {
     private String accountIdKey;
     private String accountListUrl;
     private String baseUrl;
+    private String ordersCancelUrl;
+    private String ordersPreviewUrl;
     private String ordersQueryString;
     private String ordersUrl;
     private String portfolioQueryString;
@@ -29,6 +31,20 @@ public class ApiConfig {
     }
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getOrdersCancelUrl() {
+        return ordersCancelUrl;
+    }
+    public void setOrdersCancelUrl(String ordersCancelUrl) {
+        this.ordersCancelUrl = ordersCancelUrl;
+    }
+
+    public String getOrdersPreviewUrl() {
+        return ordersPreviewUrl;
+    }
+    public void setOrdersPreviewUrl(String ordersPreviewUrl) {
+        this.ordersPreviewUrl = ordersPreviewUrl;
     }
 
     public String getOrdersQueryString() {

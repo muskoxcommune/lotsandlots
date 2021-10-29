@@ -45,6 +45,10 @@ public class EtradeRestTemplateFactory {
             apiConfig = new ApiConfig();
             if (CONFIG.hasPath("etrade.accountIdKey")) {
                 apiConfig.setAccountIdKey(CONFIG.getString("etrade.accountIdKey"));
+                apiConfig.setOrdersCancelUrl(CONFIG.getString("etrade.ordersCancelUrl")
+                        .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
+                apiConfig.setOrdersPreviewUrl(CONFIG.getString("etrade.ordersPreviewUrl")
+                        .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
                 apiConfig.setOrdersUrl(CONFIG.getString("etrade.ordersUrl")
                         .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
                 apiConfig.setPortfolioUrl(CONFIG.getString("etrade.portfolioUrl")
