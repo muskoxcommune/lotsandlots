@@ -2,6 +2,7 @@ package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
 import io.lotsandlots.etrade.api.ApiConfig;
+import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.EtradeRestTemplate;
@@ -30,22 +31,22 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testFetchOrdersResponse() throws GeneralSecurityException, UnsupportedEncodingException {
         Long testTimeMillis = System.currentTimeMillis();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
         product1.setSymbol("TEST1");
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
         instrument1.setFilledQuantity(0.0F);
         instrument1.setOrderAction("SELL");
         instrument1.setOrderedQuantity(10L);
         instrument1.setProduct(product1);
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
         instrumentList1.add(instrument1);
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
+        OrderDetail orderDetail1 = new OrderDetail();
         orderDetail1.setInstrumentList(instrumentList1);
         orderDetail1.setLimitPrice(99.99F);
         orderDetail1.setOrderValue(999.90F);
         orderDetail1.setPlacedTime(testTimeMillis);
         orderDetail1.setStatus("OPEN");
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         orderDetailList1.add(orderDetail1);
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         order1.setOrderDetailList(orderDetailList1);
@@ -82,13 +83,13 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testHandleOrderResponse2L() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST2");
@@ -114,13 +115,13 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testHandleOrderResponse3L() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST3");
@@ -146,13 +147,13 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testHandleOrderResponse4L() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST4");
@@ -177,13 +178,13 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testHandleOrderResponse5L() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST5");
@@ -208,13 +209,13 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testHandleOrderResponse6L() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST6");
@@ -239,15 +240,15 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testIndexOrdersBySymbol() {
         List<OrdersResponse.Order> testOrderList = new LinkedList<>();
-        List<OrdersResponse.OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
-        List<OrdersResponse.OrderDetail> orderDetailList1 = new LinkedList<>();
+        List<OrderDetail.Instrument> instrumentList1 = new LinkedList<>();
+        List<OrderDetail> orderDetailList1 = new LinkedList<>();
         OrdersResponse testResponse = new OrdersResponse();
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrdersResponse.Order order2 = new OrdersResponse.Order();
         OrdersResponse.Order order3 = new OrdersResponse.Order();
-        OrdersResponse.OrderDetail orderDetail1 = new OrdersResponse.OrderDetail();
-        OrdersResponse.OrderDetail.Instrument instrument1 = new OrdersResponse.OrderDetail.Instrument();
-        OrdersResponse.OrderDetail.Instrument.Product product1 = new OrdersResponse.OrderDetail.Instrument.Product();
+        OrderDetail orderDetail1 = new OrderDetail();
+        OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
+        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST7");

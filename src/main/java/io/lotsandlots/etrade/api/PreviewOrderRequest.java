@@ -10,7 +10,7 @@ public class PreviewOrderRequest {
     private String clientOrderId = UUID.randomUUID().toString();
 
     @JsonProperty("order")
-    private List<OrdersResponse.OrderDetail> orderDetailList;
+    private List<OrderDetail> orderDetailList;
 
     private String orderType;
 
@@ -21,10 +21,10 @@ public class PreviewOrderRequest {
         this.clientOrderId = clientOrderId;
     }
 
-    public List<OrdersResponse.OrderDetail> getOrderDetailList() {
+    public List<OrderDetail> getOrderDetailList() {
         return orderDetailList;
     }
-    public void setOrderDetailList(List<OrdersResponse.OrderDetail> orderDetailList) {
+    public void setOrderDetailList(List<OrderDetail> orderDetailList) {
         this.orderDetailList = orderDetailList;
     }
 

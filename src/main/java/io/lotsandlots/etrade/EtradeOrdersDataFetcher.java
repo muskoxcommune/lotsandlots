@@ -2,6 +2,7 @@ package io.lotsandlots.etrade;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
@@ -81,15 +82,15 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     void handleOrderResponse(OrdersResponse ordersResponse) {
         for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
-            List<OrdersResponse.OrderDetail> orderDetails = order.getOrderDetailList();
+            List<OrderDetail> orderDetails = order.getOrderDetailList();
             if (orderDetails.size() == 1) {
-                OrdersResponse.OrderDetail orderDetail = orderDetails.get(0);
+                OrderDetail orderDetail = orderDetails.get(0);
                 if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
                     continue;
                 }
-                List<OrdersResponse.OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
+                List<OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
                 if (instruments.size() == 1) {
-                    OrdersResponse.OrderDetail.Instrument instrument = instruments.get(0);
+                    OrderDetail.Instrument instrument = instruments.get(0);
                     if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
                         String symbol = instrument.getProduct().getSymbol();
                         order.setFilledQuantity(instrument.getFilledQuantity());
