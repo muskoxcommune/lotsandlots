@@ -2,16 +2,17 @@ package io.lotsandlots.etrade.api;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * https://apisb.etrade.com/docs/api/order/api-order-v1.html#/definitions/PreviewOrderRequest
+ */
 public class PreviewOrderRequest {
 
-    private String clientOrderId = UUID.randomUUID().toString();
-
-    @JsonProperty("order")
+    private String clientOrderId;
+    @JsonProperty("Order")
     private List<OrderDetail> orderDetailList;
-
     private String orderType;
 
     public String getClientOrderId() {
@@ -26,6 +27,10 @@ public class PreviewOrderRequest {
     }
     public void setOrderDetailList(List<OrderDetail> orderDetailList) {
         this.orderDetailList = orderDetailList;
+    }
+    public void setOrderDetailList(OrderDetail orderDetail) {
+        this.orderDetailList = new ArrayList<>();
+        this.orderDetailList.add(orderDetail);
     }
 
     public String getOrderType() {

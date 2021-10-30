@@ -6,18 +6,10 @@ import java.util.List;
 
 public class PortfolioResponse {
 
-    @JsonProperty("Totals")
-    private Totals totals;
-
     @JsonProperty("AccountPortfolio")
     private List<AccountPortfolio> accountPortfolioList;
-
-    public Totals getTotals() {
-        return totals;
-    }
-    public void setTotals(Totals totals) {
-        this.totals = totals;
-    }
+    @JsonProperty("Totals")
+    private Totals totals;
 
     public AccountPortfolio getAccountPortfolio() {
         return accountPortfolioList.get(0);
@@ -27,6 +19,13 @@ public class PortfolioResponse {
     }
     public void setAccountPortfolioList(List<AccountPortfolio> accountPortfolioList) {
         this.accountPortfolioList = accountPortfolioList;
+    }
+
+    public Totals getTotals() {
+        return totals;
+    }
+    public void setTotals(Totals totals) {
+        this.totals = totals;
     }
 
     public static class Totals {

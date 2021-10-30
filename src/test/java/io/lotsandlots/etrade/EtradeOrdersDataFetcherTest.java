@@ -31,7 +31,7 @@ public class EtradeOrdersDataFetcherTest {
 
     public void testFetchOrdersResponse() throws GeneralSecurityException, UnsupportedEncodingException {
         Long testTimeMillis = System.currentTimeMillis();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
         product1.setSymbol("TEST1");
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
         instrument1.setFilledQuantity(0.0F);
@@ -89,7 +89,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST2");
@@ -121,7 +121,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST3");
@@ -153,7 +153,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST4");
@@ -184,7 +184,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST5");
@@ -215,7 +215,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order1 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST6");
@@ -248,7 +248,7 @@ public class EtradeOrdersDataFetcherTest {
         OrdersResponse.Order order3 = new OrdersResponse.Order();
         OrderDetail orderDetail1 = new OrderDetail();
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
-        OrderDetail.Instrument.Product product1 = new OrderDetail.Instrument.Product();
+        OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("TEST7");

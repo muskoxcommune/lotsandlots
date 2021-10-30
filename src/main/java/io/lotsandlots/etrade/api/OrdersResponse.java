@@ -8,7 +8,6 @@ public class OrdersResponse {
 
     Long marker;
     String next;
-
     @JsonProperty("Order")
     List<Order> orderList;
 
