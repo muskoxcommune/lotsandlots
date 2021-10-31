@@ -1,5 +1,9 @@
 package io.lotsandlots.web.servlet;
 
+import io.lotsandlots.etrade.EtradeBuyOrderCreator;
+import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
+import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
+import io.lotsandlots.etrade.EtradeSellOrderCreator;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
@@ -38,6 +42,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeAuthorizationServlet.class);
 
+    private boolean isInitialized = false;
     private Message tokenMessage;
 
     private OAuthToken getOauthToken(
@@ -117,6 +122,14 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                 securityContext.setInitialized(true);
                 response.getWriter().print("Authorization completed at "
                         + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()));
+                if (!isInitialized) {
+                    // Initialize data fetchers
+                    EtradeOrdersDataFetcher.init();
+                    EtradePortfolioDataFetcher.init();
+                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeBuyOrderCreator());
+                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderCreator());
+                    isInitialized = true;
+                }
             } catch (Exception e) {
                 LOG.error("Failed to initialize SecurityContext", e);
                 response.sendError(500, "Unable to complete authorization");
