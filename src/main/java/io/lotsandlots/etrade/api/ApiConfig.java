@@ -6,6 +6,7 @@ public class ApiConfig {
     private String accountListUrl;
     private String baseUrl;
     private String ordersCancelUrl;
+    private String ordersPlaceUrl;
     private String ordersPreviewUrl;
     private String ordersQueryString;
     private String ordersUrl;
@@ -38,6 +39,13 @@ public class ApiConfig {
     }
     public void setOrdersCancelUrl(String ordersCancelUrl) {
         this.ordersCancelUrl = ordersCancelUrl;
+    }
+
+    public String getOrdersPlaceUrl() {
+        return ordersPlaceUrl;
+    }
+    public void setOrdersPlaceUrl(String ordersPlaceUrl) {
+        this.ordersPlaceUrl = ordersPlaceUrl;
     }
 
     public String getOrdersPreviewUrl() {

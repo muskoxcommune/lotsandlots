@@ -47,6 +47,8 @@ public class EtradeRestTemplateFactory {
                 apiConfig.setAccountIdKey(CONFIG.getString("etrade.accountIdKey"));
                 apiConfig.setOrdersCancelUrl(CONFIG.getString("etrade.ordersCancelUrl")
                         .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
+                apiConfig.setOrdersPlaceUrl(CONFIG.getString("etrade.ordersPlaceUrl")
+                        .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
                 apiConfig.setOrdersPreviewUrl(CONFIG.getString("etrade.ordersPreviewUrl")
                         .replace("<etrade.accountIdKey>", apiConfig.getAccountIdKey()));
                 apiConfig.setOrdersUrl(CONFIG.getString("etrade.ordersUrl")

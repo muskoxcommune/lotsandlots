@@ -10,12 +10,6 @@ import java.util.List;
 public class PreviewOrderResponse {
 
     String accountId;
-    String clientOrderId;
-    String commissionMessage;
-    @JsonProperty("dstFlag")
-    Boolean dayLightSavingsTimeFlag;
-    @JsonProperty("marginLevelCd")
-    String marginLevelCode;
     @JsonProperty("Order")
     List<OrderDetail> orderDetailList;
     String orderType;
@@ -30,34 +24,6 @@ public class PreviewOrderResponse {
     }
     public void setAccountId(String accountId) {
         this.accountId = accountId;
-    }
-
-    public String getClientOrderId() {
-        return clientOrderId;
-    }
-    public void setClientOrderId(String clientOrderId) {
-        this.clientOrderId = clientOrderId;
-    }
-
-    public String getCommissionMessage() {
-        return commissionMessage;
-    }
-    public void setCommissionMessage(String commissionMessage) {
-        this.commissionMessage = commissionMessage;
-    }
-
-    public Boolean getDayLightSavingsTimeFlag() {
-        return dayLightSavingsTimeFlag;
-    }
-    public void setDayLightSavingsTimeFlag(Boolean dayLightSavingsTimeFlag) {
-        this.dayLightSavingsTimeFlag = dayLightSavingsTimeFlag;
-    }
-
-    public String getMarginLevelCode() {
-        return marginLevelCode;
-    }
-    public void setMarginLevelCode(String marginLevelCode) {
-        this.marginLevelCode = marginLevelCode;
     }
 
     public List<OrderDetail> getOrderDetailList() {
