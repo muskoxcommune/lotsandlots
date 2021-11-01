@@ -91,7 +91,7 @@ public class OAuth1Helper {
                     queryStringMap.put(p[0], new String[] {p[1]});
                 }
             }
-            if( !queryStringMap.isEmpty()){
+            if (!queryStringMap.isEmpty()){
                 params.putAll(queryStringMap);
             }
         }

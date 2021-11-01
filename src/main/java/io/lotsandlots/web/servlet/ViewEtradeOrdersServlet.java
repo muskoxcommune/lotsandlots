@@ -1,5 +1,7 @@
 package io.lotsandlots.web.servlet;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.util.DateFormatter;
@@ -7,6 +9,8 @@ import io.lotsandlots.util.HtmlHelper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -21,6 +25,9 @@ import java.util.Map;
 public class ViewEtradeOrdersServlet extends HttpServlet {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.00");
+    private static final Logger LOG = LoggerFactory.getLogger(ViewEtradeOrdersServlet.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     @ApiOperation(
             httpMethod = "GET",
@@ -73,7 +80,11 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
             htmlBuilder.append("<td>").append(order.getSymbol()).append("</td>");
             htmlBuilder.append("<td>").append(order.getOrderedQuantity()).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getLimitPrice())).append("</td>");
-            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getOrderValue())).append("</td>");
+            try {
+                htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getOrderValue())).append("</td>");
+            } catch (Exception e) {
+                LOG.error("Order value: {}, order={}", order.getOrderValue(), OBJECT_MAPPER.writeValueAsString(order));
+            }
             htmlBuilder.append("<td>").append(order.getOrderAction()).append("</td>");
             htmlBuilder.append("<td>").append(order.getStatus()).append("</td>");
             htmlBuilder.append("</tr>");

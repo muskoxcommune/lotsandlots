@@ -31,16 +31,28 @@ public class EtradeRestTemplate extends RestTemplate {
         return super.exchange(url, HttpMethod.GET, httpEntity, responseType);
     }
 
-    public <T> ResponseEntity<T> doPost(Message message, String payload, Class<T> classType) {
+    public <T> ResponseEntity<T> doPost(Message message, String payload, Class<T> template) {
         HttpHeaders httpHeaders = httpHeadersFromMessage(message);
         String url = urlStringFromMessage(message);
         LOG.debug("Executing POST Message, url={} headers={} payload={}", url, httpHeaders, payload);
-        return doPost(url, new HttpEntity<>(payload, httpHeaders), classType);
+        return doPostExchange(url, new HttpEntity<>(payload, httpHeaders), template);
     }
 
     @VisibleForTesting
-    <T> ResponseEntity<T> doPost(String url, HttpEntity<String> httpEntity, Class<T> classType) {
-        return super.exchange(url, HttpMethod.POST, httpEntity, classType);
+    <T> ResponseEntity<T> doPostExchange(String url, HttpEntity<String> httpEntity, Class<T> template) {
+        return super.exchange(url, HttpMethod.POST, httpEntity, template);
+    }
+
+    public <T> ResponseEntity<T> doPut(Message message, String payload, Class<T> template) {
+        HttpHeaders httpHeaders = httpHeadersFromMessage(message);
+        String url = urlStringFromMessage(message);
+        LOG.debug("Executing PUT Message, url={} headers={} payload={}", url, httpHeaders, payload);
+        return doPutExchange(url, new HttpEntity<>(payload, httpHeaders), template);
+    }
+
+    @VisibleForTesting
+    <T> ResponseEntity<T> doPutExchange(String url, HttpEntity<String> httpEntity, Class<T> template) {
+        return super.exchange(url, HttpMethod.PUT, httpEntity, template);
     }
 
     HttpHeaders httpHeadersFromMessage(Message message) {

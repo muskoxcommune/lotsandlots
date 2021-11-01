@@ -109,11 +109,11 @@ public class OrderDetail {
         @JsonProperty("Lots")
         Lots lots;
         String orderAction;
-        Long orderedQuantity;
+        Long orderedQuantity; // Set with OrdersResponse
         @JsonProperty("Product")
         Product product;
         @JsonSerialize(using = ToStringSerializer.class)
-        Long quantity;
+        Long quantity; // Set with PlaceOrderResponse
         String quantityType;
 
         public Float getFilledQuantity() {

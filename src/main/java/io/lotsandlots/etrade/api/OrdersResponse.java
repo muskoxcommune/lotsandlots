@@ -38,7 +38,6 @@ public class OrdersResponse {
     public static class Order {
 
         String details;
-        Float filledQuantity; // From Instrument. Not a part of E*Trade's response
         Float limitPrice; // From OrderDetail. Not a part of E*Trade's response
         String orderAction; // From Instrument. Not a part of E*Trade's response
 
@@ -59,13 +58,6 @@ public class OrdersResponse {
         }
         public void setDetails(String details) {
             this.details = details;
-        }
-
-        public Float getFilledQuantity() {
-            return filledQuantity;
-        }
-        public void setFilledQuantity(Float filledQuantity) {
-            this.filledQuantity = filledQuantity;
         }
 
         public Float getLimitPrice() {

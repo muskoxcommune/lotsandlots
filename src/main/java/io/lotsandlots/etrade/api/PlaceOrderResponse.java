@@ -6,18 +6,11 @@ import java.util.List;
 
 public class PlaceOrderResponse {
 
-    Long orderId;
     @JsonProperty("Order")
     List<OrderDetail> orderDetailList;
     @JsonProperty("OrderIds")
     List<OrderId> orderIdList;
-
-    public Long getOrderId() {
-        return orderId;
-    }
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
-    }
+    Long placedTime;
 
     public List<OrderDetail> getOrderDetailList() {
         return orderDetailList;
@@ -33,7 +26,14 @@ public class PlaceOrderResponse {
         this.orderIdList = orderIdList;
     }
 
-    static class OrderId {
+    public Long getPlacedTime() {
+        return placedTime;
+    }
+    public void setPlacedTime(Long placedTime) {
+        this.placedTime = placedTime;
+    }
+
+    public static class OrderId {
 
         Long orderId;
 

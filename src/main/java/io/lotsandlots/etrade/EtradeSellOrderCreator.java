@@ -3,6 +3,7 @@ package io.lotsandlots.etrade;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.cache.Cache;
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.*;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -154,15 +155,41 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                 }
                 // Cancel all existing orders
                 LOG.info("Canceling {} existing sell orders, symbol={}", orderListSize, symbol);
-                for (OrdersResponse.Order order : orderList) {
-                    try {
+                try {
+                    for (OrdersResponse.Order order : orderList) {
+                        CancelOrderRequest cancelOrderRequest = new CancelOrderRequest();
+                        cancelOrderRequest.setOrderId(order.getOrderId());
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("CancelOrderRequest{}", OBJECT_MAPPER.writeValueAsString(cancelOrderRequest));
+                        }
+                        Map<String, CancelOrderRequest> payload = new HashMap<>();
+                        payload.put("CancelOrderRequest", cancelOrderRequest);
+
                         Message orderCancelMessage = new Message();
                         orderCancelMessage.setRequiresOauth(true);
                         orderCancelMessage.setHttpMethod("PUT");
+                        orderCancelMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
                         orderCancelMessage.setUrl(getApiConfig().getOrdersCancelUrl());
                         setOAuthHeader(securityContext, orderCancelMessage);
-                    } catch (Exception e) {
+
+                        ResponseEntity<CancelOrderResponse> cancelOrderResponseEntity =
+                                getRestTemplateFactory()
+                                        .newCustomRestTemplate()
+                                        .doPut(orderCancelMessage,
+                                               OBJECT_MAPPER.writeValueAsString(payload),
+                                               CancelOrderResponse.class);
+                        CancelOrderResponse cancelOrderResponse = cancelOrderResponseEntity.getBody();
+                        if (cancelOrderResponse == null) {
+                            throw new RuntimeException("Empty cancel order response");
+                        } else if (LOG.isDebugEnabled()) {
+                            LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
+                        }
+                        EtradeOrdersDataFetcher.removeOrderFromCache(order.getOrderId());
+                        EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
                     }
+                } catch (Exception e) {
+                    LOG.debug("Failed to cancel all sell orders, symbol={}", symbol, e);
+                    return;
                 }
             } else {
                 LOG.debug("Found 0 orders for {} lots, symbol={}", lotListSize, symbol);
@@ -192,17 +219,17 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                     Map<String, PlaceOrderRequest> payload = new HashMap<>();
                     payload.put("PlaceOrderRequest", placeOrderRequest);
 
-                    Message ordersPlaceMessage = new Message();
-                    ordersPlaceMessage.setRequiresOauth(true);
-                    ordersPlaceMessage.setHttpMethod("POST");
-                    ordersPlaceMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    ordersPlaceMessage.setUrl(getApiConfig().getOrdersPlaceUrl());
-                    setOAuthHeader(securityContext, ordersPlaceMessage);
+                    Message orderPlaceMessage = new Message();
+                    orderPlaceMessage.setRequiresOauth(true);
+                    orderPlaceMessage.setHttpMethod("POST");
+                    orderPlaceMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    orderPlaceMessage.setUrl(getApiConfig().getOrdersPlaceUrl());
+                    setOAuthHeader(securityContext, orderPlaceMessage);
 
                     ResponseEntity<PlaceOrderResponse> placeOrderResponseEntity =
                             getRestTemplateFactory()
                                     .newCustomRestTemplate()
-                                    .doPost(ordersPlaceMessage,
+                                    .doPost(orderPlaceMessage,
                                             OBJECT_MAPPER.writeValueAsString(payload),
                                             PlaceOrderResponse.class);
                     PlaceOrderResponse placeOrderResponse = placeOrderResponseEntity.getBody();
@@ -211,6 +238,21 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                     } else if (LOG.isDebugEnabled()) {
                         LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
                     }
+
+                    OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
+                    OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
+                    OrdersResponse.Order order = new OrdersResponse.Order();
+                    order.setLimitPrice(orderDetail.getLimitPrice());
+                    order.setOrderAction(instrument.getOrderAction());
+                    order.setOrderDetailList(placeOrderResponse.getOrderDetailList());
+                    order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
+                    order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
+                    order.setOrderedQuantity(instrument.getQuantity());
+                    order.setPlacedTime(placeOrderResponse.getPlacedTime());
+                    order.setStatus("OPEN");
+                    order.setSymbol(symbol);
+                    EtradeOrdersDataFetcher.putOrderInCache(order);
+                    EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
                 }
             } catch (Exception e) {
                 LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);

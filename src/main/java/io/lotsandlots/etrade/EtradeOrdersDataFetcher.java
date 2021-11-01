@@ -1,5 +1,6 @@
 package io.lotsandlots.etrade;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.OrderDetail;
@@ -52,6 +53,14 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
+    public static EtradeOrdersDataFetcher getDataFetcher() {
+        return DATA_FETCHER;
+    }
+
+    Cache<Long, OrdersResponse.Order> getOrderCache() {
+        return orderCache;
+    }
+
     public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex() {
         return getSymbolToBuyOrdersIndex(true);
     }
@@ -64,10 +73,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(
             EtradeOrdersDataFetcher dataFetcher) {
         return dataFetcher.symbolToBuyOrdersIndex;
-    }
-
-    Cache<Long, OrdersResponse.Order> getOrderCache() {
-        return orderCache;
     }
 
     public static Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex() {
@@ -93,7 +98,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                     OrderDetail.Instrument instrument = instruments.get(0);
                     if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
                         String symbol = instrument.getProduct().getSymbol();
-                        order.setFilledQuantity(instrument.getFilledQuantity());
                         order.setLimitPrice(orderDetail.getLimitPrice());
                         order.setOrderAction(instrument.getOrderAction());
                         order.setOrderedQuantity(instrument.getOrderedQuantity());
@@ -170,6 +174,18 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
         ordersMessage.setQueryString(ordersQueryString);
         return ordersMessage;
+    }
+
+    public static void putOrderInCache(OrdersResponse.Order order) {
+        DATA_FETCHER.orderCache.put(order.getOrderId(), order);
+    }
+
+    public static void refreshSymbolToOrdersIndexes() {
+        DATA_FETCHER.indexOrdersBySymbol();
+    }
+
+    public static void removeOrderFromCache(Long orderId) {
+        DATA_FETCHER.orderCache.invalidate(orderId);
     }
 
     @Override

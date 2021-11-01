@@ -71,7 +71,6 @@ public class EtradeOrdersDataFetcherTest {
         Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
         OrdersResponse.Order cachedOrder = orderCache.getIfPresent(1L);
         Assert.assertNotNull(cachedOrder);
-        Assert.assertEquals(cachedOrder.getFilledQuantity(), 0.0F);
         Assert.assertEquals(cachedOrder.getLimitPrice(), 99.99F);
         Assert.assertEquals(cachedOrder.getOrderAction(), "SELL");
         Assert.assertEquals(cachedOrder.getOrderValue(), 999.90F);
