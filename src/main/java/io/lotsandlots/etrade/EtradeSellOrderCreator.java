@@ -3,7 +3,7 @@ package io.lotsandlots.etrade;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.cache.Cache;
+import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.*;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -50,6 +50,11 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
         executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots));
     }
 
+    @VisibleForTesting
+    void setExecutor(ExecutorService executor) {
+        this.executor = executor;
+    }
+
     static class SymbolToLotsIndexPutEvent extends EtradeDataFetcher {
 
         private List<PositionLotsResponse.PositionLot> lotList;
@@ -59,6 +64,38 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                                   List<PositionLotsResponse.PositionLot> lotList) {
             this.lotList = lotList;
             this.symbol = symbol;
+        }
+
+        void cancelOrder(SecurityContext securityContext, Long orderId)
+                throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
+            CancelOrderRequest cancelOrderRequest = new CancelOrderRequest();
+            cancelOrderRequest.setOrderId(orderId);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("CancelOrderRequest{}", OBJECT_MAPPER.writeValueAsString(cancelOrderRequest));
+            }
+            Map<String, CancelOrderRequest> payload = new HashMap<>();
+            payload.put("CancelOrderRequest", cancelOrderRequest);
+
+            Message orderCancelMessage = new Message();
+            orderCancelMessage.setRequiresOauth(true);
+            orderCancelMessage.setHttpMethod("PUT");
+            orderCancelMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            orderCancelMessage.setUrl(getApiConfig().getOrdersCancelUrl());
+            setOAuthHeader(securityContext, orderCancelMessage);
+            ResponseEntity<CancelOrderResponse> cancelOrderResponseEntity =
+                    getRestTemplateFactory()
+                            .newCustomRestTemplate()
+                            .doPut(orderCancelMessage,
+                                   OBJECT_MAPPER.writeValueAsString(payload),
+                                   CancelOrderResponse.class);
+            CancelOrderResponse cancelOrderResponse = cancelOrderResponseEntity.getBody();
+            if (cancelOrderResponse == null) {
+                throw new RuntimeException("Empty cancel order response");
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
+            }
+            EtradeOrdersDataFetcher.removeOrderFromCache(orderId);
+            EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
         }
 
         PreviewOrderResponse fetchPreviewOrderResponse(SecurityContext securityContext,
@@ -153,39 +190,10 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                 if (!CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH) {
                     return;
                 }
-                // Cancel all existing orders
                 LOG.info("Canceling {} existing sell orders, symbol={}", orderListSize, symbol);
                 try {
                     for (OrdersResponse.Order order : orderList) {
-                        CancelOrderRequest cancelOrderRequest = new CancelOrderRequest();
-                        cancelOrderRequest.setOrderId(order.getOrderId());
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("CancelOrderRequest{}", OBJECT_MAPPER.writeValueAsString(cancelOrderRequest));
-                        }
-                        Map<String, CancelOrderRequest> payload = new HashMap<>();
-                        payload.put("CancelOrderRequest", cancelOrderRequest);
-
-                        Message orderCancelMessage = new Message();
-                        orderCancelMessage.setRequiresOauth(true);
-                        orderCancelMessage.setHttpMethod("PUT");
-                        orderCancelMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                        orderCancelMessage.setUrl(getApiConfig().getOrdersCancelUrl());
-                        setOAuthHeader(securityContext, orderCancelMessage);
-
-                        ResponseEntity<CancelOrderResponse> cancelOrderResponseEntity =
-                                getRestTemplateFactory()
-                                        .newCustomRestTemplate()
-                                        .doPut(orderCancelMessage,
-                                               OBJECT_MAPPER.writeValueAsString(payload),
-                                               CancelOrderResponse.class);
-                        CancelOrderResponse cancelOrderResponse = cancelOrderResponseEntity.getBody();
-                        if (cancelOrderResponse == null) {
-                            throw new RuntimeException("Empty cancel order response");
-                        } else if (LOG.isDebugEnabled()) {
-                            LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
-                        }
-                        EtradeOrdersDataFetcher.removeOrderFromCache(order.getOrderId());
-                        EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+                        cancelOrder(securityContext, order.getOrderId());
                     }
                 } catch (Exception e) {
                     LOG.debug("Failed to cancel all sell orders, symbol={}", symbol, e);

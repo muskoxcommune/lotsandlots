@@ -1,6 +1,5 @@
 package io.lotsandlots.etrade;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.OrderDetail;
@@ -177,15 +176,21 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     }
 
     public static void putOrderInCache(OrdersResponse.Order order) {
-        DATA_FETCHER.orderCache.put(order.getOrderId(), order);
+        if (DATA_FETCHER != null) {
+            DATA_FETCHER.orderCache.put(order.getOrderId(), order);
+        }
     }
 
     public static void refreshSymbolToOrdersIndexes() {
-        DATA_FETCHER.indexOrdersBySymbol();
+        if (DATA_FETCHER != null) {
+            DATA_FETCHER.indexOrdersBySymbol();
+        }
     }
 
     public static void removeOrderFromCache(Long orderId) {
-        DATA_FETCHER.orderCache.invalidate(orderId);
+        if (DATA_FETCHER != null) {
+            DATA_FETCHER.orderCache.invalidate(orderId);
+        }
     }
 
     @Override
