@@ -40,7 +40,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
 
         List<OrdersResponse.Order> includedOrders = new LinkedList<>();
         for (Map.Entry<String, List<OrdersResponse.Order>> entry :
-                EtradeOrdersDataFetcher.getSymbolToSellOrdersIndex().entrySet()) {
+                EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex().entrySet()) {
             List<OrdersResponse.Order> orders = entry.getValue();
             if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
                 continue;

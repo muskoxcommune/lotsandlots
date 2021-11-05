@@ -128,6 +128,58 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
             return previewOrderResponse;
         }
 
+        void placeOrder(SecurityContext securityContext,
+                        String clientOrderId,
+                        PreviewOrderRequest previewOrderRequest,
+                        PreviewOrderResponse previewOrderResponse)
+                throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
+            PlaceOrderRequest placeOrderRequest = new PlaceOrderRequest();
+            placeOrderRequest.setClientOrderId(clientOrderId);
+            placeOrderRequest.setOrderDetailList(previewOrderRequest.getOrderDetailList());
+            placeOrderRequest.setOrderType("EQ");
+            placeOrderRequest.setPreviewIdList(previewOrderResponse.getPreviewIdList());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("PlaceOrderRequest{}", OBJECT_MAPPER.writeValueAsString(placeOrderRequest));
+            }
+            Map<String, PlaceOrderRequest> payload = new HashMap<>();
+            payload.put("PlaceOrderRequest", placeOrderRequest);
+
+            Message orderPlaceMessage = new Message();
+            orderPlaceMessage.setRequiresOauth(true);
+            orderPlaceMessage.setHttpMethod("POST");
+            orderPlaceMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            orderPlaceMessage.setUrl(getApiConfig().getOrdersPlaceUrl());
+            setOAuthHeader(securityContext, orderPlaceMessage);
+
+            ResponseEntity<PlaceOrderResponse> placeOrderResponseEntity =
+                    getRestTemplateFactory()
+                            .newCustomRestTemplate()
+                            .doPost(orderPlaceMessage,
+                                    OBJECT_MAPPER.writeValueAsString(payload),
+                                    PlaceOrderResponse.class);
+            PlaceOrderResponse placeOrderResponse = placeOrderResponseEntity.getBody();
+            if (placeOrderResponse == null) {
+                throw new RuntimeException("Empty place order response");
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
+            }
+
+            OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
+            OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
+            OrdersResponse.Order order = new OrdersResponse.Order();
+            order.setLimitPrice(orderDetail.getLimitPrice());
+            order.setOrderAction(instrument.getOrderAction());
+            order.setOrderDetailList(placeOrderResponse.getOrderDetailList());
+            order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
+            order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
+            order.setOrderedQuantity(instrument.getQuantity());
+            order.setPlacedTime(placeOrderResponse.getPlacedTime());
+            order.setStatus("OPEN");
+            order.setSymbol(symbol);
+            EtradeOrdersDataFetcher.putOrderInCache(order);
+            EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+        }
+
         PreviewOrderRequest previewOrderRequestFromPositionLot(PositionLotsResponse.PositionLot positionLot,
                                                                String clientOrderId)
                 throws JsonProcessingException {
@@ -179,7 +231,7 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
             }
             int lotListSize = lotList.size();
             Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
-                    EtradeOrdersDataFetcher.getSymbolToSellOrdersIndex();
+                    EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
             if (symbolToOrdersIndex.containsKey(symbol)) {
                 List<OrdersResponse.Order> orderList = symbolToOrdersIndex.get(symbol);
                 int orderListSize = orderList.size();
@@ -211,56 +263,11 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                             positionLot, clientOrderId);
                     PreviewOrderResponse previewOrderResponse = fetchPreviewOrderResponse(
                             securityContext, previewOrderRequest);
-                    List<PreviewOrderResponse.PreviewId> previewIdList = previewOrderResponse.getPreviewIdList();
-                    if (previewIdList.size() != 1) {
-                        throw new RuntimeException("Expected 1 previewId, got " + previewIdList.size());
+                    int previewIdListSize = previewOrderResponse.getPreviewIdList().size();
+                    if (previewIdListSize != 1) {
+                        throw new RuntimeException("Expected 1 previewId, got " + previewIdListSize);
                     }
-                    // Place order.
-                    PlaceOrderRequest placeOrderRequest = new PlaceOrderRequest();
-                    placeOrderRequest.setClientOrderId(clientOrderId);
-                    placeOrderRequest.setOrderDetailList(previewOrderRequest.getOrderDetailList());
-                    placeOrderRequest.setOrderType("EQ");
-                    placeOrderRequest.setPreviewIdList(previewIdList);
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("PlaceOrderRequest{}", OBJECT_MAPPER.writeValueAsString(placeOrderRequest));
-                    }
-                    Map<String, PlaceOrderRequest> payload = new HashMap<>();
-                    payload.put("PlaceOrderRequest", placeOrderRequest);
-
-                    Message orderPlaceMessage = new Message();
-                    orderPlaceMessage.setRequiresOauth(true);
-                    orderPlaceMessage.setHttpMethod("POST");
-                    orderPlaceMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    orderPlaceMessage.setUrl(getApiConfig().getOrdersPlaceUrl());
-                    setOAuthHeader(securityContext, orderPlaceMessage);
-
-                    ResponseEntity<PlaceOrderResponse> placeOrderResponseEntity =
-                            getRestTemplateFactory()
-                                    .newCustomRestTemplate()
-                                    .doPost(orderPlaceMessage,
-                                            OBJECT_MAPPER.writeValueAsString(payload),
-                                            PlaceOrderResponse.class);
-                    PlaceOrderResponse placeOrderResponse = placeOrderResponseEntity.getBody();
-                    if (placeOrderResponse == null) {
-                        throw new RuntimeException("Empty place order response");
-                    } else if (LOG.isDebugEnabled()) {
-                        LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
-                    }
-
-                    OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
-                    OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
-                    OrdersResponse.Order order = new OrdersResponse.Order();
-                    order.setLimitPrice(orderDetail.getLimitPrice());
-                    order.setOrderAction(instrument.getOrderAction());
-                    order.setOrderDetailList(placeOrderResponse.getOrderDetailList());
-                    order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
-                    order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
-                    order.setOrderedQuantity(instrument.getQuantity());
-                    order.setPlacedTime(placeOrderResponse.getPlacedTime());
-                    order.setStatus("OPEN");
-                    order.setSymbol(symbol);
-                    EtradeOrdersDataFetcher.putOrderInCache(order);
-                    EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+                    placeOrder(securityContext, clientOrderId, previewOrderRequest, previewOrderResponse);
                 }
             } catch (Exception e) {
                 LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);

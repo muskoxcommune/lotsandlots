@@ -1,5 +1,6 @@
 package io.lotsandlots.etrade;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.OrderDetail;
@@ -55,33 +56,42 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     public static EtradeOrdersDataFetcher getDataFetcher() {
         return DATA_FETCHER;
     }
+    @VisibleForTesting
+    public static void setDataFetcher(EtradeOrdersDataFetcher dataFetcher) {
+        DATA_FETCHER = dataFetcher;
+    }
 
+    @VisibleForTesting
     Cache<Long, OrdersResponse.Order> getOrderCache() {
         return orderCache;
     }
 
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex() {
+    public Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex() {
         return getSymbolToBuyOrdersIndex(true);
     }
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
-        if (DATA_FETCHER.symbolToBuyOrdersIndex.size() == 0 && runIfEmpty) {
-            DATA_FETCHER.getScheduledExecutor().submit(DATA_FETCHER);
+    public Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
+        if (symbolToBuyOrdersIndex.size() == 0 && runIfEmpty) {
+            getScheduledExecutor().submit(this);
         }
-        return DATA_FETCHER.symbolToBuyOrdersIndex;
+        return symbolToBuyOrdersIndex;
     }
     public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(
             EtradeOrdersDataFetcher dataFetcher) {
         return dataFetcher.symbolToBuyOrdersIndex;
     }
 
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex() {
+    public Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex() {
         return getSymbolToSellOrdersIndex(true);
     }
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
-        if (DATA_FETCHER.symbolToSellOrdersIndex.size() == 0 && runIfEmpty) {
-            DATA_FETCHER.getScheduledExecutor().submit(DATA_FETCHER);
+    public Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
+        if (symbolToSellOrdersIndex.size() == 0 && runIfEmpty) {
+            getScheduledExecutor().submit(this);
         }
-        return DATA_FETCHER.symbolToSellOrdersIndex;
+        return symbolToSellOrdersIndex;
+    }
+    @VisibleForTesting
+    public void setSymbolToSellOrdersIndex(Map<String, List<OrdersResponse.Order>> symbolToSellOrdersIndex) {
+        this.symbolToSellOrdersIndex = symbolToSellOrdersIndex;
     }
 
     void handleOrderResponse(OrdersResponse ordersResponse) {
@@ -115,12 +125,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    List<OrdersResponse.Order> newOrderList(OrdersResponse.Order order) {
-        List<OrdersResponse.Order> newOrderList = new LinkedList<>();
-        newOrderList.add(order);
-        return newOrderList;
-    }
-
     void indexOrdersBySymbol() {
         Map<String, List<OrdersResponse.Order>> newSymbolToBuyOrdersIndex = new HashMap<>();
         Map<String, List<OrdersResponse.Order>> newSymbolToSellOrdersIndex = new HashMap<>();
@@ -152,6 +156,12 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                     .getScheduledExecutor()
                     .scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
+    }
+
+    List<OrdersResponse.Order> newOrderList(OrdersResponse.Order order) {
+        List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+        newOrderList.add(order);
+        return newOrderList;
     }
 
     Message newOrdersMessage(String marker) {
