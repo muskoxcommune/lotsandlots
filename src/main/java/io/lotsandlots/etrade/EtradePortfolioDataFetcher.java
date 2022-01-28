@@ -23,7 +23,9 @@ import java.util.concurrent.TimeUnit;
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
-    private static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
+
+    public static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
+
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();

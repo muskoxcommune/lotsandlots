@@ -25,6 +25,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
+    public static final Map<String, List<OrdersResponse.Order>> EMPTY_SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
+
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
 
     private final Cache<Long, OrdersResponse.Order> orderCache = CacheBuilder

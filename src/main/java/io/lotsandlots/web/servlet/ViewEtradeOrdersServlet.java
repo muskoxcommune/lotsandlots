@@ -39,14 +39,18 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<OrdersResponse.Order> includedOrders = new LinkedList<>();
-        for (Map.Entry<String, List<OrdersResponse.Order>> entry :
-                EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex().entrySet()) {
-            List<OrdersResponse.Order> orders = entry.getValue();
-            if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
-                continue;
+        EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
+        if (ordersDataFetcher != null) {
+            for (Map.Entry<String, List<OrdersResponse.Order>> entry :
+                    ordersDataFetcher.getSymbolToSellOrdersIndex().entrySet()) {
+                List<OrdersResponse.Order> orders = entry.getValue();
+                if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
+                    continue;
+                }
+                includedOrders.addAll(orders);
             }
-            includedOrders.addAll(orders);
         }
+
         if (pageLength == null) {
             pageLength = "999";
         }

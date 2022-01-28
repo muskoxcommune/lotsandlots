@@ -53,12 +53,17 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 includedLots.add(lowestPricedLot);
             }
         }
+        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
+                EtradeOrdersDataFetcher.EMPTY_SYMBOL_TO_ORDERS_INDEX;
+        EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
+        if (ordersDataFetcher != null) {
+            symbolToOrdersIndex =
+                    EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
+        }
+
         if (pageLength == null) {
             pageLength = "999";
         }
-
-        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
-                EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
 
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");
