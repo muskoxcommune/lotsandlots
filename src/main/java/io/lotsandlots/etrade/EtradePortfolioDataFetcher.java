@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
+    private static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
@@ -140,7 +141,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     }
 
     public static Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
-        return DATA_FETCHER.getSymbolToLotsIndex(true);
+        return (DATA_FETCHER != null) ? DATA_FETCHER.getSymbolToLotsIndex(true) : EMPTY_SYMBOL_TO_LOTS_INDEX;
     }
     Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex(boolean runIfEmpty) {
         if (symbolToLotsIndex.isEmpty() && runIfEmpty) {

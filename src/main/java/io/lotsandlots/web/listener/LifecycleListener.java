@@ -11,6 +11,9 @@ import javax.servlet.ServletContextListener;
 import java.awt.Desktop;
 import java.net.URI;
 
+/**
+ * Listens to ServletContext lifecycle events and initiates startup behavior.
+ */
 public class LifecycleListener implements ServletContextListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(LifecycleListener.class);
@@ -21,9 +24,11 @@ public class LifecycleListener implements ServletContextListener {
         Config etradeConfig = CONFIG.getConfig("etrade");
         if (etradeConfig != null) {
             try {
+                // Until EtradeRestTemplateFactory is initialized, we won't be able to send requests to E*Trade.
                 EtradeRestTemplateFactory.init();
                 LOG.info("Initialized EtradeRestTemplateFactory");
                 if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    // Send to authorize URL to begin auth flow.
                     Desktop.getDesktop().browse(new URI("http://localhost:5000/etrade/authorize"));
                 }
             } catch (Exception e) {

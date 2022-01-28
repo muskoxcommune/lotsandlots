@@ -114,9 +114,15 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getPositionPctOfPortfolio())).append("%</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getTotalPositionCost())).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getMarketValue())).append("</td>");
-            htmlBuilder.append("<td>")
-                    .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
-                    .append("</td>");
+            if (lot.getAcquiredDate() != null) {
+                htmlBuilder.append("<td>")
+                        .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
+                        .append("</td>");
+            } else {
+                htmlBuilder.append("<td>")
+                        .append("null")
+                        .append("</td>");
+            }
             htmlBuilder.append("</tr>");
         }
         htmlBuilder.append("</tbody>");
