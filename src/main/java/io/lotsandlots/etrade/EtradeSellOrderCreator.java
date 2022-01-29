@@ -249,7 +249,7 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
             if (symbolToOrdersIndex.containsKey(symbol)) {
                 List<Order> orderList = symbolToOrdersIndex.get(symbol);
                 int orderListSize = orderList.size();
-                LOG.debug("Found {} orders for {} lots, symbol={}", orderListSize, lotListSize, symbol);
+                LOG.debug("Found {} sell orders for {} lots, symbol={}", orderListSize, lotListSize, symbol);
                 if (orderListSize == lotListSize) {
                     return;
                 }
@@ -266,7 +266,7 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                     return;
                 }
             } else {
-                LOG.debug("Found 0 orders for {} lots, symbol={}", lotListSize, symbol);
+                LOG.debug("Found 0 sell orders for {} lots, symbol={}", lotListSize, symbol);
             }
             // Create orders, then update local caches immediately
             LOG.info("Creating sell orders for {} lots, symbol={}", lotListSize, symbol);

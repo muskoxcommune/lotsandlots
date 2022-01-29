@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService;
 public class EtradeBuyOrderCreatorTest {
 
     public void testHandleSymbolToLotsIndexPut() {
-        EtradeBuyOrderCreator orderCreator = new EtradeBuyOrderCreator();
+        EtradeBuyOrderCreator orderCreator = Mockito.spy(new EtradeBuyOrderCreator());
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
             PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
@@ -25,13 +25,14 @@ public class EtradeBuyOrderCreatorTest {
             Mockito.verify(runnable).getLots();
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
+        Mockito.doReturn(true).when(orderCreator).isBuyOrderCreationEnabled(Mockito.anyString());
         orderCreator.setExecutor(mockExecutor);
         orderCreator.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
     }
 
     public void testHandleSymbolToLotsIndexPutWithNotEnoughCashBalance() {
-        EtradeBuyOrderCreator orderCreator = new EtradeBuyOrderCreator();
+        EtradeBuyOrderCreator orderCreator = Mockito.spy(new EtradeBuyOrderCreator());
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
             PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
@@ -44,6 +45,7 @@ public class EtradeBuyOrderCreatorTest {
             Mockito.verify(runnable, Mockito.times(0)).getLots();
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
+        Mockito.doReturn(true).when(orderCreator).isBuyOrderCreationEnabled(Mockito.anyString());
         orderCreator.setExecutor(mockExecutor);
         orderCreator.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderCreator.SymbolToLotsIndexPutEvent.class));
