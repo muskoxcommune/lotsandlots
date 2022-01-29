@@ -80,8 +80,19 @@ public class EtradeBuyOrderCreator implements
                         lowestPricedLot = lot;
                     }
                 }
-                // If lowestPricedLot is down below threshold, open new buy order.
-                // Update local caches immediately
+                if (lowestPricedLot != null) {
+                    Float lastPrice = lowestPricedLot.getMarketValue() / lowestPricedLot.getRemainingQty();
+                    // If lowestPricedLot is below followPrice, open new buy order.
+                    // Update local caches immediately
+                    if (lastPrice < lowestPricedLot.getFollowPrice()) {
+                        LOG.debug("Lowest {} lot is {}, lastPrice={} followPrice={}",
+                                symbol, lowestPricedLot.getPrice(), lastPrice, lowestPricedLot.getFollowPrice());
+
+                    }
+                }
+            } else {
+                LOG.info("CashBalance below haltBuyOrderCashBalance {} < {}",
+                        totals.getCashBalance(), haltBuyOrderCashBalance);
             }
         }
     }

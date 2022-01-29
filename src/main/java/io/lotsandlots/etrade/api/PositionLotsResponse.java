@@ -22,8 +22,10 @@ public class PositionLotsResponse {
         Float availableQty;
         Float daysGain;
         Float daysGainPct;
+        Float followPrice;
         Integer legNo;
         Float marketValue;
+        Double orderCreationThreshold; // Not a part of E*Trade's response
         Integer orderNo;
         Float originalQty;
         Long positionId;
@@ -68,6 +70,13 @@ public class PositionLotsResponse {
             this.daysGainPct = daysGainPct;
         }
 
+        public Float getFollowPrice() {
+            return followPrice;
+        }
+        public void setFollowPrice(Float followPrice) {
+            this.followPrice = followPrice;
+        }
+
         public Integer getLegNo() {
             return legNo;
         }
@@ -80,6 +89,13 @@ public class PositionLotsResponse {
         }
         public void setMarketValue(Float marketValue) {
             this.marketValue = marketValue;
+        }
+
+        public Double getOrderCreationThreshold() {
+            return orderCreationThreshold;
+        }
+        public void setOrderCreationThreshold(Double orderCreationThreshold) {
+            this.orderCreationThreshold = orderCreationThreshold;
         }
 
         public Integer getOrderNo() {

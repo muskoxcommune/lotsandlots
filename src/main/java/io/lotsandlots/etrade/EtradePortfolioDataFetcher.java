@@ -4,7 +4,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -28,8 +27,8 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
-    public static final Double DEFAULT_SELL_ORDER_CREATION_THRESHOLD = CONFIG.getDouble(
-            "etrade.defaultSellOrderCreationThreshold");
+    public static final Double DEFAULT_ORDER_CREATION_THRESHOLD = CONFIG.getDouble(
+            "etrade.defaultOrderCreationThreshold");
     public static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
@@ -119,10 +118,10 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
-            Double sellOrderCreationThreshold = DEFAULT_SELL_ORDER_CREATION_THRESHOLD;
-            String overrideSellOrderCreationThresholdPath = "etrade.overrideSellOrderCreationThresholds." + symbol;
-            if (CONFIG.hasPath(overrideSellOrderCreationThresholdPath)) {
-                sellOrderCreationThreshold = CONFIG.getDouble(overrideSellOrderCreationThresholdPath);
+            Double orderCreationThreshold = DEFAULT_ORDER_CREATION_THRESHOLD;
+            String overrideOrderCreationThresholdPath = "etrade.overrideOrderCreationThresholds." + symbol;
+            if (CONFIG.hasPath(overrideOrderCreationThresholdPath)) {
+                orderCreationThreshold = CONFIG.getDouble(overrideOrderCreationThresholdPath);
             }
             Integer lotCount = positionLotsResponse.getPositionLots().size();
             for (PositionLotsResponse.PositionLot lot : positionLotsResponse.getPositionLots()) {
@@ -130,7 +129,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setTotalLotCount(lotCount);
                 lot.setTotalPositionCost(position.getTotalCost());
                 lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
-                lot.setTargetPrice(lot.getPrice() * sellOrderCreationThreshold.floatValue());
+                lot.setOrderCreationThreshold(orderCreationThreshold);
+                lot.setFollowPrice(lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
+                lot.setTargetPrice(lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
             }
             symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
             for (SymbolToLotsIndexPutHandler putHandler : symbolToLotsIndexPutHandlers) {
