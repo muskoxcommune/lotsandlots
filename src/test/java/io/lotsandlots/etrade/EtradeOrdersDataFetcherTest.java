@@ -4,6 +4,7 @@ import com.google.common.cache.Cache;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
@@ -68,8 +69,8 @@ public class EtradeOrdersDataFetcherTest {
         dataFetcher.setRestTemplateFactory(mockTemplateFactory);
         dataFetcher.fetchOrdersResponse(securityContext, null);
 
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(1L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(1L);
         Assert.assertNotNull(cachedOrder);
         Assert.assertEquals(cachedOrder.getLimitPrice(), 99.99F);
         Assert.assertEquals(cachedOrder.getOrderAction(), "SELL");
@@ -106,8 +107,8 @@ public class EtradeOrdersDataFetcherTest {
 
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(2L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(2L);
         Assert.assertNotNull(cachedOrder);
         Assert.assertEquals(cachedOrder.getSymbol(), "TEST2");
     }
@@ -138,8 +139,8 @@ public class EtradeOrdersDataFetcherTest {
 
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(3L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(3L);
         Assert.assertNotNull(cachedOrder);
         Assert.assertEquals(cachedOrder.getSymbol(), "TEST3");
     }
@@ -170,8 +171,8 @@ public class EtradeOrdersDataFetcherTest {
 
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(4L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(4L);
         Assert.assertNull(cachedOrder);
     }
 
@@ -201,8 +202,8 @@ public class EtradeOrdersDataFetcherTest {
 
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(5L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(5L);
         Assert.assertNull(cachedOrder);
     }
 
@@ -232,8 +233,8 @@ public class EtradeOrdersDataFetcherTest {
 
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
-        Cache<Long, OrdersResponse.Order> orderCache = dataFetcher.getOrderCache();
-        OrdersResponse.Order cachedOrder = orderCache.getIfPresent(6L);
+        Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
+        Order cachedOrder = orderCache.getIfPresent(6L);
         Assert.assertNull(cachedOrder);
     }
 
@@ -272,7 +273,7 @@ public class EtradeOrdersDataFetcherTest {
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
         dataFetcher.indexOrdersBySymbol();
-        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
+        Map<String, List<Order>> symbolToOrdersIndex =
                 EtradeOrdersDataFetcher.getSymbolToBuyOrdersIndex(dataFetcher);
         Assert.assertTrue(symbolToOrdersIndex.containsKey("TEST7"));
         Assert.assertEquals(symbolToOrdersIndex.get("TEST7").size(), 3);

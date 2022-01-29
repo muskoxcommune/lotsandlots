@@ -3,10 +3,13 @@ package io.lotsandlots.etrade;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
+import io.lotsandlots.util.ConfigWrapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,8 +25,11 @@ import java.util.concurrent.TimeUnit;
 
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
+    private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
+    public static final Double DEFAULT_SELL_ORDER_CREATION_THRESHOLD = CONFIG.getDouble(
+            "etrade.defaultSellOrderCreationThreshold");
     public static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
@@ -88,14 +94,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             PortfolioResponse.AccountPortfolio accountPortfolio = portfolioResponse.getAccountPortfolio();
             for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
                 String symbol = freshPositionData.getSymbolDescription();
-
-                PortfolioResponse.Position cachedPositionData = positionCache.getIfPresent(symbol);
-                if (cachedPositionData == null
-                        // Market value will change throughout a trading session. While trading is ongoing,
-                        // we should refresh data regularly.
-                        || !cachedPositionData.getMarketValue().equals(freshPositionData.getMarketValue())) {
-                    fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
-                }
+                fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                 positionCache.put(symbol, freshPositionData);
             }
             if (accountPortfolio.hasNextPageNo()) {
@@ -120,13 +119,18 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
+            Double sellOrderCreationThreshold = DEFAULT_SELL_ORDER_CREATION_THRESHOLD;
+            String overrideSellOrderCreationThresholdPath = "etrade.overrideSellOrderCreationThresholds." + symbol;
+            if (CONFIG.hasPath(overrideSellOrderCreationThresholdPath)) {
+                sellOrderCreationThreshold = CONFIG.getDouble(overrideSellOrderCreationThresholdPath);
+            }
             Integer lotCount = positionLotsResponse.getPositionLots().size();
             for (PositionLotsResponse.PositionLot lot : positionLotsResponse.getPositionLots()) {
                 lot.setSymbol(symbol);
                 lot.setTotalLotCount(lotCount);
                 lot.setTotalPositionCost(position.getTotalCost());
                 lot.setPositionPctOfPortfolio(position.getPctOfPortfolio());
-                lot.setTargetPrice(lot.getPrice() * 1.03F);
+                lot.setTargetPrice(lot.getPrice() * sellOrderCreationThreshold.floatValue());
             }
             symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
             for (SymbolToLotsIndexPutHandler putHandler : symbolToLotsIndexPutHandlers) {

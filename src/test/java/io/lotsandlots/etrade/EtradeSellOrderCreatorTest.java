@@ -1,6 +1,7 @@
 package io.lotsandlots.etrade;
 
 import io.lotsandlots.etrade.api.*;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
@@ -84,11 +85,11 @@ public class EtradeSellOrderCreatorTest {
     }
 
     public void testRun() throws Exception {
-        OrdersResponse.Order order1 = new OrdersResponse.Order();
+        Order order1 = new Order();
         order1.setOrderId(1L);
-        List<OrdersResponse.Order> orderList = new ArrayList<>();
+        List<Order> orderList = new ArrayList<>();
         orderList.add(order1);
-        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex = Mockito.spy(new HashMap<>());
+        Map<String, List<Order>> symbolToOrdersIndex = Mockito.spy(new HashMap<>());
         symbolToOrdersIndex.put("ABC", orderList);
 
         EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());

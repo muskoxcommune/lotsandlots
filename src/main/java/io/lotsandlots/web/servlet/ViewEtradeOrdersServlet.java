@@ -3,7 +3,7 @@ package io.lotsandlots.web.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
-import io.lotsandlots.etrade.api.OrdersResponse;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
 import io.swagger.annotations.Api;
@@ -38,16 +38,33 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String pageLength = request.getParameter("pageLength");
         String symbol = request.getParameter("symbol");
 
-        List<OrdersResponse.Order> includedOrders = new LinkedList<>();
+        List<Order> ordersToDisplay = new LinkedList<>();
         EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
         if (ordersDataFetcher != null) {
-            for (Map.Entry<String, List<OrdersResponse.Order>> entry :
-                    ordersDataFetcher.getSymbolToSellOrdersIndex().entrySet()) {
-                List<OrdersResponse.Order> orders = entry.getValue();
-                if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
-                    continue;
+            if (StringUtils.isBlank(symbol)) {
+                for (List<Order> buyOrders : ordersDataFetcher.getSymbolToBuyOrdersIndex().values()) {
+                    ordersToDisplay.addAll(buyOrders);
                 }
-                includedOrders.addAll(orders);
+                for (List<Order> sellOrders : ordersDataFetcher.getSymbolToSellOrdersIndex().values()) {
+                    ordersToDisplay.addAll(sellOrders);
+                }
+            } else {
+                for (Map.Entry<String, List<Order>> entry :
+                        ordersDataFetcher.getSymbolToBuyOrdersIndex().entrySet()) {
+                    List<Order> buyOrders = entry.getValue();
+                    if (!entry.getKey().equals(symbol.toUpperCase())) {
+                        continue;
+                    }
+                    ordersToDisplay.addAll(buyOrders);
+                }
+                for (Map.Entry<String, List<Order>> entry :
+                        ordersDataFetcher.getSymbolToSellOrdersIndex().entrySet()) {
+                    List<Order> sellOrders = entry.getValue();
+                    if (!entry.getKey().equals(symbol.toUpperCase())) {
+                        continue;
+                    }
+                    ordersToDisplay.addAll(sellOrders);
+                }
             }
         }
 
@@ -76,7 +93,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
                 "status"
         );
         htmlBuilder.append("<tbody>");
-        for (OrdersResponse.Order order : includedOrders) {
+        for (Order order : ordersToDisplay) {
             htmlBuilder.append("<tr>");
             htmlBuilder.append("<td>")
                        .append(DateFormatter.epochSecondsToDateString(order.getPlacedTime() / 1000L))

@@ -5,6 +5,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.util.DateFormatter;
@@ -25,16 +26,16 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
-    public static final Map<String, List<OrdersResponse.Order>> EMPTY_SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
+    public static final Map<String, List<Order>> EMPTY_SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
 
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
 
-    private final Cache<Long, OrdersResponse.Order> orderCache = CacheBuilder
+    private final Cache<Long, Order> orderCache = CacheBuilder
             .newBuilder()
             .expireAfterWrite(90, TimeUnit.SECONDS)
             .build();
-    private Map<String, List<OrdersResponse.Order>> symbolToBuyOrdersIndex = new HashMap<>();
-    private Map<String, List<OrdersResponse.Order>> symbolToSellOrdersIndex = new HashMap<>();
+    private Map<String, List<Order>> symbolToBuyOrdersIndex = new HashMap<>();
+    private Map<String, List<Order>> symbolToSellOrdersIndex = new HashMap<>();
 
     void fetchOrdersResponse(SecurityContext securityContext,
                              String marker)
@@ -64,41 +65,42 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     }
 
     @VisibleForTesting
-    Cache<Long, OrdersResponse.Order> getOrderCache() {
+    Cache<Long, Order> getOrderCache() {
         return orderCache;
     }
 
-    public Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex() {
+    public Map<String, List<Order>> getSymbolToBuyOrdersIndex() {
         return getSymbolToBuyOrdersIndex(true);
     }
-    public Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
+    public Map<String, List<Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
         if (symbolToBuyOrdersIndex.size() == 0 && runIfEmpty) {
             getScheduledExecutor().submit(this);
         }
         return symbolToBuyOrdersIndex;
     }
-    public static Map<String, List<OrdersResponse.Order>> getSymbolToBuyOrdersIndex(
+    @VisibleForTesting
+    public static Map<String, List<Order>> getSymbolToBuyOrdersIndex(
             EtradeOrdersDataFetcher dataFetcher) {
         return dataFetcher.symbolToBuyOrdersIndex;
     }
 
-    public Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex() {
+    public Map<String, List<Order>> getSymbolToSellOrdersIndex() {
         return getSymbolToSellOrdersIndex(true);
     }
-    public Map<String, List<OrdersResponse.Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
+    public Map<String, List<Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
         if (symbolToSellOrdersIndex.size() == 0 && runIfEmpty) {
             getScheduledExecutor().submit(this);
         }
         return symbolToSellOrdersIndex;
     }
     @VisibleForTesting
-    public void setSymbolToSellOrdersIndex(Map<String, List<OrdersResponse.Order>> symbolToSellOrdersIndex) {
+    public void setSymbolToSellOrdersIndex(Map<String, List<Order>> symbolToSellOrdersIndex) {
         this.symbolToSellOrdersIndex = symbolToSellOrdersIndex;
     }
 
     void handleOrderResponse(OrdersResponse ordersResponse) {
-        for (OrdersResponse.Order order : ordersResponse.getOrderList()) {
-            List<OrderDetail> orderDetails = order.getOrderDetailList();
+        for (OrdersResponse.Order ordersResponseOrder : ordersResponse.getOrderList()) {
+            List<OrderDetail> orderDetails = ordersResponseOrder.getOrderDetailList();
             if (orderDetails.size() == 1) {
                 OrderDetail orderDetail = orderDetails.get(0);
                 if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
@@ -108,15 +110,16 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 if (instruments.size() == 1) {
                     OrderDetail.Instrument instrument = instruments.get(0);
                     if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
-                        String symbol = instrument.getProduct().getSymbol();
+                        Order order = new Order();
+                        order.setOrderId(ordersResponseOrder.getOrderId());
                         order.setLimitPrice(orderDetail.getLimitPrice());
                         order.setOrderAction(instrument.getOrderAction());
                         order.setOrderedQuantity(instrument.getOrderedQuantity());
                         order.setOrderValue(orderDetail.getOrderValue());
                         order.setPlacedTime(orderDetail.getPlacedTime());
                         order.setStatus(orderDetail.getStatus());
-                        order.setSymbol(symbol);
-                        orderCache.put(order.getOrderId(), order);
+                        order.setSymbol(instrument.getProduct().getSymbol());
+                        orderCache.put(ordersResponseOrder.getOrderId(), order);
                     }
                 } else {
                     LOG.warn("Expected OrderDetail to include one Instrument");
@@ -128,11 +131,11 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     }
 
     void indexOrdersBySymbol() {
-        Map<String, List<OrdersResponse.Order>> newSymbolToBuyOrdersIndex = new HashMap<>();
-        Map<String, List<OrdersResponse.Order>> newSymbolToSellOrdersIndex = new HashMap<>();
-        for (Map.Entry<Long, OrdersResponse.Order> entry : orderCache.asMap().entrySet()) {
-            OrdersResponse.Order order = entry.getValue();
-            String action = order.getOrderDetailList().get(0).getInstrumentList().get(0).getOrderAction();
+        Map<String, List<Order>> newSymbolToBuyOrdersIndex = new HashMap<>();
+        Map<String, List<Order>> newSymbolToSellOrdersIndex = new HashMap<>();
+        for (Map.Entry<Long, Order> entry : orderCache.asMap().entrySet()) {
+            Order order = entry.getValue();
+            String action = order.getOrderAction();
             if (action.equals("BUY")) {
                 if (newSymbolToBuyOrdersIndex.containsKey(order.getSymbol())) {
                     newSymbolToBuyOrdersIndex.get(order.getSymbol()).add(order);
@@ -160,8 +163,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    List<OrdersResponse.Order> newOrderList(OrdersResponse.Order order) {
-        List<OrdersResponse.Order> newOrderList = new LinkedList<>();
+    List<Order> newOrderList(Order order) {
+        List<Order> newOrderList = new LinkedList<>();
         newOrderList.add(order);
         return newOrderList;
     }
@@ -187,7 +190,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         return ordersMessage;
     }
 
-    public static void putOrderInCache(OrdersResponse.Order order) {
+    public static void putOrderInCache(Order order) {
         if (DATA_FETCHER != null) {
             DATA_FETCHER.orderCache.put(order.getOrderId(), order);
         }

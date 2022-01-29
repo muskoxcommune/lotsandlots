@@ -5,7 +5,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
-import io.lotsandlots.etrade.api.*;
+import io.lotsandlots.etrade.api.CancelOrderRequest;
+import io.lotsandlots.etrade.api.CancelOrderResponse;
+import io.lotsandlots.etrade.api.OrderDetail;
+import io.lotsandlots.etrade.api.PlaceOrderRequest;
+import io.lotsandlots.etrade.api.PlaceOrderResponse;
+import io.lotsandlots.etrade.api.PortfolioResponse;
+import io.lotsandlots.etrade.api.PositionLotsResponse;
+import io.lotsandlots.etrade.api.PreviewOrderRequest;
+import io.lotsandlots.etrade.api.PreviewOrderResponse;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.util.ConfigWrapper;
@@ -33,14 +42,16 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-    private static final Boolean CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH = CONFIG.getBoolean(
+    public static final Boolean CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH = CONFIG.getBoolean(
             "etrade.cancelAllOrdersOnLotsOrdersMismatch");
 
     private ExecutorService executor;
 
     public EtradeSellOrderCreator() {
         executor = DEFAULT_EXECUTOR;
-        LOG.info("Initialized EtradeSellOrderCreator");
+        LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={}",
+                CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH
+        );
     }
 
     @Override
@@ -166,10 +177,9 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
 
             OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
             OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
-            OrdersResponse.Order order = new OrdersResponse.Order();
+            Order order = new Order();
             order.setLimitPrice(orderDetail.getLimitPrice());
             order.setOrderAction(instrument.getOrderAction());
-            order.setOrderDetailList(placeOrderResponse.getOrderDetailList());
             order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
             order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
             order.setOrderedQuantity(instrument.getQuantity());
@@ -230,10 +240,10 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                 return;
             }
             int lotListSize = lotList.size();
-            Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
+            Map<String, List<Order>> symbolToOrdersIndex =
                     EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
             if (symbolToOrdersIndex.containsKey(symbol)) {
-                List<OrdersResponse.Order> orderList = symbolToOrdersIndex.get(symbol);
+                List<Order> orderList = symbolToOrdersIndex.get(symbol);
                 int orderListSize = orderList.size();
                 LOG.debug("Found {} orders for {} lots, symbol={}", orderListSize, lotListSize, symbol);
                 if (orderListSize == lotListSize) {
@@ -244,7 +254,7 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                 }
                 LOG.info("Canceling {} existing sell orders, symbol={}", orderListSize, symbol);
                 try {
-                    for (OrdersResponse.Order order : orderList) {
+                    for (Order order : orderList) {
                         cancelOrder(securityContext, order.getOrderId());
                     }
                 } catch (Exception e) {

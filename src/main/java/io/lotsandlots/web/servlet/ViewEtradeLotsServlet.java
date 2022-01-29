@@ -2,8 +2,8 @@ package io.lotsandlots.web.servlet;
 
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
-import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
+import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
 import io.swagger.annotations.Api;
@@ -53,7 +53,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 includedLots.add(lowestPricedLot);
             }
         }
-        Map<String, List<OrdersResponse.Order>> symbolToOrdersIndex =
+        Map<String, List<Order>> symbolToOrdersIndex =
                 EtradeOrdersDataFetcher.EMPTY_SYMBOL_TO_ORDERS_INDEX;
         EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
         if (ordersDataFetcher != null) {
@@ -108,7 +108,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             if (!symbolToOrdersIndex.containsKey(lot.getSymbol())) {
                 htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISSING</b></p>").append("</td>");
             } else {
-                List<OrdersResponse.Order> orders = symbolToOrdersIndex.get(lot.getSymbol());
+                List<Order> orders = symbolToOrdersIndex.get(lot.getSymbol());
                 if (orders.size() == lot.getTotalLotCount()) {
                     htmlBuilder.append("<td>").append("OK").append("</td>");
                 } else {
