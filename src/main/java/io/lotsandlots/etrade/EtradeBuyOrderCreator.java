@@ -7,6 +7,7 @@ import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.util.ConfigWrapper;
+import io.lotsandlots.util.EmailHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,14 +21,17 @@ public class EtradeBuyOrderCreator implements
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderCreator.class);
+    private static final EmailHelper EMAIL = new EmailHelper();
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
 
-    private Long haltBuyOrderCashBalance;
     private ExecutorService executor;
+    private Long haltBuyOrderCashBalance = 0L;
 
     public EtradeBuyOrderCreator() {
         executor = DEFAULT_EXECUTOR;
-        haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
+        if (CONFIG.hasPath("etrade.haltBuyOrderCashBalance")) {
+            haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
+        }
         LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={}", haltBuyOrderCashBalance);
     }
 
@@ -44,11 +48,10 @@ public class EtradeBuyOrderCreator implements
 
     @VisibleForTesting
     boolean isBuyOrderCreationEnabled(String symbol) {
-        List<String> symbolList = CONFIG.getStringList("etrade.enableBuyOrderCreation");
-        if (symbolList == null) {
-            return false;
+        if (CONFIG.hasPath("etrade.enableBuyOrderCreation")) {
+            return CONFIG.getStringList("etrade.enableBuyOrderCreation").contains(symbol);
         } else {
-            return symbolList.contains(symbol);
+            return false;
         }
     }
 
@@ -105,7 +108,14 @@ public class EtradeBuyOrderCreator implements
                         Map<String, List<Order>> symbolToOrdersIndex =
                                 EtradeOrdersDataFetcher.getDataFetcher().getSymbolToBuyOrdersIndex();
                         if (!symbolToOrdersIndex.containsKey(symbol)) {
-                            // Notify configured phone number
+                            EMAIL.sendMessage(
+                                    "Follow threshold breached",
+                                    String.format(
+                                            "%s: lastPrice=%f, lowestPrice=%f, followPrice=%f",
+                                            symbol,
+                                            lastPrice,
+                                            lowestPricedLot.getPrice(),
+                                            lowestPricedLot.getFollowPrice()));
                             // Create buy order
                             // Update cache and index
                         }

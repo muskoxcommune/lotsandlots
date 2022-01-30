@@ -58,10 +58,19 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
     public void handleSymbolToLotsIndexPut(String symbol,
                                            List<PositionLotsResponse.PositionLot> lots,
                                            PortfolioResponse.Totals totals) {
-        if (CONFIG.getStringList("etrade.skipSellOrderCreation").contains(symbol)) {
+        if (isSellOrderCreationDisabled(symbol)) {
             LOG.debug("Skipping sell order creation, symbol={}", symbol);
         } else {
             executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots));
+        }
+    }
+
+    @VisibleForTesting
+    boolean isSellOrderCreationDisabled(String symbol) {
+        if (CONFIG.hasPath("etrade.disableSellOrderCreation")) {
+            return CONFIG.getStringList("etrade.disableSellOrderCreation").contains(symbol);
+        } else {
+            return false;
         }
     }
 

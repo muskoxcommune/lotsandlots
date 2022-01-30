@@ -26,4 +26,7 @@
     <logger name="io.lotsandlots.etrade.rest.EtradeRestTemplate" level="debug"/>
     -->
     <logger name="io.lotsandlots.etrade.EtradeSellOrderCreator" level="debug"/>
+    <logger name="io.lotsandlots.util.EmailHelper" level="debug"/>
+
+    <logger name="javax.mail.*" level="debug"/>
 </configuration>
