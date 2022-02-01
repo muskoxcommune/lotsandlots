@@ -19,14 +19,13 @@
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
     </root>
-    <logger name="io.lotsandlots.etrade.EtradeBuyOrderCreator" level="debug"/>
+    <logger name="io.lotsandlots.etrade.EtradeBuyOrderController" level="debug"/>
+    <logger name="io.lotsandlots.etrade.EtradeOrderCreator" level="debug"/>
     <logger name="io.lotsandlots.etrade.EtradeOrdersDataFetcher" level="debug"/>
     <logger name="io.lotsandlots.etrade.EtradePortfolioDataFetcher" level="debug"/>
-    <!--
-    <logger name="io.lotsandlots.etrade.rest.EtradeRestTemplate" level="debug"/>
-    -->
-    <logger name="io.lotsandlots.etrade.EtradeSellOrderCreator" level="debug"/>
-    <logger name="io.lotsandlots.util.EmailHelper" level="debug"/>
+    <!-- <logger name="io.lotsandlots.etrade.rest.EtradeRestTemplate" level="debug"/> -->
+    <logger name="io.lotsandlots.etrade.EtradeSellOrderController" level="debug"/>
 
+    <logger name="io.lotsandlots.util.EmailHelper" level="debug"/>
     <logger name="javax.mail.*" level="debug"/>
 </configuration>

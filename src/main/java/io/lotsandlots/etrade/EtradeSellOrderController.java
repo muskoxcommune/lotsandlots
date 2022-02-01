@@ -1,15 +1,11 @@
 package io.lotsandlots.etrade;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.CancelOrderRequest;
 import io.lotsandlots.etrade.api.CancelOrderResponse;
 import io.lotsandlots.etrade.api.OrderDetail;
-import io.lotsandlots.etrade.api.PlaceOrderRequest;
-import io.lotsandlots.etrade.api.PlaceOrderResponse;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.api.PreviewOrderRequest;
@@ -34,20 +30,18 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
+public class EtradeSellOrderController implements EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(5);
-    private static final Logger LOG = LoggerFactory.getLogger(EtradeSellOrderCreator.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    private static final Logger LOG = LoggerFactory.getLogger(EtradeSellOrderController.class);
 
     public static final Boolean CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH = CONFIG.getBoolean(
             "etrade.cancelAllOrdersOnLotsOrdersMismatch");
 
     private ExecutorService executor;
 
-    public EtradeSellOrderCreator() {
+    public EtradeSellOrderController() {
         executor = DEFAULT_EXECUTOR;
         LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={}",
                 CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH
@@ -79,7 +73,7 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
         this.executor = executor;
     }
 
-    static class SymbolToLotsIndexPutEvent extends EtradeDataFetcher {
+    static class SymbolToLotsIndexPutEvent extends EtradeOrderCreator {
 
         private List<PositionLotsResponse.PositionLot> lotList;
         private final String symbol;
@@ -119,87 +113,6 @@ public class EtradeSellOrderCreator implements EtradePortfolioDataFetcher.Symbol
                 LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
             }
             EtradeOrdersDataFetcher.removeOrderFromCache(orderId);
-            EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
-        }
-
-        PreviewOrderResponse fetchPreviewOrderResponse(SecurityContext securityContext,
-                                                       PreviewOrderRequest previewOrderRequest)
-                throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
-
-            Map<String, PreviewOrderRequest> payload = new HashMap<>();
-            payload.put("PreviewOrderRequest", previewOrderRequest);
-
-            Message ordersPreviewMessage = new Message();
-            ordersPreviewMessage.setRequiresOauth(true);
-            ordersPreviewMessage.setHttpMethod("POST");
-            ordersPreviewMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            ordersPreviewMessage.setUrl(getApiConfig().getOrdersPreviewUrl());
-            setOAuthHeader(securityContext, ordersPreviewMessage);
-
-            ResponseEntity<PreviewOrderResponse> previewOrderResponseEntity =
-                    getRestTemplateFactory()
-                            .newCustomRestTemplate()
-                            .doPost(ordersPreviewMessage,
-                                    OBJECT_MAPPER.writeValueAsString(payload),
-                                    PreviewOrderResponse.class);
-            PreviewOrderResponse previewOrderResponse =
-                    previewOrderResponseEntity.getBody();
-            if (previewOrderResponse == null) {
-                throw new RuntimeException("Empty preview order response");
-            } else if (LOG.isDebugEnabled()) {
-                LOG.debug("PreviewOrderResponse{}", OBJECT_MAPPER.writeValueAsString(previewOrderResponse));
-            }
-            return previewOrderResponse;
-        }
-
-        void placeOrder(SecurityContext securityContext,
-                        String clientOrderId,
-                        PreviewOrderRequest previewOrderRequest,
-                        PreviewOrderResponse previewOrderResponse)
-                throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
-            PlaceOrderRequest placeOrderRequest = new PlaceOrderRequest();
-            placeOrderRequest.setClientOrderId(clientOrderId);
-            placeOrderRequest.setOrderDetailList(previewOrderRequest.getOrderDetailList());
-            placeOrderRequest.setOrderType("EQ");
-            placeOrderRequest.setPreviewIdList(previewOrderResponse.getPreviewIdList());
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("PlaceOrderRequest{}", OBJECT_MAPPER.writeValueAsString(placeOrderRequest));
-            }
-            Map<String, PlaceOrderRequest> payload = new HashMap<>();
-            payload.put("PlaceOrderRequest", placeOrderRequest);
-
-            Message orderPlaceMessage = new Message();
-            orderPlaceMessage.setRequiresOauth(true);
-            orderPlaceMessage.setHttpMethod("POST");
-            orderPlaceMessage.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            orderPlaceMessage.setUrl(getApiConfig().getOrdersPlaceUrl());
-            setOAuthHeader(securityContext, orderPlaceMessage);
-
-            ResponseEntity<PlaceOrderResponse> placeOrderResponseEntity =
-                    getRestTemplateFactory()
-                            .newCustomRestTemplate()
-                            .doPost(orderPlaceMessage,
-                                    OBJECT_MAPPER.writeValueAsString(payload),
-                                    PlaceOrderResponse.class);
-            PlaceOrderResponse placeOrderResponse = placeOrderResponseEntity.getBody();
-            if (placeOrderResponse == null) {
-                throw new RuntimeException("Empty place order response");
-            } else if (LOG.isDebugEnabled()) {
-                LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
-            }
-
-            OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
-            OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
-            Order order = new Order();
-            order.setLimitPrice(orderDetail.getLimitPrice());
-            order.setOrderAction(instrument.getOrderAction());
-            order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
-            order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
-            order.setOrderedQuantity(instrument.getQuantity());
-            order.setPlacedTime(placeOrderResponse.getPlacedTime());
-            order.setStatus("OPEN");
-            order.setSymbol(symbol);
-            EtradeOrdersDataFetcher.putOrderInCache(order);
             EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
         }
 

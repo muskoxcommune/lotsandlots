@@ -1,11 +1,15 @@
 package io.lotsandlots.etrade;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
+import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
+import io.lotsandlots.etrade.api.PreviewOrderRequest;
+import io.lotsandlots.etrade.api.PreviewOrderResponse;
 import io.lotsandlots.etrade.model.Order;
-import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
+import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.util.ConfigWrapper;
 import io.lotsandlots.util.EmailHelper;
 import org.slf4j.Logger;
@@ -13,21 +17,21 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class EtradeBuyOrderCreator implements
-        EtradeOAuthClient, EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
+public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
-    private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderCreator.class);
-    private static final EmailHelper EMAIL = new EmailHelper();
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final EmailHelper EMAIL = new EmailHelper();
+    private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderController.class);
 
     private ExecutorService executor;
     private Long haltBuyOrderCashBalance = 0L;
 
-    public EtradeBuyOrderCreator() {
+    public EtradeBuyOrderController() {
         executor = DEFAULT_EXECUTOR;
         if (CONFIG.hasPath("etrade.haltBuyOrderCashBalance")) {
             haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
@@ -59,7 +63,7 @@ public class EtradeBuyOrderCreator implements
         this.executor = executor;
     }
 
-    static class SymbolToLotsIndexPutEvent implements Runnable {
+    static class SymbolToLotsIndexPutEvent extends EtradeOrderCreator {
 
         private final String symbol;
         private List<PositionLotsResponse.PositionLot> lots;
@@ -91,8 +95,59 @@ public class EtradeBuyOrderCreator implements
             this.totals = totals;
         }
 
+        PreviewOrderRequest newPreviewOrderRequest(Float lastPrice, String clientOrderId) throws JsonProcessingException {
+            OrderDetail.Product product = new OrderDetail.Product();
+            product.setSecurityType("EQ");
+            product.setSymbol(symbol);
+
+            OrderDetail.Instrument instrument = new OrderDetail.Instrument();
+            instrument.setOrderAction("BUY");
+            instrument.setProduct(product);
+            instrument.setQuantityType("QUANTITY");
+            long quantity;
+            float idealLotSize = 1000F;
+            float minLotSize = 900F;
+            if (lastPrice >= idealLotSize) {
+                quantity = 1;
+            } else {
+                float quantityFloat = idealLotSize / lastPrice;
+                quantity = Math.round(quantityFloat);
+                if (quantity * lastPrice < minLotSize) {
+                    quantity++;
+                }
+            }
+            LOG.debug("Preparing buy order, symbol={} quantity={} estimatedLotSize={}",
+                    symbol, quantity, quantity * lastPrice);
+            instrument.setQuantity(quantity);
+
+            OrderDetail orderDetail = new OrderDetail();
+            orderDetail.setAllOrNone(false);
+            orderDetail.newInstrumentList(instrument);
+            orderDetail.setOrderTerm("GOOD_FOR_DAY");
+            orderDetail.setMarketSession("REGULAR");
+            orderDetail.setPriceType("MARKET"); // TODO: Configurable?
+
+            PreviewOrderRequest previewOrderRequest = new PreviewOrderRequest();
+            previewOrderRequest.setOrderDetailList(orderDetail);
+            previewOrderRequest.setOrderType("EQ");
+            previewOrderRequest.setClientOrderId(clientOrderId);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("PreviewOrderRequest{}", OBJECT_MAPPER.writeValueAsString(previewOrderRequest));
+            }
+            return previewOrderRequest;
+        }
+
         @Override
         public void run() {
+            SecurityContext securityContext = getRestTemplateFactory().getSecurityContext();
+            if (!securityContext.isInitialized()) {
+                LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
+                return;
+            }
+            if (getApiConfig().getOrdersPreviewUrl() == null) {
+                LOG.warn("Please configure etrade.accountIdKey");
+                return;
+            }
             if (totals.getCashBalance() > haltBuyOrderCashBalance) {
                 PositionLotsResponse.PositionLot lowestPricedLot = null;
                 for (PositionLotsResponse.PositionLot lot : getLots()) {
@@ -107,7 +162,10 @@ public class EtradeBuyOrderCreator implements
                                 symbol, lowestPricedLot.getPrice(), lastPrice, lowestPricedLot.getFollowPrice());
                         Map<String, List<Order>> symbolToOrdersIndex =
                                 EtradeOrdersDataFetcher.getDataFetcher().getSymbolToBuyOrdersIndex();
-                        if (!symbolToOrdersIndex.containsKey(symbol)) {
+                        if (symbolToOrdersIndex.containsKey(symbol)) {
+                            LOG.debug("Skipping buy order creation, a buy order already exists");
+                        } else {
+                            // Send notification
                             EMAIL.sendMessage(
                                     "Follow threshold breached",
                                     String.format(
@@ -117,7 +175,20 @@ public class EtradeBuyOrderCreator implements
                                             lowestPricedLot.getPrice(),
                                             lowestPricedLot.getFollowPrice()));
                             // Create buy order
-                            // Update cache and index
+                            String clientOrderId = UUID.randomUUID().toString().substring(0, 8);
+                            try {
+                                PreviewOrderRequest previewOrderRequest = newPreviewOrderRequest(
+                                        lastPrice, clientOrderId);
+                                PreviewOrderResponse previewOrderResponse = fetchPreviewOrderResponse(
+                                        securityContext, previewOrderRequest);
+                                int previewIdListSize = previewOrderResponse.getPreviewIdList().size();
+                                if (previewIdListSize != 1) {
+                                    throw new RuntimeException("Expected 1 previewId, got " + previewIdListSize);
+                                }
+                                placeOrder(securityContext, clientOrderId, previewOrderRequest, previewOrderResponse);
+                            } catch (Exception e) {
+                                LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);
+                            }
                         }
                     }
                 }

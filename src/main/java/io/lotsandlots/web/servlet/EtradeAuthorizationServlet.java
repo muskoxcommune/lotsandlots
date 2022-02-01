@@ -1,9 +1,9 @@
 package io.lotsandlots.web.servlet;
 
-import io.lotsandlots.etrade.EtradeBuyOrderCreator;
+import io.lotsandlots.etrade.EtradeBuyOrderController;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
-import io.lotsandlots.etrade.EtradeSellOrderCreator;
+import io.lotsandlots.etrade.EtradeSellOrderController;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
@@ -126,8 +126,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                     // Initialize data fetchers
                     EtradeOrdersDataFetcher.init();
                     EtradePortfolioDataFetcher.init();
-                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeBuyOrderCreator());
-                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderCreator());
+                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeBuyOrderController());
+                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderController());
                     isInitialized = true;
                 }
             } catch (Exception e) {
