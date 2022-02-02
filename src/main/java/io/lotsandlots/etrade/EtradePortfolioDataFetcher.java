@@ -33,14 +33,19 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
+    private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
     private Cache<String, PortfolioResponse.Position> positionCache = newCacheFromCacheBuilder(
             CacheBuilder.newBuilder(), 90);
     private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
 
-    public static void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler putHandler) {
-        DATA_FETCHER.symbolToLotsIndexPutHandlers.add(putHandler);
+    public static void addDataFetchCompletionHandler(PortfolioDataFetchCompletionHandler handler) {
+        DATA_FETCHER.portfolioDataFetchCompletionHandlers.add(handler);
+    }
+
+    public static void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler handler) {
+        DATA_FETCHER.symbolToLotsIndexPutHandlers.add(handler);
     }
 
     public int aggregateLotCount() {
@@ -134,8 +139,8 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setTargetPrice(lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
             }
             symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
-            for (SymbolToLotsIndexPutHandler putHandler : symbolToLotsIndexPutHandlers) {
-                putHandler.handleSymbolToLotsIndexPut(symbol, positionLotsResponse.getPositionLots(), totals);
+            for (SymbolToLotsIndexPutHandler handler : symbolToLotsIndexPutHandlers) {
+                handler.handleSymbolToLotsIndexPut(symbol, positionLotsResponse.getPositionLots(), totals);
             }
         }
     }
@@ -208,6 +213,9 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             positionCache.cleanUp();
             LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
                     System.currentTimeMillis() - timeStartedMillis, positionCache.size(), aggregateLotCount());
+            for (PortfolioDataFetchCompletionHandler handler : portfolioDataFetchCompletionHandlers) {
+                handler.handlePortfolioDataFetchCompletion();
+            }
         } catch (Exception e) {
             LOG.info("Failed to fetch portfolio and lots data, duration={}ms",
                     System.currentTimeMillis() - timeStartedMillis, e);
@@ -217,5 +225,10 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     public interface SymbolToLotsIndexPutHandler {
 
         void handleSymbolToLotsIndexPut(String symbol, List<PositionLotsResponse.PositionLot> lots, PortfolioResponse.Totals totals);
+    }
+
+    public interface PortfolioDataFetchCompletionHandler {
+
+        void handlePortfolioDataFetchCompletion();
     }
 }

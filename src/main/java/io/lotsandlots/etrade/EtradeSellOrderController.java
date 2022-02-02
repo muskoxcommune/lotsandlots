@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.GeneralSecurityException;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,10 +38,14 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
     public static final Boolean CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH = CONFIG.getBoolean(
             "etrade.cancelAllOrdersOnLotsOrdersMismatch");
 
+    private final List<String> sellOrderDisabledSymbols = new LinkedList<>();
     private ExecutorService executor;
 
     public EtradeSellOrderController() {
         executor = DEFAULT_EXECUTOR;
+        if (CONFIG.hasPath("etrade.disableSellOrderCreation")) {
+            sellOrderDisabledSymbols.addAll(CONFIG.getStringList("etrade.disableSellOrderCreation"));
+        }
         LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={}",
                 CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH
         );
@@ -59,11 +64,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
 
     @VisibleForTesting
     boolean isSellOrderCreationDisabled(String symbol) {
-        if (CONFIG.hasPath("etrade.disableSellOrderCreation")) {
-            return CONFIG.getStringList("etrade.disableSellOrderCreation").contains(symbol);
-        } else {
-            return false;
-        }
+        return sellOrderDisabledSymbols.contains(symbol);
     }
 
     @VisibleForTesting

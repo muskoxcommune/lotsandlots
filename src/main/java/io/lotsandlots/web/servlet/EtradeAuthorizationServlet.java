@@ -126,7 +126,9 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                     // Initialize data fetchers
                     EtradeOrdersDataFetcher.init();
                     EtradePortfolioDataFetcher.init();
-                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeBuyOrderController());
+                    EtradeBuyOrderController etradeBuyOrderController = new EtradeBuyOrderController();
+                    EtradePortfolioDataFetcher.addDataFetchCompletionHandler(etradeBuyOrderController);
+                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(etradeBuyOrderController);
                     EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderController());
                     isInitialized = true;
                 }

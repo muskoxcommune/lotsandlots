@@ -12,28 +12,46 @@ import io.lotsandlots.util.EmailHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
+public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.PortfolioDataFetchCompletionHandler,
+                                                 EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
     private static final EmailHelper EMAIL = new EmailHelper();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderController.class);
 
+    private final List<String> buyOrderEnabledSymbols = new LinkedList<>();
     private ExecutorService executor;
     private Long haltBuyOrderCashBalance = 0L;
 
     public EtradeBuyOrderController() {
         executor = DEFAULT_EXECUTOR;
+        if (CONFIG.hasPath("etrade.enableBuyOrderCreation")) {
+            buyOrderEnabledSymbols.addAll(CONFIG.getStringList("etrade.enableBuyOrderCreation"));
+        }
         if (CONFIG.hasPath("etrade.haltBuyOrderCashBalance")) {
             haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
         }
         LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={}", haltBuyOrderCashBalance);
+    }
+
+    @Override
+    public void handlePortfolioDataFetchCompletion() {
+        LOG.debug("Checking buy-order-enabled symbols after portfolio data fetch completed");
+        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex =
+                EtradePortfolioDataFetcher.getSymbolToLotsIndex();
+        for (String symbol : buyOrderEnabledSymbols) {
+            if (!symbolToLotsIndex.containsKey(symbol)) {
+                LOG.info("Did not find an existing {} lot", symbol);
+            }
+        }
     }
 
     @Override
@@ -49,11 +67,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Symb
 
     @VisibleForTesting
     boolean isBuyOrderCreationEnabled(String symbol) {
-        if (CONFIG.hasPath("etrade.enableBuyOrderCreation")) {
-            return CONFIG.getStringList("etrade.enableBuyOrderCreation").contains(symbol);
-        } else {
-            return false;
-        }
+        return buyOrderEnabledSymbols.contains(symbol);
     }
 
     void setExecutor(ExecutorService executor) {
