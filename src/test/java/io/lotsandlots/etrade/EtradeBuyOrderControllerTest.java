@@ -32,19 +32,19 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doAnswer((Answer<Void>) invocation -> {
             PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
             totals.setCashBalance(-1000.00F);
-            EtradeBuyOrderController.SymbolToLotsIndexPutEvent runnable = Mockito.spy(invocation
-                    .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+            EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
+                    .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
             runnable.setHaltBuyOrderCashBalance(-10000L);
             runnable.setTotals(totals);
             runnable.setRestTemplateFactory(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT);
             runnable.run();
             Mockito.verify(runnable).getLots();
             return null;
-        }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+        }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
         Mockito.doReturn(true).when(orderController).isBuyOrderCreationEnabled(Mockito.anyString());
         orderController.setExecutor(mockExecutor);
         orderController.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 
     public void testHandleSymbolToLotsIndexPutWithNotEnoughCashBalance() {
@@ -53,18 +53,18 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doAnswer((Answer<Void>) invocation -> {
             PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
             totals.setCashBalance(-10001.00F);
-            EtradeBuyOrderController.SymbolToLotsIndexPutEvent runnable = Mockito.spy(invocation
-                    .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+            EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
+                    .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
             runnable.setHaltBuyOrderCashBalance(-10000L);
             runnable.setTotals(totals);
             runnable.setRestTemplateFactory(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT);
             runnable.run();
             Mockito.verify(runnable, Mockito.times(0)).getLots();
             return null;
-        }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+        }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
         Mockito.doReturn(true).when(orderController).isBuyOrderCreationEnabled(Mockito.anyString());
         orderController.setExecutor(mockExecutor);
         orderController.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEvent.class));
+        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 }

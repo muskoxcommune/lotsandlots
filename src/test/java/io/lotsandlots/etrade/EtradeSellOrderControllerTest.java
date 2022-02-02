@@ -41,8 +41,8 @@ public class EtradeSellOrderControllerTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEvent("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
+                .SymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -65,8 +65,8 @@ public class EtradeSellOrderControllerTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEvent("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
+                .SymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -81,7 +81,7 @@ public class EtradeSellOrderControllerTest {
         EtradeSellOrderController sellOrderController = new EtradeSellOrderController();
         sellOrderController.setExecutor(mockExecutor);
         sellOrderController.handleSymbolToLotsIndexPut("ABC", new ArrayList<>(), new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEvent.class));
+        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 
     public void testRun() throws Exception {
@@ -115,8 +115,8 @@ public class EtradeSellOrderControllerTest {
         List<PositionLotsResponse.PositionLot> positionLotList = new ArrayList<>();
         positionLotList.add(positionLot1);
         positionLotList.add(positionLot2);
-        EtradeSellOrderController.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEvent("ABC", positionLotList));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
+                .SymbolToLotsIndexPutEventRunnable("ABC", positionLotList));
         runnable.setApiConfig(apiConfig);
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());

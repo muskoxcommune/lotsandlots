@@ -214,7 +214,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
                     System.currentTimeMillis() - timeStartedMillis, positionCache.size(), aggregateLotCount());
             for (PortfolioDataFetchCompletionHandler handler : portfolioDataFetchCompletionHandlers) {
-                handler.handlePortfolioDataFetchCompletion();
+                handler.handlePortfolioDataFetchCompletion(totals);
             }
         } catch (Exception e) {
             LOG.info("Failed to fetch portfolio and lots data, duration={}ms",
@@ -229,6 +229,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     public interface PortfolioDataFetchCompletionHandler {
 
-        void handlePortfolioDataFetchCompletion();
+        void handlePortfolioDataFetchCompletion(PortfolioResponse.Totals totals);
     }
 }

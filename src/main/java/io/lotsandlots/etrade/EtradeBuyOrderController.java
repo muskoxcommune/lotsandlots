@@ -43,13 +43,14 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
     }
 
     @Override
-    public void handlePortfolioDataFetchCompletion() {
+    public void handlePortfolioDataFetchCompletion(PortfolioResponse.Totals totals) {
         LOG.debug("Checking buy-order-enabled symbols after portfolio data fetch completed");
         Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex =
                 EtradePortfolioDataFetcher.getSymbolToLotsIndex();
         for (String symbol : buyOrderEnabledSymbols) {
             if (!symbolToLotsIndex.containsKey(symbol)) {
-                LOG.info("Did not find an existing {} lot", symbol);
+                LOG.info("Did not find any lots, symbol={}", symbol);
+                executor.submit(new InitialBuyOrderRunnable(symbol, totals, haltBuyOrderCashBalance));
             }
         }
     }
@@ -59,9 +60,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                                            List<PositionLotsResponse.PositionLot> lots,
                                            PortfolioResponse.Totals totals) {
         if (isBuyOrderCreationEnabled(symbol)) {
-            executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots, totals, haltBuyOrderCashBalance));
-        } else {
-            LOG.debug("Skipping buy order creation, symbol={}", symbol);
+            executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol, lots, totals, haltBuyOrderCashBalance));
         }
     }
 
@@ -74,17 +73,35 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         this.executor = executor;
     }
 
-    static class SymbolToLotsIndexPutEvent extends EtradeOrderCreator {
+    static class InitialBuyOrderRunnable extends EtradeOrderCreator {
 
-        private final String symbol;
-        private List<PositionLotsResponse.PositionLot> lots;
-        private PortfolioResponse.Totals totals;
         private Long haltBuyOrderCashBalance;
+        private final String symbol;
+        private PortfolioResponse.Totals totals;
 
-        SymbolToLotsIndexPutEvent(String symbol,
-                                  List<PositionLotsResponse.PositionLot> lots,
-                                  PortfolioResponse.Totals totals,
-                                  Long haltBuyOrderCashBalance) {
+        InitialBuyOrderRunnable(String symbol, PortfolioResponse.Totals totals, Long haltBuyOrderCashBalance) {
+            this.symbol = symbol;
+            this.totals = totals;
+            this.haltBuyOrderCashBalance = haltBuyOrderCashBalance;
+        }
+
+        @Override
+        public void run() {
+
+        }
+    }
+
+    static class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
+
+        private Long haltBuyOrderCashBalance;
+        private List<PositionLotsResponse.PositionLot> lots;
+        private final String symbol;
+        private PortfolioResponse.Totals totals;
+
+        SymbolToLotsIndexPutEventRunnable(String symbol,
+                                          List<PositionLotsResponse.PositionLot> lots,
+                                          PortfolioResponse.Totals totals,
+                                          Long haltBuyOrderCashBalance) {
             this.symbol = symbol;
             this.lots = lots;
             this.totals = totals;
@@ -117,7 +134,10 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 LOG.warn("Please configure etrade.accountIdKey");
                 return;
             }
-            if (totals.getCashBalance() > haltBuyOrderCashBalance) {
+            if (totals.getCashBalance() < haltBuyOrderCashBalance) {
+                LOG.info("CashBalance below haltBuyOrderCashBalance {} < {}",
+                        totals.getCashBalance(), haltBuyOrderCashBalance);
+            } else {
                 PositionLotsResponse.PositionLot lowestPricedLot = null;
                 for (PositionLotsResponse.PositionLot lot : getLots()) {
                     if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
@@ -183,9 +203,6 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                         }
                     }
                 }
-            } else {
-                LOG.info("CashBalance below haltBuyOrderCashBalance {} < {}",
-                        totals.getCashBalance(), haltBuyOrderCashBalance);
             }
         }
     }

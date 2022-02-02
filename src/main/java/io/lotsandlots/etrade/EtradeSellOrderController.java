@@ -58,7 +58,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
         if (isSellOrderCreationDisabled(symbol)) {
             LOG.debug("Skipping sell order creation, symbol={}", symbol);
         } else {
-            executor.submit(new SymbolToLotsIndexPutEvent(symbol, lots));
+            executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol, lots));
         }
     }
 
@@ -72,13 +72,13 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
         this.executor = executor;
     }
 
-    static class SymbolToLotsIndexPutEvent extends EtradeOrderCreator {
+    static class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
 
         private List<PositionLotsResponse.PositionLot> lotList;
         private final String symbol;
 
-        SymbolToLotsIndexPutEvent(String symbol,
-                                  List<PositionLotsResponse.PositionLot> lotList) {
+        SymbolToLotsIndexPutEventRunnable(String symbol,
+                                          List<PositionLotsResponse.PositionLot> lotList) {
             this.lotList = lotList;
             this.symbol = symbol;
         }
