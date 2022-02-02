@@ -115,15 +115,20 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
         }
+        OrderDetail placeOrderResponseOrderDetail = placeOrderResponse.getOrderDetailList().get(0);
+        OrderDetail.Instrument instrument = placeOrderResponseOrderDetail.getInstrumentList().get(0);
 
-        OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
         Order order = new Order();
-        order.setLimitPrice(orderDetail.getLimitPrice());
         order.setOrderAction(instrument.getOrderAction());
         order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
-        order.setOrderValue(orderDetail.getLimitPrice() * instrument.getQuantity());
-        order.setOrderedQuantity(instrument.getQuantity());
         order.setPlacedTime(placeOrderResponse.getPlacedTime());
+        order.setOrderedQuantity(instrument.getQuantity());
+
+        // TODO: The next two lines applies to sell orders only but is run for buy orders too.
+        //       Maybe it's time to revisit how orders are visualized.
+        order.setLimitPrice(placeOrderResponseOrderDetail.getLimitPrice());
+        order.setOrderValue(placeOrderResponseOrderDetail.getLimitPrice() * instrument.getQuantity());
+
         order.setStatus("OPEN");
         order.setSymbol(previewOrderRequest.getOrderDetailList().get(0)
                                            .getInstrumentList().get(0)

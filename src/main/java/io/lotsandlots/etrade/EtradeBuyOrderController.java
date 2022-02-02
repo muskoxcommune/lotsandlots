@@ -198,7 +198,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                                 orderDetail.setPriceType("MARKET"); // TODO: Configurable?
                                 placeOrder(securityContext, clientOrderId, orderDetail);
                             } catch (Exception e) {
-                                LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);
+                                LOG.debug("Unable to finish creating buy orders, symbol={}", symbol, e);
                             }
                         }
                     }
