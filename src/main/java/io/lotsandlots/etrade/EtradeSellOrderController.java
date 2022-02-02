@@ -8,8 +8,6 @@ import io.lotsandlots.etrade.api.CancelOrderResponse;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
-import io.lotsandlots.etrade.api.PreviewOrderRequest;
-import io.lotsandlots.etrade.api.PreviewOrderResponse;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
@@ -116,44 +114,6 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
             EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
         }
 
-        PreviewOrderRequest previewOrderRequestFromPositionLot(PositionLotsResponse.PositionLot positionLot,
-                                                               String clientOrderId)
-                throws JsonProcessingException {
-            OrderDetail.Product product = new OrderDetail.Product();
-            product.setSecurityType("EQ");
-            product.setSymbol(positionLot.getSymbol());
-
-            OrderDetail.Lots instrumentLots = new OrderDetail.Lots();
-            instrumentLots.newLotList(positionLot.getPositionLotId(), positionLot.getRemainingQty().longValue());
-
-            OrderDetail.Instrument instrument = new OrderDetail.Instrument();
-            instrument.setLots(instrumentLots);
-            instrument.setOrderAction("SELL");
-            instrument.setProduct(product);
-            instrument.setQuantity(positionLot.getRemainingQty().longValue());
-            instrument.setQuantityType("QUANTITY");
-
-            OrderDetail orderDetail = new OrderDetail();
-            orderDetail.setAllOrNone(false);
-            orderDetail.newInstrumentList(instrument);
-            orderDetail.setOrderTerm("GOOD_UNTIL_CANCEL");
-            orderDetail.setMarketSession("REGULAR");
-            orderDetail.setPriceType("LIMIT");
-            orderDetail.setLimitPrice(
-                    BigDecimal.valueOf(positionLot.getTargetPrice())
-                            .setScale(2, RoundingMode.HALF_UP)
-                            .floatValue());
-
-            PreviewOrderRequest previewOrderRequest = new PreviewOrderRequest();
-            previewOrderRequest.setOrderDetailList(orderDetail);
-            previewOrderRequest.setOrderType("EQ");
-            previewOrderRequest.setClientOrderId(clientOrderId);
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("PreviewOrderRequest{}", OBJECT_MAPPER.writeValueAsString(previewOrderRequest));
-            }
-            return previewOrderRequest;
-        }
-
         @Override
         public void run() {
             SecurityContext securityContext = getRestTemplateFactory().getSecurityContext();
@@ -195,15 +155,32 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
             try {
                 for (PositionLotsResponse.PositionLot positionLot : lotList) {
                     String clientOrderId = UUID.randomUUID().toString().substring(0, 8);
-                    PreviewOrderRequest previewOrderRequest = previewOrderRequestFromPositionLot(
-                            positionLot, clientOrderId);
-                    PreviewOrderResponse previewOrderResponse = fetchPreviewOrderResponse(
-                            securityContext, previewOrderRequest);
-                    int previewIdListSize = previewOrderResponse.getPreviewIdList().size();
-                    if (previewIdListSize != 1) {
-                        throw new RuntimeException("Expected 1 previewId, got " + previewIdListSize);
-                    }
-                    placeOrder(securityContext, clientOrderId, previewOrderRequest, previewOrderResponse);
+
+                    OrderDetail.Product product = new OrderDetail.Product();
+                    product.setSecurityType("EQ");
+                    product.setSymbol(positionLot.getSymbol());
+
+                    OrderDetail.Lots instrumentLots = new OrderDetail.Lots();
+                    instrumentLots.newLotList(positionLot.getPositionLotId(), positionLot.getRemainingQty().longValue());
+
+                    OrderDetail.Instrument instrument = new OrderDetail.Instrument();
+                    instrument.setLots(instrumentLots);
+                    instrument.setOrderAction("SELL");
+                    instrument.setProduct(product);
+                    instrument.setQuantity(positionLot.getRemainingQty().longValue());
+                    instrument.setQuantityType("QUANTITY");
+
+                    OrderDetail orderDetail = new OrderDetail();
+                    orderDetail.setAllOrNone(false);
+                    orderDetail.newInstrumentList(instrument);
+                    orderDetail.setOrderTerm("GOOD_UNTIL_CANCEL");
+                    orderDetail.setMarketSession("REGULAR");
+                    orderDetail.setPriceType("LIMIT");
+                    orderDetail.setLimitPrice(
+                            BigDecimal.valueOf(positionLot.getTargetPrice())
+                                    .setScale(2, RoundingMode.HALF_UP)
+                                    .floatValue());
+                    placeOrder(securityContext, clientOrderId, orderDetail);
                 }
             } catch (Exception e) {
                 LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);

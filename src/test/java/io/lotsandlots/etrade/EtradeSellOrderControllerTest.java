@@ -129,12 +129,12 @@ public class EtradeSellOrderControllerTest {
         Mockito.doAnswer(invocation -> null).when(runnable)
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
         Mockito.doAnswer(invocation -> null).when(runnable)
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
 
         runnable.run();
         Mockito.verify(runnable, Mockito.times(1))
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
         Mockito.verify(runnable, Mockito.times(2))
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
     }
 }

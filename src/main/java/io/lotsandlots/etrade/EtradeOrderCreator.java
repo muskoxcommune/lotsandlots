@@ -28,6 +28,19 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
+    PreviewOrderRequest newPreviewOrderRequest(String clientOrderId,
+                                               OrderDetail orderDetail)
+            throws JsonProcessingException {
+        PreviewOrderRequest previewOrderRequest = new PreviewOrderRequest();
+        previewOrderRequest.setOrderDetailList(orderDetail);
+        previewOrderRequest.setOrderType("EQ");
+        previewOrderRequest.setClientOrderId(clientOrderId);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("PreviewOrderRequest{}", OBJECT_MAPPER.writeValueAsString(previewOrderRequest));
+        }
+        return previewOrderRequest;
+    }
+
     PreviewOrderResponse fetchPreviewOrderResponse(SecurityContext securityContext,
                                                    PreviewOrderRequest previewOrderRequest)
             throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
@@ -60,9 +73,18 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
 
     void placeOrder(SecurityContext securityContext,
                     String clientOrderId,
-                    PreviewOrderRequest previewOrderRequest,
-                    PreviewOrderResponse previewOrderResponse)
+                    OrderDetail orderDetail)
             throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
+
+        PreviewOrderRequest previewOrderRequest = newPreviewOrderRequest(
+                clientOrderId, orderDetail);
+        PreviewOrderResponse previewOrderResponse = fetchPreviewOrderResponse(
+                securityContext, previewOrderRequest);
+        int previewIdListSize = previewOrderResponse.getPreviewIdList().size();
+        if (previewIdListSize != 1) {
+            throw new RuntimeException("Expected 1 previewId, got " + previewIdListSize);
+        }
+
         PlaceOrderRequest placeOrderRequest = new PlaceOrderRequest();
         placeOrderRequest.setClientOrderId(clientOrderId);
         placeOrderRequest.setOrderDetailList(previewOrderRequest.getOrderDetailList());
@@ -94,7 +116,6 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
             LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
         }
 
-        OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
         OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
         Order order = new Order();
         order.setLimitPrice(orderDetail.getLimitPrice());
