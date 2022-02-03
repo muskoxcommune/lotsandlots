@@ -88,7 +88,6 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
                 "symbol",
                 "quantity",
                 "limit",
-                "value",
                 "action",
                 "status"
         );
@@ -101,11 +100,6 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
             htmlBuilder.append("<td>").append(order.getSymbol()).append("</td>");
             htmlBuilder.append("<td>").append(order.getOrderedQuantity()).append("</td>");
             htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getLimitPrice())).append("</td>");
-            try {
-                htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(order.getOrderValue())).append("</td>");
-            } catch (Exception e) {
-                LOG.error("Order value: {}, order={}", order.getOrderValue(), OBJECT_MAPPER.writeValueAsString(order));
-            }
             htmlBuilder.append("<td>").append(order.getOrderAction()).append("</td>");
             htmlBuilder.append("<td>").append(order.getStatus()).append("</td>");
             htmlBuilder.append("</tr>");
