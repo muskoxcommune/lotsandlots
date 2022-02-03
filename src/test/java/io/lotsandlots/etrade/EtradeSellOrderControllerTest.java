@@ -7,6 +7,8 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -128,7 +130,14 @@ public class EtradeSellOrderControllerTest {
         Mockito.doReturn(previewOrderResponse).when(runnable).fetchPreviewOrderResponse(Mockito.any(), Mockito.any());
         Mockito.doAnswer(invocation -> null).when(runnable)
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
-        Mockito.doAnswer(invocation -> null).when(runnable)
+        Mockito.doAnswer(new Answer<Order>() {
+                    @Override
+                    public Order answer(InvocationOnMock invocation) throws Throwable {
+                        Order mockBuyOrder = new Order();
+                        mockBuyOrder.setOrderId(123L);
+                        return mockBuyOrder;
+                    }
+                }).when(runnable)
                 .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
 
         runnable.run();

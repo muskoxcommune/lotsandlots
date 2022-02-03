@@ -71,7 +71,7 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
         return previewOrderResponse;
     }
 
-    void placeOrder(SecurityContext securityContext,
+    Order placeOrder(SecurityContext securityContext,
                     String clientOrderId,
                     OrderDetail orderDetail)
             throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
@@ -131,5 +131,6 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
                                            .getSymbol());
         EtradeOrdersDataFetcher.putOrderInCache(order);
         EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+        return order;
     }
 }
