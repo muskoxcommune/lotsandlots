@@ -29,6 +29,7 @@ public class EmailHelper {
 
     private boolean isNotificationEnabled = false;
     private String notificationSender = "lotsandlots@localhost";
+    private String sesConfigurationSet = "";
     private String smtpPassword = "";
     private String smtpUser = "";
 
@@ -42,6 +43,9 @@ public class EmailHelper {
         }
         if (CONFIG.hasPath("mail.notificationSender")) {
             notificationSender = CONFIG.getString("mail.notificationSender");
+        }
+        if (CONFIG.hasPath("mail.sesConfigurationSet")) {
+            sesConfigurationSet = CONFIG.getString("mail.sesConfigurationSet");
         }
         if (CONFIG.hasPath("mail.smtpHost")) {
             properties.put("mail.smtp.host", CONFIG.getString("mail.smtpHost"));
@@ -81,7 +85,9 @@ public class EmailHelper {
             try {
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(notificationSender));
-                message.setHeader("X-SES-CONFIGURATION-SET", "Default");
+                if (StringUtils.isNotBlank(sesConfigurationSet)) {
+                    message.setHeader("X-SES-CONFIGURATION-SET", "Default");
+                }
                 message.setRecipient(Message.RecipientType.TO, new InternetAddress(address));
                 message.setSubject(SUBJECT_PREFIX + subjectString);
                 message.setText(messageString);

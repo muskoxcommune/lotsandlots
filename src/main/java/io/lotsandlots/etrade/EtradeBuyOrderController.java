@@ -130,7 +130,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
 
     long quantityFromLastPrice(float lastPrice) {
         if (lastPrice >= idealLotSize) {
-            return 1;
+            return 1L;
         } else {
             long quantity = Math.round(idealLotSize / lastPrice);
             if (quantity * lastPrice < minLotSize) {
