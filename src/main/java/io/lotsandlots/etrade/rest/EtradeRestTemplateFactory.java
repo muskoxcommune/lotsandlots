@@ -64,6 +64,7 @@ public class EtradeRestTemplateFactory {
             apiConfig.setBaseUrl(CONFIG.getString("etrade.apiBaseUrl"));
             apiConfig.setOrdersQueryString(CONFIG.getString("etrade.ordersQueryParams"));
             apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
+            apiConfig.setQuoteUrl(CONFIG.getString("etrade.quoteUrl"));
 
             clientHttpRequestFactory = newClientHttpRequestFactory();
 
