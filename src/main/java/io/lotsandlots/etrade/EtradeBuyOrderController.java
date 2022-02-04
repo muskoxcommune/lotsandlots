@@ -34,6 +34,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
     private final Map<String, Cache<Long, Order>> placedBuyOrderCache = new HashMap<>();
 
     private EmailHelper emailHelper = new EmailHelper();
+    private EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
     private ExecutorService executor;
     private long haltBuyOrderCashBalance = 0L;
     private float idealLotSize = 1000F;
@@ -108,6 +109,17 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         return placedBuyOrderCache.containsKey(symbol);
     }
 
+    /**
+     * Intended for testing only. Returns a BuyOrderRunnable that could be spied on.
+     *
+     * @param symbol
+     * @param totals
+     * @return BuyOrderRunnable object
+     */
+    BuyOrderRunnable newBuyOrderRunnable(String symbol, PortfolioResponse.Totals totals) {
+        return new BuyOrderRunnable(symbol, totals);
+    }
+
     OrderDetail newBuyOrderDetailFromLastPrice(String symbol, float lastPrice) {
         OrderDetail.Product product = new OrderDetail.Product();
         product.setSecurityType("EQ");
@@ -155,7 +167,23 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         this.haltBuyOrderCashBalance = haltBuyOrderCashBalance;
     }
 
-    abstract class BuyOrderRunnable extends EtradeOrderCreator {
+    void setMaxBuyOrdersPerSymbolPerDay(long maxBuyOrdersPerSymbolPerDay) {
+        this.maxBuyOrdersPerSymbolPerDay = maxBuyOrdersPerSymbolPerDay;
+    }
+
+    /**
+     * Intended for testing only. Allows overriding with a mocked data fetcher.
+     *
+     * @param ordersDataFetcher
+     */
+    void setOrdersDataFetcher(EtradeOrdersDataFetcher ordersDataFetcher) {
+        this.ordersDataFetcher = ordersDataFetcher;
+    }
+
+    /**
+     * Functionally abstract but not officially declared to make testing easier.
+     */
+    class BuyOrderRunnable extends EtradeOrderCreator {
 
         protected final String symbol;
         protected PortfolioResponse.Totals totals;
@@ -166,8 +194,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         }
 
         public boolean canProceedWithBuyOrderCreation() {
-            Map<String, List<Order>> symbolToOrdersIndex =
-                    EtradeOrdersDataFetcher.getDataFetcher().getSymbolToBuyOrdersIndex();
+            Map<String, List<Order>> symbolToOrdersIndex = ordersDataFetcher.getSymbolToBuyOrdersIndex();
             if (symbolToOrdersIndex.containsKey(symbol)) {
                 LOG.debug("Skipping buy order creation, a buy order already exists");
                 return false;
@@ -185,8 +212,8 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             return true;
         }
 
-        void setTotals(PortfolioResponse.Totals totals) {
-            this.totals = totals;
+        @Override
+        public void run() {
         }
     }
 
@@ -240,7 +267,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
 
     class SymbolToLotsIndexPutEventRunnable extends BuyOrderRunnable {
 
-        private List<PositionLotsResponse.PositionLot> lots;
+        private final List<PositionLotsResponse.PositionLot> lots;
 
         SymbolToLotsIndexPutEventRunnable(String symbol,
                                           List<PositionLotsResponse.PositionLot> lots,
@@ -251,9 +278,6 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
 
         List<PositionLotsResponse.PositionLot> getLots() {
             return lots;
-        }
-        void setLots(List<PositionLotsResponse.PositionLot> lots) {
-            this.lots = lots;
         }
 
         @Override

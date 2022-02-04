@@ -7,7 +7,6 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
@@ -43,8 +42,9 @@ public class EtradeSellOrderControllerTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(new EtradeSellOrderController()
+                        .newSymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -67,8 +67,9 @@ public class EtradeSellOrderControllerTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(new EtradeSellOrderController()
+                        .newSymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -96,7 +97,6 @@ public class EtradeSellOrderControllerTest {
 
         EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
         dataFetcher.setSymbolToSellOrdersIndex(symbolToOrdersIndex);
-        EtradeOrdersDataFetcher.setDataFetcher(dataFetcher);
 
         ApiConfig apiConfig = new ApiConfig();
         apiConfig.setOrdersPreviewUrl("https://baseUrl/orders/keyId/preview");
@@ -117,8 +117,12 @@ public class EtradeSellOrderControllerTest {
         List<PositionLotsResponse.PositionLot> positionLotList = new ArrayList<>();
         positionLotList.add(positionLot1);
         positionLotList.add(positionLot2);
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(new EtradeSellOrderController
-                .SymbolToLotsIndexPutEventRunnable("ABC", positionLotList));
+
+        EtradeSellOrderController sellOrderController = new EtradeSellOrderController();
+        sellOrderController.setOrdersDataFetcher(dataFetcher);
+
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(sellOrderController.newSymbolToLotsIndexPutEventRunnable("ABC", positionLotList));
         runnable.setApiConfig(apiConfig);
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
@@ -130,15 +134,11 @@ public class EtradeSellOrderControllerTest {
         Mockito.doReturn(previewOrderResponse).when(runnable).fetchPreviewOrderResponse(Mockito.any(), Mockito.any());
         Mockito.doAnswer(invocation -> null).when(runnable)
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
-        Mockito.doAnswer(new Answer<Order>() {
-                    @Override
-                    public Order answer(InvocationOnMock invocation) throws Throwable {
-                        Order mockBuyOrder = new Order();
-                        mockBuyOrder.setOrderId(123L);
-                        return mockBuyOrder;
-                    }
-                }).when(runnable)
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
+        Mockito.doAnswer((Answer<Order>) invocation -> {
+            Order mockBuyOrder = new Order();
+            mockBuyOrder.setOrderId(123L);
+            return mockBuyOrder;
+        }).when(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
 
         runnable.run();
         Mockito.verify(runnable, Mockito.times(1))

@@ -1,7 +1,6 @@
 package io.lotsandlots.etrade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.CancelOrderRequest;
 import io.lotsandlots.etrade.api.CancelOrderResponse;
@@ -39,6 +38,8 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
             "etrade.cancelAllOrdersOnLotsOrdersMismatch");
 
     private final List<String> sellOrderDisabledSymbols = new LinkedList<>();
+
+    private EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
     private ExecutorService executor;
 
     public EtradeSellOrderController() {
@@ -62,17 +63,24 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
         }
     }
 
-    @VisibleForTesting
     boolean isSellOrderCreationDisabled(String symbol) {
         return sellOrderDisabledSymbols.contains(symbol);
     }
 
-    @VisibleForTesting
     void setExecutor(ExecutorService executor) {
         this.executor = executor;
     }
 
-    static class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
+    void setOrdersDataFetcher(EtradeOrdersDataFetcher ordersDataFetcher) {
+        this.ordersDataFetcher = ordersDataFetcher;
+    }
+
+    SymbolToLotsIndexPutEventRunnable newSymbolToLotsIndexPutEventRunnable(
+            String symbol, List<PositionLotsResponse.PositionLot> lotList) {
+        return new SymbolToLotsIndexPutEventRunnable(symbol, lotList);
+    }
+
+    class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
 
         private List<PositionLotsResponse.PositionLot> lotList;
         private final String symbol;
@@ -127,8 +135,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                 return;
             }
             int lotListSize = lotList.size();
-            Map<String, List<Order>> symbolToOrdersIndex =
-                    EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
+            Map<String, List<Order>> symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
             if (symbolToOrdersIndex.containsKey(symbol)) {
                 List<Order> orderList = symbolToOrdersIndex.get(symbol);
                 int orderListSize = orderList.size();

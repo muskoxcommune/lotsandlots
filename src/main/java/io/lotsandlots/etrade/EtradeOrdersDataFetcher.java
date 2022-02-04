@@ -59,10 +59,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     public static EtradeOrdersDataFetcher getDataFetcher() {
         return DATA_FETCHER;
     }
-    @VisibleForTesting
-    public static void setDataFetcher(EtradeOrdersDataFetcher dataFetcher) {
-        DATA_FETCHER = dataFetcher;
-    }
 
     @VisibleForTesting
     Cache<Long, Order> getOrderCache() {

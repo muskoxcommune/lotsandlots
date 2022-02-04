@@ -13,8 +13,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.security.GeneralSecurityException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 @Test(groups = {"unit"})
@@ -31,12 +33,72 @@ public class EtradeBuyOrderControllerTest {
                 .when(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT).getSecurityContext();
     }
 
+    public void testCanProceedWithBuyOrderCreation() {
+        EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
+
+        EtradeBuyOrderController.BuyOrderRunnable runnable;
+        PortfolioResponse.Totals totals;
+
+        ////
+        // If a buy order exists, call should return false.
+        Map<String, List<Order>> fakedSymbolToBuyOrdersIndex = new HashMap<>();
+        fakedSymbolToBuyOrdersIndex.put("TEST1", new LinkedList<>());
+
+        EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        Mockito.doReturn(fakedSymbolToBuyOrdersIndex).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
+
+        totals = Mockito.mock(PortfolioResponse.Totals.class);
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("TEST1", totals));
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
+        // It should return false before we check our cash balance.
+        Mockito.verify(totals, Mockito.times(0)).getCashBalance();
+
+        ////
+        // If we've exceeded our cash balance stopping point, call should return false.
+        orderController.setHaltBuyOrderCashBalance(0L);
+
+        totals = new PortfolioResponse.Totals();
+        totals.setCashBalance(-100.00F);
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("TEST2", totals));
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
+        // It should return false before we check # of recent orders placed.
+        Mockito.verify(orderController, Mockito.times(0))
+                .isBelowMaxBuyOrdersPerDayLimit(Mockito.anyString());
+
+        ////
+        // If we've placed buy orders too frequently, call should return false.
+        orderController.enableNewSymbol("TEST3");
+        orderController.setMaxBuyOrdersPerSymbolPerDay(2L);
+
+        totals = new PortfolioResponse.Totals();
+        totals.setCashBalance(100.00F);
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("TEST3", totals));
+        Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
+
+        Order order1 = new Order();
+        order1.setOrderId(1L);
+        orderController.cachePlacedBuyOrder("TEST3", order1);
+        Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
+
+        Order order2 = new Order();
+        order2.setOrderId(2L);
+        orderController.cachePlacedBuyOrder("TEST3", order2);
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
+    }
+
     public void testHandleSymbolToLotsIndexPut() {
         EmailHelper mockEmailHelper = Mockito.mock(EmailHelper.class);
         EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
         orderController.enableNewSymbol("TEST1");
         orderController.setEmailHelper(mockEmailHelper);
         orderController.setHaltBuyOrderCashBalance(-10000L);
+
+        EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        Mockito.doReturn(new HashMap<>()).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
+
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
             EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
@@ -65,13 +127,15 @@ public class EtradeBuyOrderControllerTest {
     public void testHandleSymbolToLotsIndexPutWithNotEnoughCashBalance() {
         EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
         orderController.setHaltBuyOrderCashBalance(-10000L);
+
+        EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        Mockito.doReturn(new HashMap<>()).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
+
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
-            PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
-            totals.setCashBalance(-10001.00F);
             EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
                     .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
-            runnable.setTotals(totals);
             runnable.setRestTemplateFactory(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT);
             runnable.run();
             Mockito.verify(orderController, Mockito.times(0))
@@ -80,7 +144,10 @@ public class EtradeBuyOrderControllerTest {
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
         Mockito.doReturn(true).when(orderController).isBuyOrderCreationEnabled(Mockito.anyString());
         orderController.setExecutor(mockExecutor);
-        orderController.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), new PortfolioResponse.Totals());
+
+        PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
+        totals.setCashBalance(-10001.00F);
+        orderController.handleSymbolToLotsIndexPut("TEST1", new LinkedList<>(), totals);
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 
