@@ -7,6 +7,7 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -20,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 @Test(groups = {"unit"})
-public class EtradeSellOrderCreatorTest {
+public class EtradeSellOrderControllerTest {
 
     @BeforeClass
     public void beforeClass() throws GeneralSecurityException {
@@ -41,8 +42,9 @@ public class EtradeSellOrderCreatorTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderCreator.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderCreator
-                .SymbolToLotsIndexPutEvent("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(new EtradeSellOrderController()
+                        .newSymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -65,8 +67,9 @@ public class EtradeSellOrderCreatorTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderCreator.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderCreator
-                .SymbolToLotsIndexPutEvent("ABC", new ArrayList<>()));
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(new EtradeSellOrderController()
+                        .newSymbolToLotsIndexPutEventRunnable("ABC", new ArrayList<>()));
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
 
@@ -78,10 +81,10 @@ public class EtradeSellOrderCreatorTest {
 
     public void testHandleSymbolToLotsIndexPut() {
         ExecutorService mockExecutor = Mockito.mock(ExecutorService.class);
-        EtradeSellOrderCreator sellOrderCreator = new EtradeSellOrderCreator();
-        sellOrderCreator.setExecutor(mockExecutor);
-        sellOrderCreator.handleSymbolToLotsIndexPut("ABC", new ArrayList<>(), new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderCreator.SymbolToLotsIndexPutEvent.class));
+        EtradeSellOrderController sellOrderController = new EtradeSellOrderController();
+        sellOrderController.setExecutor(mockExecutor);
+        sellOrderController.handleSymbolToLotsIndexPut("ABC", new ArrayList<>(), new PortfolioResponse.Totals());
+        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 
     public void testRun() throws Exception {
@@ -94,7 +97,6 @@ public class EtradeSellOrderCreatorTest {
 
         EtradeOrdersDataFetcher dataFetcher = Mockito.spy(new EtradeOrdersDataFetcher());
         dataFetcher.setSymbolToSellOrdersIndex(symbolToOrdersIndex);
-        EtradeOrdersDataFetcher.setDataFetcher(dataFetcher);
 
         ApiConfig apiConfig = new ApiConfig();
         apiConfig.setOrdersPreviewUrl("https://baseUrl/orders/keyId/preview");
@@ -115,8 +117,12 @@ public class EtradeSellOrderCreatorTest {
         List<PositionLotsResponse.PositionLot> positionLotList = new ArrayList<>();
         positionLotList.add(positionLot1);
         positionLotList.add(positionLot2);
-        EtradeSellOrderCreator.SymbolToLotsIndexPutEvent runnable = Mockito.spy(new EtradeSellOrderCreator
-                .SymbolToLotsIndexPutEvent("ABC", positionLotList));
+
+        EtradeSellOrderController sellOrderController = new EtradeSellOrderController();
+        sellOrderController.setOrdersDataFetcher(dataFetcher);
+
+        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+                Mockito.spy(sellOrderController.newSymbolToLotsIndexPutEventRunnable("ABC", positionLotList));
         runnable.setApiConfig(apiConfig);
         runnable.setRestTemplateFactory(mockTemplateFactory);
         Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
@@ -128,13 +134,16 @@ public class EtradeSellOrderCreatorTest {
         Mockito.doReturn(previewOrderResponse).when(runnable).fetchPreviewOrderResponse(Mockito.any(), Mockito.any());
         Mockito.doAnswer(invocation -> null).when(runnable)
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
-        Mockito.doAnswer(invocation -> null).when(runnable)
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+        Mockito.doAnswer((Answer<Order>) invocation -> {
+            Order mockBuyOrder = new Order();
+            mockBuyOrder.setOrderId(123L);
+            return mockBuyOrder;
+        }).when(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
 
         runnable.run();
         Mockito.verify(runnable, Mockito.times(1))
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
         Mockito.verify(runnable, Mockito.times(2))
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
     }
 }

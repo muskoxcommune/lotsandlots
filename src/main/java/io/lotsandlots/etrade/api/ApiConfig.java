@@ -12,6 +12,7 @@ public class ApiConfig {
     private String ordersUrl;
     private String portfolioQueryString;
     private String portfolioUrl;
+    private String quoteUrl;
 
     public String getAccountIdKey() {
         return accountIdKey;
@@ -81,5 +82,12 @@ public class ApiConfig {
     }
     public void setPortfolioUrl(String portfolioUrl) {
         this.portfolioUrl = portfolioUrl;
+    }
+
+    public String getQuoteUrl() {
+        return quoteUrl;
+    }
+    public void setQuoteUrl(String quoteUrl) {
+        this.quoteUrl = quoteUrl;
     }
 }

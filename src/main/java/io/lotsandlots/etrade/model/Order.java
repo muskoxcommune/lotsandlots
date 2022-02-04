@@ -6,7 +6,6 @@ public class Order {
     String orderAction;
     Long orderId;
     Long orderedQuantity;
-    Float orderValue;
     Long placedTime;
     String status;
     String symbol;
@@ -37,13 +36,6 @@ public class Order {
     }
     public void setOrderedQuantity(Long orderedQuantity) {
         this.orderedQuantity = orderedQuantity;
-    }
-
-    public void setOrderValue(Float orderValue) {
-        this.orderValue = orderValue;
-    }
-    public Float getOrderValue() {
-        return orderValue;
     }
 
     public Long getPlacedTime() {
