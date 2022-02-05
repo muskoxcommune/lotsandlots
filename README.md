@@ -20,7 +20,7 @@ Let's say you believe the stock ABCD of some company will keep or increase it's 
 
 ## How to use this app
 ### Step 1:
-Create a config file in your $HOME directory named `lotsandlots.conf`. The contents of this file should look like this.
+Create a config file in your $HOME directory named `lotsandlots.conf`. This project uses https://github.com/lightbend/config. You can look through the documentation there to reference supported syntax. For now, the contents of this file should look like this.
 ```
 include "application"
 
