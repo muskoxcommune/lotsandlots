@@ -1,9 +1,23 @@
 # lotsandlots
-## Requirements
+***lotsandlots*** is a technique for realizing regular profits and distributing risk while trading stocks.
+
+#### This project
+* Automates the execution of this technique, given an E*Trade account
+* Visualizes portfolio data in a way that shows how the technique is being executed
+
+E*Trade is used because they have a trading-enabled API and trades are free. In the future, other platforms could be supported.
+
+## Requirements for running this program
+- E*Trade account
 - Maven
 - OpenJDK
 
-If on Mac OS, you can get it from https://brew.sh/.
+If on Mac OS, you can get Maven and OpenJDK from https://brew.sh/.
+
+## How lotsandlots works
+
+Let's say you believe the stock ABCD of some company will keep or increase it's value for some time. You buy a single lot worth $1000. If the price goes up 3%, you immediately sell this lot for $1030 and realize $30 of profit. After selling your first lot, buy another $1000 lot. As long as the value of the stock continues going up, keep doing this. Collect $30 each time. If the price, instead, goes down 3% after you buy your first lot, buy another $1000 lot. Again, keep doing that as long as the value keeps going down. If you're right about the general direction of the value of ABCD stock and you have the funds, then you can confidently ride dips. During periods of high volatility, the value of a stock may fluxuate 3% up and down regularly - sometimes in the same trading session. If there is a lot of movement up and down, you can use the same few thousand dollars to collect $30 regularly. Repeat this pattern over many stocks. Diversify across different companies and industries. Choose stocks with different behavior characteristics. The goal of the ***lotsandlots*** technique is to ride the day-to-day ups and downs of the market. 
+
 ## How to use this app
 ### Step 1:
 Create a config file in your $HOME directory named `lotsandlots.conf`. The contents of this file should look like this.
