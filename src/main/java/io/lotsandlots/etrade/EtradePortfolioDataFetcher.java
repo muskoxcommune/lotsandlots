@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
@@ -27,18 +28,34 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
-    public static final Double DEFAULT_ORDER_CREATION_THRESHOLD = CONFIG.getDouble(
-            "etrade.defaultOrderCreationThreshold");
-    public static final Map<String, List<PositionLotsResponse.PositionLot>> EMPTY_SYMBOL_TO_LOTS_INDEX = new HashMap<>();
-
     private static EtradePortfolioDataFetcher DATA_FETCHER = null;
 
     private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
-    private Cache<String, PortfolioResponse.Position> positionCache = newCacheFromCacheBuilder(
-            CacheBuilder.newBuilder(), 90);
+    private Long portfolioDataExpirationSeconds = 180L;
+    private Long portfolioDataFetchIntervalSeconds = 60L;
+    private Double defaultOrderCreationThreshold = 0.03;
+    private boolean isStarted = false;
+    private Cache<String, PortfolioResponse.Position> positionCache;
     private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
+
+    EtradePortfolioDataFetcher() {
+        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
+
+        if (CONFIG.hasPath("etrade.defaultOrderCreationThreshold")) {
+            defaultOrderCreationThreshold = CONFIG.getDouble("etrade.defaultOrderCreationThreshold");
+        }
+        if (CONFIG.hasPath("etrade.portfolioDataExpirationSeconds")) {
+            portfolioDataExpirationSeconds = CONFIG.getLong("etrade.portfolioDataExpirationSeconds");
+        }
+        if (CONFIG.hasPath("etrade.portfolioDataFetchInterval")) {
+            portfolioDataFetchIntervalSeconds = CONFIG.getLong("etrade.portfolioDataFetchInterval");
+        }
+
+        positionCache = newCacheFromCacheBuilder(
+                CacheBuilder.newBuilder(), portfolioDataExpirationSeconds);
+    }
 
     public static void addDataFetchCompletionHandler(PortfolioDataFetchCompletionHandler handler) {
         DATA_FETCHER.portfolioDataFetchCompletionHandlers.add(handler);
@@ -123,7 +140,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
-            Double orderCreationThreshold = DEFAULT_ORDER_CREATION_THRESHOLD;
+            Double orderCreationThreshold = defaultOrderCreationThreshold;
             String overrideOrderCreationThresholdPath = "etrade.overrideOrderCreationThresholds." + symbol;
             if (CONFIG.hasPath(overrideOrderCreationThresholdPath)) {
                 orderCreationThreshold = CONFIG.getDouble(overrideOrderCreationThresholdPath);
@@ -145,6 +162,10 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
+    public static EtradePortfolioDataFetcher getDataFetcher() {
+        return DATA_FETCHER;
+    }
+
     Cache<String, PortfolioResponse.Position> getPositionCache() {
         return positionCache;
     }
@@ -152,13 +173,11 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         this.positionCache = positionCache;
     }
 
-    public static Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
-        return (DATA_FETCHER != null) ? DATA_FETCHER.getSymbolToLotsIndex(true) : EMPTY_SYMBOL_TO_LOTS_INDEX;
+    public Long getPortfolioDataExpirationSeconds() {
+        return portfolioDataExpirationSeconds;
     }
-    Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex(boolean runIfEmpty) {
-        if (symbolToLotsIndex.isEmpty() && runIfEmpty) {
-            getScheduledExecutor().submit(this);
-        }
+
+    public Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
         return symbolToLotsIndex;
     }
     void setSymbolToLotsIndex(Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex) {
@@ -168,14 +187,11 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     public static void init() {
         if (DATA_FETCHER == null) {
             DATA_FETCHER = new EtradePortfolioDataFetcher();
-            DATA_FETCHER
-                    .getScheduledExecutor()
-                    .scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
         }
     }
 
     Cache<String, PortfolioResponse.Position> newCacheFromCacheBuilder(CacheBuilder<Object, Object> cacheBuilder,
-                                                                       Integer expirationSeconds) {
+                                                                       Long expirationSeconds) {
         return cacheBuilder
                 .expireAfterWrite(expirationSeconds, TimeUnit.SECONDS)
                 .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
@@ -208,17 +224,37 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchPortfolioResponse(securityContext, null);
-            // Expired entries are not guaranteed to be cleaned up immediately.
+            // Expired entries are not guaranteed to be cleaned up immediately, so we do it here explicitly.
             // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
             positionCache.cleanUp();
+            long timeStoppedMillis = System.currentTimeMillis();
             LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
-                    System.currentTimeMillis() - timeStartedMillis, positionCache.size(), aggregateLotCount());
+                    timeStoppedMillis - timeStartedMillis, positionCache.size(), aggregateLotCount());
+            setLastSuccessfulFetchTimeMillis(timeStoppedMillis);
             for (PortfolioDataFetchCompletionHandler handler : portfolioDataFetchCompletionHandlers) {
-                handler.handlePortfolioDataFetchCompletion(totals);
+                try {
+                    handler.handlePortfolioDataFetchCompletion(timeStartedMillis, timeStoppedMillis, totals);
+                } catch (Exception e) {
+                    LOG.error("Failed to handle portfolio data fetch completion event");
+                }
             }
         } catch (Exception e) {
-            LOG.info("Failed to fetch portfolio and lots data, duration={}ms",
-                    System.currentTimeMillis() - timeStartedMillis, e);
+            long timeFailedMillis = System.currentTimeMillis();
+            LOG.info("Failed to fetch portfolio and lots data, duration={}ms", timeFailedMillis - timeStartedMillis, e);
+            setLastFailedFetchTimeMillis(timeFailedMillis);
+        }
+    }
+
+    public static void start() {
+        if (DATA_FETCHER == null) {
+            init();
+        }
+        if (!DATA_FETCHER.isStarted) {
+            DATA_FETCHER
+                    .getScheduledExecutor()
+                    .scheduleAtFixedRate(
+                            DATA_FETCHER, 0, DATA_FETCHER.portfolioDataFetchIntervalSeconds, TimeUnit.SECONDS);
+            DATA_FETCHER.isStarted = true;
         }
     }
 
@@ -229,6 +265,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     public interface PortfolioDataFetchCompletionHandler {
 
-        void handlePortfolioDataFetchCompletion(PortfolioResponse.Totals totals);
+        void handlePortfolioDataFetchCompletion(
+                long timeFetchStarted, long timeFetchStopped, PortfolioResponse.Totals totals);
     }
 }

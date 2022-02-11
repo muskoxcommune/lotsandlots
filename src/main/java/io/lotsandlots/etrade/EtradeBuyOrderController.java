@@ -34,6 +34,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
     private final Map<String, Cache<Long, Order>> placedBuyOrderCache = new HashMap<>();
 
     private EmailHelper emailHelper = new EmailHelper();
+    private EtradePortfolioDataFetcher portfolioDataFetcher = EtradePortfolioDataFetcher.getDataFetcher();
     private EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
     private ExecutorService executor;
     private long haltBuyOrderCashBalance = 0L;
@@ -79,12 +80,39 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         return placedBuyOrderCache.get(symbol).size();
     }
 
+    /**
+     * After portfolio data fetching is complete, we look for buying enabled symbols that don't have any lots.
+     * For any that are found, we submit a runnable to buy a lot in a separate thread.
+     *
+     * @param timeFetchStarted
+     * @param timeFetchStopped
+     * @param totals
+     */
     @Override
-    public void handlePortfolioDataFetchCompletion(PortfolioResponse.Totals totals) {
-        LOG.debug("Checking buy-order-enabled symbols after portfolio data fetch completed");
-        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex =
-                EtradePortfolioDataFetcher.getSymbolToLotsIndex();
+    public void handlePortfolioDataFetchCompletion(long timeFetchStarted,
+                                                   long timeFetchStopped,
+                                                   PortfolioResponse.Totals totals) {
+        // Some problem on E*Trades' end might cause portfolio data fetching to take longer than the data's expiry.
+        // If that happens, we should not make any buying decisions because we can't trust the quality of our data.
+        long fetchDurationSeconds = (timeFetchStarted - timeFetchStopped) / 1000L;
+        if (fetchDurationSeconds > portfolioDataFetcher.getPortfolioDataExpirationSeconds()) {
+            LOG.warn("Skipping buy order creation, fetchDurationSeconds exceeded portfolioDataExpirationSeconds, "
+                            + "timeFetchStarted={}, timeFetchStopped={} fetchDurationSeconds={} symbol={}",
+                    timeFetchStarted,
+                    timeFetchStopped,
+                    fetchDurationSeconds,
+                    portfolioDataFetcher.getPortfolioDataExpirationSeconds()
+            );
+            return;
+        }
+        LOG.debug("Checking for buying enabled symbols with no lots");
+        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = portfolioDataFetcher.getSymbolToLotsIndex();
         for (String symbol : placedBuyOrderCache.keySet()) {
+            // TODO:
+            // - How do we know if a cache miss is not due to data fetching or server side data quality problems?
+            // - One option could be to build and maintain an internal representation of what the portfolio should
+            //   look like. For example, if we haven't sold any lots, we should have the same number of lots after
+            //   fetching data. If that is not the case, we should assume our data is not reliable.
             if (!symbolToLotsIndex.containsKey(symbol)) {
                 LOG.info("Did not find any lots, symbol={}", symbol);
                 executor.submit(new InitialBuyOrderRunnable(symbol, totals));
@@ -180,6 +208,10 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         this.ordersDataFetcher = ordersDataFetcher;
     }
 
+    void setPortfolioDataFetcher(EtradePortfolioDataFetcher portfolioDataFetcher) {
+        this.portfolioDataFetcher = portfolioDataFetcher;
+    }
+
     /**
      * Functionally abstract but not officially declared to make testing easier.
      */
@@ -194,19 +226,33 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         }
 
         public boolean canProceedWithBuyOrderCreation() {
+            Long lastSuccessfulFetchTimeMillis = ordersDataFetcher.getLastSuccessfulFetchTimeMillis();
+            if (lastSuccessfulFetchTimeMillis == null) {
+                LOG.debug("Skipping buy order creation, orders data fetch has not occurred, symbol={}", symbol);
+                return false;
+            }
+            long currentTimeMillis = System.currentTimeMillis();
+            long deltaMillis = currentTimeMillis - lastSuccessfulFetchTimeMillis;
+            long thresholdMillis = ordersDataFetcher.getOrdersDataExpirationSeconds() * 1000L;
+            if (deltaMillis > thresholdMillis) {
+                LOG.warn("Skipping buy order creation, due to orders data staleness, "
+                                + "lastSuccessfulFetchTimeMillis={}, deltaMillis={} thresholdMillis={} symbol={}",
+                        lastSuccessfulFetchTimeMillis, deltaMillis, thresholdMillis, symbol);
+                return false;
+            }
             Map<String, List<Order>> symbolToOrdersIndex = ordersDataFetcher.getSymbolToBuyOrdersIndex();
             if (symbolToOrdersIndex.containsKey(symbol)) {
-                LOG.debug("Skipping buy order creation, a buy order already exists");
+                LOG.debug("Skipping buy order creation, a buy order already exists, symbol={}", symbol);
                 return false;
             }
             if (totals.getCashBalance() < haltBuyOrderCashBalance) {
-                LOG.info("Skipping buy order creation, cashBalance below haltBuyOrderCashBalance {} < {}",
-                        totals.getCashBalance(), haltBuyOrderCashBalance);
+                LOG.info("Skipping buy order creation, cashBalance below haltBuyOrderCashBalance {} < {}, symbol={}",
+                        totals.getCashBalance(), haltBuyOrderCashBalance, symbol);
                 return false;
             }
             if (!isBelowMaxBuyOrdersPerDayLimit(symbol)) {
-                LOG.debug("Skipping buy order creation, {} buy orders have been created "
-                        + "in the last 24 hours", getBuyOrdersCreatedInLast24Hours(symbol));
+                LOG.debug("Skipping buy order creation, {} buy orders have been created in the last 24 hours, symbol={}",
+                        getBuyOrdersCreatedInLast24Hours(symbol), symbol);
                 return false;
             }
             return true;
