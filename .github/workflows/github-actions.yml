@@ -2,9 +2,18 @@ name: GitHub Actions
 on:
     pull_request:
         branches: [main]
-        types: [opened, reopened]
+        #types: [opened, reopened]
 jobs:
   pr-build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - run: make test
+      - if: success()
+        uses: ouzi-dev/commit-status-updater@v1.1.0
+        with:
+            status: "success"
+      - if: failure()
+        uses: ouzi-dev/commit-status-updater@v1.1.0
+        with:
+            status: "failure"
