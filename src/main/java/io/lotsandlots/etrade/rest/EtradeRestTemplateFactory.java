@@ -13,6 +13,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.LaxRedirectStrategy;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -38,7 +39,11 @@ public class EtradeRestTemplateFactory {
     private final ApiConfig apiConfig;
     private final ClientHttpRequestFactory clientHttpRequestFactory;
 
+    private int connectTimeoutMillis = 3000;
+    private int connectionRequestTimeoutMillis = 3000;
+    private int readTimeoutMillis = 9000;
     private SecurityContext securityContext;
+    private int socketTimeoutMillis = 3000;
 
     EtradeRestTemplateFactory() throws GeneralSecurityException {
         try {
@@ -66,6 +71,18 @@ public class EtradeRestTemplateFactory {
             apiConfig.setPortfolioQueryString(CONFIG.getString("etrade.portfolioQueryParams"));
             apiConfig.setQuoteUrl(CONFIG.getString("etrade.quoteUrl"));
 
+            if (CONFIG.hasPath("etrade.connectTimeoutMillis")) {
+                connectTimeoutMillis = CONFIG.getInt("etrade.connectTimeoutMillis");
+            }
+            if (CONFIG.hasPath("etrade.connectionRequestTimeoutMillis")) {
+                connectionRequestTimeoutMillis = CONFIG.getInt("etrade.connectionRequestTimeoutMillis");
+            }
+            if (CONFIG.hasPath("etrade.readTimeoutMillis")) {
+                readTimeoutMillis = CONFIG.getInt("etrade.readTimeoutMillis");
+            }
+            if (CONFIG.hasPath("etrade.socketTimeoutMillis")) {
+                socketTimeoutMillis = CONFIG.getInt("etrade.socketTimeoutMillis");
+            }
             clientHttpRequestFactory = newClientHttpRequestFactory();
 
             securityContext = newSecurityContext();
@@ -114,26 +131,29 @@ public class EtradeRestTemplateFactory {
     }
 
     private ClientHttpRequestFactory newClientHttpRequestFactory() throws GeneralSecurityException {
-        int timeout = 30000;
         RequestConfig config = RequestConfig.custom()
-                .setConnectTimeout(timeout)
-                .setConnectionRequestTimeout(timeout)
-                .setSocketTimeout(timeout)
-                .setConnectionRequestTimeout(timeout)
+                .setConnectTimeout(connectTimeoutMillis)
+                .setConnectionRequestTimeout(connectionRequestTimeoutMillis)
                 .setRedirectsEnabled(true)
+                .setSocketTimeout(socketTimeoutMillis)
                 .build();
         SSLContext sslContext = org.apache.http.ssl.SSLContexts
                 .custom()
                 .loadTrustMaterial(null, (x509Certificates, s) -> true)
                 .build();
         SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(sslContext, new NoopHostnameVerifier());
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(100); // Setting this too low may cause more connection request timeouts
         CloseableHttpClient client = HttpClientBuilder
                 .create()
                 .setDefaultRequestConfig(config)
+                .setConnectionManager(connectionManager)
                 .setRedirectStrategy(new LaxRedirectStrategy())
                 .setSSLSocketFactory(csf)
                 .build();
-        return new HttpComponentsClientHttpRequestFactory(client);
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(client);
+        requestFactory.setReadTimeout(readTimeoutMillis);
+        return requestFactory;
     }
 
     public EtradeRestTemplate newCustomRestTemplate() {

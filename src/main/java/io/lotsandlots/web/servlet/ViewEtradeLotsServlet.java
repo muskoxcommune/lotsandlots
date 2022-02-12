@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
         for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
-                EtradePortfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
+                EtradePortfolioDataFetcher.getDataFetcher().getSymbolToLotsIndex().entrySet()) {
             List<PositionLotsResponse.PositionLot> lots = entry.getValue();
             if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
                 continue;
@@ -53,8 +54,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 includedLots.add(lowestPricedLot);
             }
         }
-        Map<String, List<Order>> symbolToOrdersIndex =
-                EtradeOrdersDataFetcher.EMPTY_SYMBOL_TO_ORDERS_INDEX;
+        Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
         EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
         if (ordersDataFetcher != null) {
             symbolToOrdersIndex =

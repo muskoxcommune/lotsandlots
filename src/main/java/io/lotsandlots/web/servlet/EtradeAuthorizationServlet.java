@@ -124,12 +124,13 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                         + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()));
                 if (!isInitialized) {
                     // Initialize data fetchers
-                    EtradeOrdersDataFetcher.init();
+                    EtradeOrdersDataFetcher.start();
                     EtradePortfolioDataFetcher.init();
                     EtradeBuyOrderController etradeBuyOrderController = new EtradeBuyOrderController();
                     EtradePortfolioDataFetcher.addDataFetchCompletionHandler(etradeBuyOrderController);
                     EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(etradeBuyOrderController);
                     EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderController());
+                    EtradePortfolioDataFetcher.start();
                     isInitialized = true;
                 }
             } catch (Exception e) {

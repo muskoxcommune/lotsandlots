@@ -92,7 +92,7 @@ public class EtradePortfolioDataFetcherTest {
         dataFetcher.setRestTemplateFactory(mockTemplateFactory);
         dataFetcher.fetchPositionLotsResponse(securityContext, ticker, position);
 
-        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = dataFetcher.getSymbolToLotsIndex(false);
+        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = dataFetcher.getSymbolToLotsIndex();
         Assert.assertTrue(symbolToLotsIndex.containsKey(ticker));
         Assert.assertEquals(symbolToLotsIndex.get(ticker).size(), 2);
         PositionLotsResponse.PositionLot indexedLot = symbolToLotsIndex.get(ticker).get(0);
@@ -109,7 +109,7 @@ public class EtradePortfolioDataFetcherTest {
         EtradePortfolioDataFetcher dataFetcher = new EtradePortfolioDataFetcher();
         dataFetcher.setSymbolToLotsIndex(symbolToLotsIndex);
         Cache<String, PortfolioResponse.Position> positionCache = dataFetcher.newCacheFromCacheBuilder(
-                CacheBuilder.newBuilder(), 1);
+                CacheBuilder.newBuilder(), 1L);
         dataFetcher.setPositionCache(positionCache);
 
         symbolToLotsIndex.put(ticker, new LinkedList<>());

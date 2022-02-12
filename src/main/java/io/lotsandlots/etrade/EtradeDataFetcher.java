@@ -14,6 +14,8 @@ public abstract class EtradeDataFetcher implements EtradeOAuthClient, Runnable {
     private static final ScheduledExecutorService DEFAULT_SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private ApiConfig apiConfig = DEFAULT_API;
+    private Long lastFailedFetchTimeMillis = null;
+    private Long lastSuccessfulFetchTimeMillis = null;
     private EtradeRestTemplateFactory restTemplateFactory = DEFAULT_REST_TEMPLATE_FACTORY;
     private ScheduledExecutorService scheduledExecutor = DEFAULT_SCHEDULED_EXECUTOR;
 
@@ -22,6 +24,20 @@ public abstract class EtradeDataFetcher implements EtradeOAuthClient, Runnable {
     }
     void setApiConfig(ApiConfig apiConfig) {
         this.apiConfig = apiConfig;
+    }
+
+    public Long getLastFailedFetchTimeMillis() {
+        return lastFailedFetchTimeMillis;
+    }
+    public void setLastFailedFetchTimeMillis(Long lastFailedFetchTimeMillis) {
+        this.lastFailedFetchTimeMillis = lastFailedFetchTimeMillis;
+    }
+
+    public Long getLastSuccessfulFetchTimeMillis() {
+        return lastSuccessfulFetchTimeMillis;
+    }
+    public void setLastSuccessfulFetchTimeMillis(Long lastSuccessfulFetchTimeMillis) {
+        this.lastSuccessfulFetchTimeMillis = lastSuccessfulFetchTimeMillis;
     }
 
     EtradeRestTemplateFactory getRestTemplateFactory() {

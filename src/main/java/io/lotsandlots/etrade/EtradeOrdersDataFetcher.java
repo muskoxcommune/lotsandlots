@@ -3,11 +3,13 @@ package io.lotsandlots.etrade;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.typesafe.config.Config;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
+import io.lotsandlots.util.ConfigWrapper;
 import io.lotsandlots.util.DateFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -20,22 +22,39 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
+    private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
-
-    public static final Map<String, List<Order>> EMPTY_SYMBOL_TO_ORDERS_INDEX = new HashMap<>();
 
     private static EtradeOrdersDataFetcher DATA_FETCHER = null;
 
-    private final Cache<Long, Order> orderCache = CacheBuilder
-            .newBuilder()
-            .expireAfterWrite(90, TimeUnit.SECONDS)
-            .build();
+    private final Cache<Long, Order> orderCache;
+    private boolean isStarted = false;
+    private Long ordersDataExpirationSeconds = 120L;
+    private Long ordersDataFetchIntervalSeconds = 60L;
     private Map<String, List<Order>> symbolToBuyOrdersIndex = new HashMap<>();
     private Map<String, List<Order>> symbolToSellOrdersIndex = new HashMap<>();
+
+
+    EtradeOrdersDataFetcher() {
+        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
+
+        if (CONFIG.hasPath("etrade.ordersDataExpirationSeconds")) {
+            ordersDataExpirationSeconds = CONFIG.getLong("etrade.ordersDataExpirationSeconds");
+        }
+        if (CONFIG.hasPath("etrade.ordersDataFetchIntervalSeconds")) {
+            ordersDataFetchIntervalSeconds = CONFIG.getLong("etrade.ordersDataFetchIntervalSeconds");
+        }
+
+        orderCache = CacheBuilder
+                .newBuilder()
+                .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
+                .build();
+    }
 
     void fetchOrdersResponse(SecurityContext securityContext,
                              String marker)
@@ -63,6 +82,10 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     @VisibleForTesting
     Cache<Long, Order> getOrderCache() {
         return orderCache;
+    }
+
+    public Long getOrdersDataExpirationSeconds() {
+        return ordersDataExpirationSeconds;
     }
 
     public Map<String, List<Order>> getSymbolToBuyOrdersIndex() {
@@ -218,15 +241,31 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchOrdersResponse(securityContext, null);
-            // Expired entries are not guaranteed to be cleaned up immediately.
+            // Expired entries are not guaranteed to be cleaned up immediately, so we do it here explicitly.
             // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
             orderCache.cleanUp();
-            LOG.info("Fetched orders data, duration={}ms orders={}",
-                    System.currentTimeMillis() - timeStartedMillis, orderCache.size());
             indexOrdersBySymbol();
+            long currentTimeMillis = System.currentTimeMillis();
+            LOG.info("Fetched orders data, duration={}ms orders={}",
+                    currentTimeMillis - timeStartedMillis, orderCache.size());
+            setLastSuccessfulFetchTimeMillis(currentTimeMillis);
         } catch (Exception e) {
-            LOG.info("Failed to fetch orders data, duration={}ms",
-                    System.currentTimeMillis() - timeStartedMillis, e);
+            long currentTimeMillis = System.currentTimeMillis();
+            LOG.info("Failed to fetch orders data, duration={}ms", currentTimeMillis - timeStartedMillis, e);
+            setLastFailedFetchTimeMillis(currentTimeMillis);
+        }
+    }
+
+    public static void start() {
+        if (DATA_FETCHER == null) {
+            init();
+        }
+        if (!DATA_FETCHER.isStarted) {
+            DATA_FETCHER
+                    .getScheduledExecutor()
+                    .scheduleAtFixedRate(
+                            DATA_FETCHER, 0, DATA_FETCHER.ordersDataFetchIntervalSeconds, TimeUnit.SECONDS);
+            DATA_FETCHER.isStarted = true;
         }
     }
 }

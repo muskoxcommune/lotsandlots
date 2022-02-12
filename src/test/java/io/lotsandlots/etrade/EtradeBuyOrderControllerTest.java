@@ -74,6 +74,8 @@ public class EtradeBuyOrderControllerTest {
         totals = new PortfolioResponse.Totals();
         totals.setCashBalance(100.00F);
 
+        Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
+        Mockito.doReturn(180L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("TEST3", totals));
         Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
 
@@ -97,6 +99,8 @@ public class EtradeBuyOrderControllerTest {
 
         EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(new HashMap<>()).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
+        Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
+        Mockito.doReturn(180L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);

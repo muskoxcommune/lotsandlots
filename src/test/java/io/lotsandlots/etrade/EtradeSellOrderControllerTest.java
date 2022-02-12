@@ -80,9 +80,18 @@ public class EtradeSellOrderControllerTest {
     }
 
     public void testHandleSymbolToLotsIndexPut() {
-        ExecutorService mockExecutor = Mockito.mock(ExecutorService.class);
         EtradeSellOrderController sellOrderController = new EtradeSellOrderController();
+
+        ExecutorService mockExecutor = Mockito.mock(ExecutorService.class);
         sellOrderController.setExecutor(mockExecutor);
+
+        ////
+        // If orders data is not stale, we should submit a SymbolToLotsIndexPutEventRunnable.
+
+        EtradeOrdersDataFetcher mockOrdersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        Mockito.doReturn(System.currentTimeMillis()).when(mockOrdersDataFetcher).getLastSuccessfulFetchTimeMillis();
+        sellOrderController.setOrdersDataFetcher(mockOrdersDataFetcher);
+
         sellOrderController.handleSymbolToLotsIndexPut("ABC", new ArrayList<>(), new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }

@@ -57,9 +57,23 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                                            List<PositionLotsResponse.PositionLot> lots,
                                            PortfolioResponse.Totals totals) {
         if (isSellOrderCreationDisabled(symbol)) {
-            LOG.debug("Skipping sell order creation, symbol={}", symbol);
+            LOG.debug("Skipping disabled sell order creation feature, symbol={}", symbol);
         } else {
-            executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol, lots));
+            Long lastSuccessfulFetchTimeMillis = ordersDataFetcher.getLastSuccessfulFetchTimeMillis();
+            if (lastSuccessfulFetchTimeMillis == null) {
+                LOG.debug("Skipping sell order creation, orders data fetch has not occurred, symbol={}", symbol);
+                return;
+            }
+            long currentTimeMillis = System.currentTimeMillis();
+            long deltaMillis = currentTimeMillis - lastSuccessfulFetchTimeMillis;
+            long thresholdMillis = ordersDataFetcher.getOrdersDataExpirationSeconds() * 1000L;
+            if (deltaMillis > thresholdMillis) {
+                LOG.warn("Skipping sell order creation due to orders data staleness, "
+                                + "lastSuccessfulFetchTimeMillis={} deltaMillis={} thresholdMillis={} symbol={}",
+                        lastSuccessfulFetchTimeMillis, deltaMillis, thresholdMillis, symbol);
+            } else {
+                executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol, lots));
+            }
         }
     }
 
