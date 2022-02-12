@@ -143,7 +143,7 @@ public class EtradeRestTemplateFactory {
                 .build();
         SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(sslContext, new NoopHostnameVerifier());
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(100);
+        connectionManager.setMaxTotal(100); // Setting this too low may cause more connection request timeouts
         CloseableHttpClient client = HttpClientBuilder
                 .create()
                 .setDefaultRequestConfig(config)
