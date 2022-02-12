@@ -1,6 +1,6 @@
 
 run::
-	mvn clean install jetty:run -Dconfig.file=$$HOME/lotsandlots.conf
+	mvn -B clean install jetty:run -Dconfig.file=$$HOME/lotsandlots.conf
 
 test::
-	mvn clean clover:setup test clover:aggregate clover:clover
+	mvn -B clean clover:setup test clover:aggregate clover:clover
