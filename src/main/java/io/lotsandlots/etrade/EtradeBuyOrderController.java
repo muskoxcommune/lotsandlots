@@ -94,7 +94,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                                                    PortfolioResponse.Totals totals) {
         // Some problem on E*Trades' end might cause portfolio data fetching to take longer than the data's expiry.
         // If that happens, we should not make any buying decisions because we can't trust the quality of our data.
-        long fetchDurationSeconds = (timeFetchStarted - timeFetchStopped) / 1000L;
+        long fetchDurationSeconds = (timeFetchStopped - timeFetchStarted) / 1000L;
         if (fetchDurationSeconds > portfolioDataFetcher.getPortfolioDataExpirationSeconds()) {
             LOG.warn("Skipping buy order creation, fetchDurationSeconds exceeded portfolioDataExpirationSeconds, "
                             + "timeFetchStarted={}, timeFetchStopped={} fetchDurationSeconds={} symbol={}",

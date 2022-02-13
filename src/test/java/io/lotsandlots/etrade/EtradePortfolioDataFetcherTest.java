@@ -31,7 +31,7 @@ public class EtradePortfolioDataFetcherTest {
     }
 
     public void testFetchPortfolioResponse() throws GeneralSecurityException, UnsupportedEncodingException {
-        String ticker = "TEST1";
+        String ticker = "FETCH_PORTFOLIO_RESPONSE";
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         EtradeRestTemplate mockRestTemplate = Mockito.mock(EtradeRestTemplate.class);
         ResponseEntity<PortfolioResponse> mockResponseEntity = Mockito.mock(ResponseEntity.class);
@@ -65,7 +65,7 @@ public class EtradePortfolioDataFetcherTest {
     }
 
     public void testFetchPositionLotsResponse() throws GeneralSecurityException, UnsupportedEncodingException {
-        String ticker = "TEST1";
+        String ticker = "FETCH_POSITION_LOTS_RESPONSE";
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         EtradeRestTemplate mockRestTemplate = Mockito.mock(EtradeRestTemplate.class);
         ResponseEntity<PositionLotsResponse> mockResponseEntity = Mockito.mock(ResponseEntity.class);
@@ -104,7 +104,7 @@ public class EtradePortfolioDataFetcherTest {
     }
 
     public void testPositionExpiration() throws InterruptedException {
-        String ticker = "TEST1";
+        String ticker = "POSITION_EXPIRATION";
         Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = Mockito.spy(new HashMap<>());
         EtradePortfolioDataFetcher dataFetcher = new EtradePortfolioDataFetcher();
         dataFetcher.setSymbolToLotsIndex(symbolToLotsIndex);

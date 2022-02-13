@@ -33,7 +33,7 @@ public class EtradeOrdersDataFetcherTest {
     public void testFetchOrdersResponse() throws GeneralSecurityException, UnsupportedEncodingException {
         Long testTimeMillis = System.currentTimeMillis();
         OrderDetail.Product product1 = new OrderDetail.Product();
-        product1.setSymbol("TEST1");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_1");
         OrderDetail.Instrument instrument1 = new OrderDetail.Instrument();
         instrument1.setFilledQuantity(0.0F);
         instrument1.setOrderAction("SELL");
@@ -77,7 +77,7 @@ public class EtradeOrdersDataFetcherTest {
         Assert.assertEquals(cachedOrder.getOrderedQuantity().longValue(), 10L);
         Assert.assertEquals(cachedOrder.getPlacedTime(), testTimeMillis);
         Assert.assertEquals(cachedOrder.getStatus(), "OPEN");
-        Assert.assertEquals(cachedOrder.getSymbol(), "TEST1");
+        Assert.assertEquals(cachedOrder.getSymbol(), "FETCH_ORDERS_RESPONSE_1");
     }
 
     public void testHandleOrderResponse2L() {
@@ -91,7 +91,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST2");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_2");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -109,7 +109,7 @@ public class EtradeOrdersDataFetcherTest {
         Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
         Order cachedOrder = orderCache.getIfPresent(2L);
         Assert.assertNotNull(cachedOrder);
-        Assert.assertEquals(cachedOrder.getSymbol(), "TEST2");
+        Assert.assertEquals(cachedOrder.getSymbol(), "FETCH_ORDERS_RESPONSE_2");
     }
 
     public void testHandleOrderResponse3L() {
@@ -123,7 +123,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST3");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_3");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -141,7 +141,7 @@ public class EtradeOrdersDataFetcherTest {
         Cache<Long, Order> orderCache = dataFetcher.getOrderCache();
         Order cachedOrder = orderCache.getIfPresent(3L);
         Assert.assertNotNull(cachedOrder);
-        Assert.assertEquals(cachedOrder.getSymbol(), "TEST3");
+        Assert.assertEquals(cachedOrder.getSymbol(), "FETCH_ORDERS_RESPONSE_3");
     }
 
     public void testHandleOrderResponse4L() {
@@ -155,7 +155,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST4");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_4");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -186,7 +186,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST5");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_5");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -217,7 +217,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST6");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_6");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -250,7 +250,7 @@ public class EtradeOrdersDataFetcherTest {
         OrderDetail.Product product1 = new OrderDetail.Product();
 
         Long testTimeMillis = System.currentTimeMillis();
-        product1.setSymbol("TEST7");
+        product1.setSymbol("FETCH_ORDERS_RESPONSE_7");
         instrument1.setOrderAction("BUY");
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
@@ -274,8 +274,8 @@ public class EtradeOrdersDataFetcherTest {
         dataFetcher.indexOrdersBySymbol();
         Map<String, List<Order>> symbolToOrdersIndex =
                 EtradeOrdersDataFetcher.getSymbolToBuyOrdersIndex(dataFetcher);
-        Assert.assertTrue(symbolToOrdersIndex.containsKey("TEST7"));
-        Assert.assertEquals(symbolToOrdersIndex.get("TEST7").size(), 3);
+        Assert.assertTrue(symbolToOrdersIndex.containsKey("FETCH_ORDERS_RESPONSE_7"));
+        Assert.assertEquals(symbolToOrdersIndex.get("FETCH_ORDERS_RESPONSE_7").size(), 3);
     }
 
     public void testNewOrdersMessageWithMarker() {

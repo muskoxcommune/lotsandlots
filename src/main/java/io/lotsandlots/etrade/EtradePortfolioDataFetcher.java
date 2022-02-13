@@ -32,7 +32,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
-    private Long portfolioDataExpirationSeconds = 180L;
+    private Long portfolioDataExpirationSeconds = 120L;
     private Long portfolioDataFetchIntervalSeconds = 60L;
     private Double defaultOrderCreationThreshold = 0.03;
     private boolean isStarted = false;
