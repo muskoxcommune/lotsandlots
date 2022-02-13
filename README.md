@@ -1,5 +1,7 @@
 # lotsandlots
 
+![Status](https://github.com/muskoxcommune/lotsandlots/actions/workflows/build_action.yml/badge.svg) ![Coverage](.github/badges/jacoco.svg) ![Branches](.github/badges/branches.svg)
+
 This project implements a technique for realizing profits regularly and distributing risk while trading stocks.
 * It automates the execution of this technique, given an E*Trade account
 * It visualizes portfolio data in a way that shows how the technique is being executed
