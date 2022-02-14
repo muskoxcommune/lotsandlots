@@ -1,5 +1,6 @@
 package io.lotsandlots.web.servlet;
 
+import com.google.json.JsonSanitizer;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
@@ -30,7 +31,7 @@ public interface EtradeApiServlet extends EtradeOAuthClient {
             if (StringUtils.isBlank(responseBody)) {
                 throw new RuntimeException("Empty response");
             }
-            response.getWriter().print(responseBody);
+            response.getWriter().print(JsonSanitizer.sanitize(responseBody));
         } catch (Exception e) {
             handleException(response, e);
         }

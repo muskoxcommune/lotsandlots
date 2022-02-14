@@ -46,7 +46,7 @@ public class EtradePortfolioServlet extends HttpServlet implements EtradeApiServ
     public void handleException(HttpServletResponse response, Exception e) throws IOException {
         LOG.error("Failed to fetch portfolio", e);
         if (e instanceof InvalidParameterException) {
-            response.sendError(400, e.getMessage());
+            response.sendError(400, "Invalid parameter");
         } else {
             response.sendError(500, "Unable to fetch portfolio");
         }

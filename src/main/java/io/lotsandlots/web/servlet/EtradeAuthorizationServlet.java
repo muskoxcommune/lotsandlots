@@ -16,6 +16,7 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -26,6 +27,7 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -87,7 +89,7 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
         SecurityContext securityContext;
 
         String verifierCode = request.getParameter("verifier");
-        if (verifierCode == null) {
+        if (StringUtils.isBlank(verifierCode)) {
             // If a verifier code is not provided, redirect to E*Trade to get one.
             LOG.info("Verifier code not provided, will redirect to E*Trade");
             securityContext = EtradeRestTemplateFactory.getTemplateFactory().newSecurityContext();
@@ -111,6 +113,8 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                 response.sendError(500, "Unable to redirect to E*Trade");
             }
         } else {
+            verifierCode = HtmlUtils.htmlEscape(verifierCode, "UTF-8");
+
             // If a verifier code parameter is found, complete authorization flow.
             LOG.info("Verifier code found, verifier={}", verifierCode);
             securityContext = EtradeRestTemplateFactory.getTemplateFactory().getSecurityContext();
