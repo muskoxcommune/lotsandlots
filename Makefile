@@ -1,6 +1,8 @@
+clean::
+	mvn -B clean
 
 run::
-	mvn -B clean install jetty:run -Dconfig.file=$$HOME/lotsandlots.conf
+	mvn -B clean jetty:run -Dconfig.file=$$HOME/lotsandlots.conf
 
 test::
 	mvn -B clean test

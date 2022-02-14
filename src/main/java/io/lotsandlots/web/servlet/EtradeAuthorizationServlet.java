@@ -9,6 +9,7 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.web.listener.LifecycleListener;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -123,14 +124,22 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                 response.getWriter().print("Authorization completed at "
                         + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()));
                 if (!isInitialized) {
-                    // Initialize data fetchers
-                    EtradeOrdersDataFetcher.start();
-                    EtradePortfolioDataFetcher.init();
-                    EtradeBuyOrderController etradeBuyOrderController = new EtradeBuyOrderController();
-                    EtradePortfolioDataFetcher.addDataFetchCompletionHandler(etradeBuyOrderController);
-                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(etradeBuyOrderController);
-                    EtradePortfolioDataFetcher.addSymbolToLotsIndexPutHandler(new EtradeSellOrderController());
-                    EtradePortfolioDataFetcher.start();
+                    LifecycleListener lifecycleListener = LifecycleListener.getListener();
+
+                    // Initialize data fetchers and order controllers.
+
+                    EtradeOrdersDataFetcher ordersDataFetcher = new EtradeOrdersDataFetcher();
+                    ordersDataFetcher.start();
+                    lifecycleListener.setOrdersDataFetcher(ordersDataFetcher);
+
+                    EtradePortfolioDataFetcher portfolioDataFetcher = new EtradePortfolioDataFetcher();
+                    lifecycleListener.setBuyOrderController(
+                            new EtradeBuyOrderController(portfolioDataFetcher, ordersDataFetcher));
+                    lifecycleListener.setSellOrderController(
+                            new EtradeSellOrderController(portfolioDataFetcher, ordersDataFetcher));
+                    portfolioDataFetcher.start();
+                    lifecycleListener.setPortfolioDataFetcher(portfolioDataFetcher);
+
                     isInitialized = true;
                 }
             } catch (Exception e) {

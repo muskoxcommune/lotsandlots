@@ -1,6 +1,5 @@
 package io.lotsandlots.etrade;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.typesafe.config.Config;
@@ -30,8 +29,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
-    private static EtradeOrdersDataFetcher DATA_FETCHER = null;
-
     private final Cache<Long, Order> orderCache;
     private boolean isStarted = false;
     private Long ordersDataExpirationSeconds = 120L;
@@ -40,9 +37,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     private Map<String, List<Order>> symbolToSellOrdersIndex = new HashMap<>();
 
 
-    EtradeOrdersDataFetcher() {
-        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
-
+    public EtradeOrdersDataFetcher() {
         if (CONFIG.hasPath("etrade.ordersDataExpirationSeconds")) {
             ordersDataExpirationSeconds = CONFIG.getLong("etrade.ordersDataExpirationSeconds");
         }
@@ -54,6 +49,10 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 .newBuilder()
                 .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
                 .build();
+        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
+
+        LOG.info("Initialized EtradeOrdersDataFetcher, ordersDataExpirationSeconds={} ordersDataFetchIntervalSeconds={}",
+                ordersDataExpirationSeconds, ordersDataFetchIntervalSeconds);
     }
 
     void fetchOrdersResponse(SecurityContext securityContext,
@@ -75,11 +74,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public static EtradeOrdersDataFetcher getDataFetcher() {
-        return DATA_FETCHER;
-    }
-
-    @VisibleForTesting
     Cache<Long, Order> getOrderCache() {
         return orderCache;
     }
@@ -89,30 +83,12 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     }
 
     public Map<String, List<Order>> getSymbolToBuyOrdersIndex() {
-        return getSymbolToBuyOrdersIndex(true);
-    }
-    public Map<String, List<Order>> getSymbolToBuyOrdersIndex(boolean runIfEmpty) {
-        if (symbolToBuyOrdersIndex.size() == 0 && runIfEmpty) {
-            getScheduledExecutor().submit(this);
-        }
         return symbolToBuyOrdersIndex;
-    }
-    @VisibleForTesting
-    public static Map<String, List<Order>> getSymbolToBuyOrdersIndex(
-            EtradeOrdersDataFetcher dataFetcher) {
-        return dataFetcher.symbolToBuyOrdersIndex;
     }
 
     public Map<String, List<Order>> getSymbolToSellOrdersIndex() {
-        return getSymbolToSellOrdersIndex(true);
-    }
-    public Map<String, List<Order>> getSymbolToSellOrdersIndex(boolean runIfEmpty) {
-        if (symbolToSellOrdersIndex.size() == 0 && runIfEmpty) {
-            getScheduledExecutor().submit(this);
-        }
         return symbolToSellOrdersIndex;
     }
-    @VisibleForTesting
     public void setSymbolToSellOrdersIndex(Map<String, List<Order>> symbolToSellOrdersIndex) {
         this.symbolToSellOrdersIndex = symbolToSellOrdersIndex;
     }
@@ -172,16 +148,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         symbolToSellOrdersIndex = newSymbolToSellOrdersIndex;
     }
 
-    public static void init() {
-        if (DATA_FETCHER == null) {
-            DATA_FETCHER = new EtradeOrdersDataFetcher();
-            DATA_FETCHER
-                    .getScheduledExecutor()
-                    .scheduleAtFixedRate(DATA_FETCHER, 0, 60, TimeUnit.SECONDS);
-        }
-    }
-
-    List<Order> newOrderList(Order order) {
+    static List<Order> newOrderList(Order order) {
         List<Order> newOrderList = new LinkedList<>();
         newOrderList.add(order);
         return newOrderList;
@@ -206,24 +173,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
         ordersMessage.setQueryString(ordersQueryString);
         return ordersMessage;
-    }
-
-    public static void putOrderInCache(Order order) {
-        if (DATA_FETCHER != null) {
-            DATA_FETCHER.orderCache.put(order.getOrderId(), order);
-        }
-    }
-
-    public static void refreshSymbolToOrdersIndexes() {
-        if (DATA_FETCHER != null) {
-            DATA_FETCHER.indexOrdersBySymbol();
-        }
-    }
-
-    public static void removeOrderFromCache(Long orderId) {
-        if (DATA_FETCHER != null) {
-            DATA_FETCHER.orderCache.invalidate(orderId);
-        }
     }
 
     @Override
@@ -256,16 +205,11 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public static void start() {
-        if (DATA_FETCHER == null) {
-            init();
-        }
-        if (!DATA_FETCHER.isStarted) {
-            DATA_FETCHER
-                    .getScheduledExecutor()
-                    .scheduleAtFixedRate(
-                            DATA_FETCHER, 0, DATA_FETCHER.ordersDataFetchIntervalSeconds, TimeUnit.SECONDS);
-            DATA_FETCHER.isStarted = true;
+    public void start() {
+        if (!isStarted) {
+            getScheduledExecutor().scheduleAtFixedRate(
+                    this, 0, ordersDataFetchIntervalSeconds, TimeUnit.SECONDS);
+            isStarted = true;
         }
     }
 }
