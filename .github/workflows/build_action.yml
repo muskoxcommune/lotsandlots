@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+            token: ${{ secrets.GITHUB_TOKEN }}
       - run: make test
       - uses: cicirello/jacoco-badge-generator@v2
         with:
