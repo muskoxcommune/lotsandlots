@@ -35,9 +35,6 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
             pageLength = "999";
         }
         String symbol = request.getParameter("symbol");
-        if (StringUtils.isNotBlank(symbol)) {
-            symbol = HtmlUtils.htmlEscape(symbol, "UTF-8");
-        }
 
         List<Order> ordersToDisplay = new LinkedList<>();
         EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
@@ -72,10 +69,11 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");
         htmlBuilder.append("<head>");
-        htmlBuilder.append("<title>").append((symbol != null) ? symbol + " orders" : "Orders").append("</title>");
+        htmlBuilder.append("<title>").append(
+                (symbol != null) ? HtmlUtils.htmlEscape(symbol) + " orders" : "Orders").append("</title>");
         HtmlHelper.appendDataTablesTags(htmlBuilder);
         HtmlHelper.appendDataTablesFeatures(htmlBuilder, "orders",
-                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + pageLength);
+                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + HtmlUtils.htmlEscape(pageLength));
         htmlBuilder.append("</head>");
         htmlBuilder.append("<body>");
 

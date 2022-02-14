@@ -38,13 +38,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             pageLength = "999";
         }
         String showAllLots = request.getParameter("showAllLots");
-        if (StringUtils.isNotBlank(showAllLots)) {
-            showAllLots = HtmlUtils.htmlEscape(showAllLots, "UTF-8");
-        }
         String symbol = request.getParameter("symbol");
-        if (StringUtils.isNotBlank(symbol)) {
-            symbol = HtmlUtils.htmlEscape(symbol, "UTF-8");
-        }
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
         EtradePortfolioDataFetcher portfolioDataFetcher = LifecycleListener.getListener().getPortfolioDataFetcher();
@@ -78,10 +72,11 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         htmlBuilder.append("<html>");
 
         htmlBuilder.append("<head>");
-        htmlBuilder.append("<title>").append((symbol != null) ? symbol + " lots" : "Lots").append("</title>");
+        htmlBuilder.append("<title>").append(
+                (symbol != null) ? HtmlUtils.htmlEscape(symbol) + " lots" : "Lots").append("</title>");
         HtmlHelper.appendDataTablesTags(htmlBuilder);
         HtmlHelper.appendDataTablesFeatures(htmlBuilder, "lots",
-                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + pageLength);
+                "\"order\": [[0, \"desc\"]],", "\"pageLength\": " + HtmlUtils.htmlEscape(pageLength));
         htmlBuilder.append("</head>");
         htmlBuilder.append("<body>");
 
