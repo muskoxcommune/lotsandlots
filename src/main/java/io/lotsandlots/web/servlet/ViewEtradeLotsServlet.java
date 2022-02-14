@@ -10,6 +10,7 @@ import io.lotsandlots.web.listener.LifecycleListener;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.web.util.HtmlUtils;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -33,8 +34,17 @@ public class ViewEtradeLotsServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String pageLength = request.getParameter("pageLength");
+        if (!StringUtils.isNumeric(pageLength)) {
+            pageLength = "999";
+        }
         String showAllLots = request.getParameter("showAllLots");
+        if (StringUtils.isNotBlank(showAllLots)) {
+            showAllLots = HtmlUtils.htmlEscape(showAllLots, "UTF-8");
+        }
         String symbol = request.getParameter("symbol");
+        if (StringUtils.isNotBlank(symbol)) {
+            symbol = HtmlUtils.htmlEscape(symbol, "UTF-8");
+        }
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
         EtradePortfolioDataFetcher portfolioDataFetcher = LifecycleListener.getListener().getPortfolioDataFetcher();
@@ -62,10 +72,6 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
-        }
-
-        if (pageLength == null) {
-            pageLength = "999";
         }
 
         StringBuilder htmlBuilder = new StringBuilder();
