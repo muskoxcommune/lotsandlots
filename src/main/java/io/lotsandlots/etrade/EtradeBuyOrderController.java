@@ -28,22 +28,28 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                                                  EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
-    private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(5);
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderController.class);
 
     private final Map<String, Cache<Long, Order>> placedBuyOrderCache = new HashMap<>();
 
     private EmailHelper emailHelper = new EmailHelper();
-    private EtradePortfolioDataFetcher portfolioDataFetcher = EtradePortfolioDataFetcher.getDataFetcher();
-    private EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
+    private EtradePortfolioDataFetcher portfolioDataFetcher;
+    private EtradeOrdersDataFetcher ordersDataFetcher;
     private ExecutorService executor;
     private long haltBuyOrderCashBalance = 0L;
     private float idealLotSize = 1000F;
     private long maxBuyOrdersPerSymbolPerDay = 3L;
     private float minLotSize = 900F;
 
-    public EtradeBuyOrderController() {
-        executor = DEFAULT_EXECUTOR;
+    public EtradeBuyOrderController(EtradePortfolioDataFetcher portfolioDataFetcher,
+                                    EtradeOrdersDataFetcher ordersDataFetcher) {
+        this(portfolioDataFetcher, ordersDataFetcher, DEFAULT_EXECUTOR);
+    }
+
+    public EtradeBuyOrderController(EtradePortfolioDataFetcher portfolioDataFetcher,
+                                    EtradeOrdersDataFetcher ordersDataFetcher,
+                                    ExecutorService executor) {
         if (CONFIG.hasPath("etrade.enableBuyOrderCreation")) {
             for (String symbol : CONFIG.getStringList("etrade.enableBuyOrderCreation")) {
                 enableNewSymbol(symbol);
@@ -61,7 +67,17 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         if (CONFIG.hasPath("etrade.minLotSize")) {
             minLotSize = (float) CONFIG.getLong("etrade.minLotSize");
         }
-        LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={}", haltBuyOrderCashBalance);
+
+        this.executor = executor;
+        this.ordersDataFetcher = ordersDataFetcher;
+        this.portfolioDataFetcher = portfolioDataFetcher;
+
+        portfolioDataFetcher.addDataFetchCompletionHandler(this);
+        portfolioDataFetcher.addSymbolToLotsIndexPutHandler(this);
+
+        LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={} idealLotSize={} "
+                        + "maxBuyOrdersPerSymbolPerDay={} minLotSize={}",
+                haltBuyOrderCashBalance, idealLotSize, maxBuyOrdersPerSymbolPerDay, minLotSize);
     }
 
     void cachePlacedBuyOrder(String symbol, Order order) {
@@ -185,10 +201,6 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
 
     void setEmailHelper(EmailHelper emailHelper) {
         this.emailHelper = emailHelper;
-    }
-
-    void setExecutor(ExecutorService executor) {
-        this.executor = executor;
     }
 
     void setHaltBuyOrderCashBalance(Long haltBuyOrderCashBalance) {

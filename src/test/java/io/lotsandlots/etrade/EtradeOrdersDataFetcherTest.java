@@ -272,8 +272,7 @@ public class EtradeOrdersDataFetcherTest {
         EtradeOrdersDataFetcher dataFetcher = new EtradeOrdersDataFetcher();
         dataFetcher.handleOrderResponse(testResponse);
         dataFetcher.indexOrdersBySymbol();
-        Map<String, List<Order>> symbolToOrdersIndex =
-                EtradeOrdersDataFetcher.getSymbolToBuyOrdersIndex(dataFetcher);
+        Map<String, List<Order>> symbolToOrdersIndex = dataFetcher.getSymbolToBuyOrdersIndex();
         Assert.assertTrue(symbolToOrdersIndex.containsKey("FETCH_ORDERS_RESPONSE_7"));
         Assert.assertEquals(symbolToOrdersIndex.get("FETCH_ORDERS_RESPONSE_7").size(), 3);
     }

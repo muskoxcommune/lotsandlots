@@ -11,6 +11,7 @@ import io.lotsandlots.etrade.api.PreviewOrderResponse;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
+import io.lotsandlots.web.listener.LifecycleListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -129,8 +130,9 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
                                            .getInstrumentList().get(0)
                                            .getProduct()
                                            .getSymbol());
-        EtradeOrdersDataFetcher.putOrderInCache(order);
-        EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
+        ordersDataFetcher.getOrderCache().put(order.getOrderId(), order);
+        ordersDataFetcher.indexOrdersBySymbol();
         return order;
     }
 }

@@ -28,8 +28,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     private static final Config CONFIG = ConfigWrapper.getConfig();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
-    private static EtradePortfolioDataFetcher DATA_FETCHER = null;
-
     private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();
     private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
     private Long portfolioDataExpirationSeconds = 120L;
@@ -40,9 +38,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
 
-    EtradePortfolioDataFetcher() {
-        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
-
+    public EtradePortfolioDataFetcher() {
         if (CONFIG.hasPath("etrade.defaultOrderCreationThreshold")) {
             defaultOrderCreationThreshold = CONFIG.getDouble("etrade.defaultOrderCreationThreshold");
         }
@@ -55,14 +51,19 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
         positionCache = newCacheFromCacheBuilder(
                 CacheBuilder.newBuilder(), portfolioDataExpirationSeconds);
+        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
+
+        LOG.info("Initialized EtradePortfolioDataFetcher, defaultOrderCreationThreshold={} "
+                        + "portfolioDataExpirationSeconds={} portfolioDataFetchIntervalSeconds={}",
+                defaultOrderCreationThreshold, portfolioDataExpirationSeconds, portfolioDataFetchIntervalSeconds);
     }
 
-    public static void addDataFetchCompletionHandler(PortfolioDataFetchCompletionHandler handler) {
-        DATA_FETCHER.portfolioDataFetchCompletionHandlers.add(handler);
+    public void addDataFetchCompletionHandler(PortfolioDataFetchCompletionHandler handler) {
+        portfolioDataFetchCompletionHandlers.add(handler);
     }
 
-    public static void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler handler) {
-        DATA_FETCHER.symbolToLotsIndexPutHandlers.add(handler);
+    public void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler handler) {
+        symbolToLotsIndexPutHandlers.add(handler);
     }
 
     public int aggregateLotCount() {
@@ -162,10 +163,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public static EtradePortfolioDataFetcher getDataFetcher() {
-        return DATA_FETCHER;
-    }
-
     Cache<String, PortfolioResponse.Position> getPositionCache() {
         return positionCache;
     }
@@ -182,12 +179,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     }
     void setSymbolToLotsIndex(Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex) {
         this.symbolToLotsIndex = symbolToLotsIndex;
-    }
-
-    public static void init() {
-        if (DATA_FETCHER == null) {
-            DATA_FETCHER = new EtradePortfolioDataFetcher();
-        }
     }
 
     Cache<String, PortfolioResponse.Position> newCacheFromCacheBuilder(CacheBuilder<Object, Object> cacheBuilder,
@@ -245,16 +236,11 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public static void start() {
-        if (DATA_FETCHER == null) {
-            init();
-        }
-        if (!DATA_FETCHER.isStarted) {
-            DATA_FETCHER
-                    .getScheduledExecutor()
-                    .scheduleAtFixedRate(
-                            DATA_FETCHER, 0, DATA_FETCHER.portfolioDataFetchIntervalSeconds, TimeUnit.SECONDS);
-            DATA_FETCHER.isStarted = true;
+    public void start() {
+        if (!isStarted) {
+            getScheduledExecutor().scheduleAtFixedRate(
+                    this, 0, portfolioDataFetchIntervalSeconds, TimeUnit.SECONDS);
+            isStarted = true;
         }
     }
 

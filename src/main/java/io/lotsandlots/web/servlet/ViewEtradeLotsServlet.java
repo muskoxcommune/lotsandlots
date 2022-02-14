@@ -6,6 +6,7 @@ import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
+import io.lotsandlots.web.listener.LifecycleListener;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
@@ -36,29 +37,31 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
-                EtradePortfolioDataFetcher.getDataFetcher().getSymbolToLotsIndex().entrySet()) {
-            List<PositionLotsResponse.PositionLot> lots = entry.getValue();
-            if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
-                continue;
-            }
-            if (showAllLots != null && showAllLots.equals("true")) {
-                includedLots.addAll(lots);
-            } else {
-                PositionLotsResponse.PositionLot lowestPricedLot = null;
-                for (PositionLotsResponse.PositionLot lot : lots) {
-                    if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
-                        lowestPricedLot = lot;
-                    }
+        EtradePortfolioDataFetcher portfolioDataFetcher = LifecycleListener.getListener().getPortfolioDataFetcher();
+        if (portfolioDataFetcher != null) {
+            for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
+                    portfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
+                List<PositionLotsResponse.PositionLot> lots = entry.getValue();
+                if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
+                    continue;
                 }
-                includedLots.add(lowestPricedLot);
+                if (showAllLots != null && showAllLots.equals("true")) {
+                    includedLots.addAll(lots);
+                } else {
+                    PositionLotsResponse.PositionLot lowestPricedLot = null;
+                    for (PositionLotsResponse.PositionLot lot : lots) {
+                        if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
+                            lowestPricedLot = lot;
+                        }
+                    }
+                    includedLots.add(lowestPricedLot);
+                }
             }
         }
         Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
         if (ordersDataFetcher != null) {
-            symbolToOrdersIndex =
-                    EtradeOrdersDataFetcher.getDataFetcher().getSymbolToSellOrdersIndex();
+            symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
         }
 
         if (pageLength == null) {

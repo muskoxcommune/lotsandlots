@@ -34,21 +34,35 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(5);
     private static final Logger LOG = LoggerFactory.getLogger(EtradeSellOrderController.class);
 
-    public static final Boolean CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH = CONFIG.getBoolean(
-            "etrade.cancelAllOrdersOnLotsOrdersMismatch");
-
+    private boolean cancelAllOrdersOnLotsOrdersMismatch = true;
+    private final ExecutorService executor;
+    private final EtradeOrdersDataFetcher ordersDataFetcher;
+    private final EtradePortfolioDataFetcher portfolioDataFetcher;
     private final List<String> sellOrderDisabledSymbols = new LinkedList<>();
 
-    private EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
-    private ExecutorService executor;
+    public EtradeSellOrderController(EtradePortfolioDataFetcher portfolioDataFetcher,
+                                     EtradeOrdersDataFetcher ordersDataFetcher) {
+        this(portfolioDataFetcher, ordersDataFetcher, DEFAULT_EXECUTOR);
+    }
 
-    public EtradeSellOrderController() {
-        executor = DEFAULT_EXECUTOR;
+    public EtradeSellOrderController(EtradePortfolioDataFetcher portfolioDataFetcher,
+                                     EtradeOrdersDataFetcher ordersDataFetcher,
+                                     ExecutorService executor) {
+        if (CONFIG.hasPath("etrade.cancelAllOrdersOnLotsOrdersMismatch")) {
+            cancelAllOrdersOnLotsOrdersMismatch = CONFIG.getBoolean("etrade.cancelAllOrdersOnLotsOrdersMismatch");
+        }
         if (CONFIG.hasPath("etrade.disableSellOrderCreation")) {
             sellOrderDisabledSymbols.addAll(CONFIG.getStringList("etrade.disableSellOrderCreation"));
         }
-        LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={}",
-                CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH
+
+        this.executor = executor;
+        this.ordersDataFetcher = ordersDataFetcher;
+        this.portfolioDataFetcher = portfolioDataFetcher;
+
+        portfolioDataFetcher.addSymbolToLotsIndexPutHandler(this);
+
+        LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={} sellOrderDisabledSymbols={}",
+                cancelAllOrdersOnLotsOrdersMismatch, sellOrderDisabledSymbols
         );
     }
 
@@ -79,14 +93,6 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
 
     boolean isSellOrderCreationDisabled(String symbol) {
         return sellOrderDisabledSymbols.contains(symbol);
-    }
-
-    void setExecutor(ExecutorService executor) {
-        this.executor = executor;
-    }
-
-    void setOrdersDataFetcher(EtradeOrdersDataFetcher ordersDataFetcher) {
-        this.ordersDataFetcher = ordersDataFetcher;
     }
 
     SymbolToLotsIndexPutEventRunnable newSymbolToLotsIndexPutEventRunnable(
@@ -133,8 +139,8 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
             } else if (LOG.isDebugEnabled()) {
                 LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
             }
-            EtradeOrdersDataFetcher.removeOrderFromCache(orderId);
-            EtradeOrdersDataFetcher.refreshSymbolToOrdersIndexes();
+            ordersDataFetcher.getOrderCache().invalidate(orderId);
+            ordersDataFetcher.indexOrdersBySymbol();
         }
 
         @Override
@@ -157,7 +163,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                 if (orderListSize == lotListSize) {
                     return;
                 }
-                if (!CANCEL_ALL_ORDERS_ON_LOTS_ORDERS_MISMATCH) {
+                if (!cancelAllOrdersOnLotsOrdersMismatch) {
                     return;
                 }
                 LOG.info("Canceling {} existing sell orders, symbol={}", orderListSize, symbol);

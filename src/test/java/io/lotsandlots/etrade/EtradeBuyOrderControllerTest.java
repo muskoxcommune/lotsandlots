@@ -38,8 +38,7 @@ public class EtradeBuyOrderControllerTest {
     }
 
     public void testCanProceedWithBuyOrderCreation() {
-        EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
-
+        EtradeBuyOrderController orderController;
         EtradeOrdersDataFetcher ordersDataFetcher;
         EtradeBuyOrderController.BuyOrderRunnable runnable;
         Map<String, List<Order>> spiedSymbolToBuyOrdersIndex;
@@ -49,6 +48,9 @@ public class EtradeBuyOrderControllerTest {
         // If orders data fetching has not been completed yet, call should return false.
         ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(null).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
+
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
         orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         totals = Mockito.mock(PortfolioResponse.Totals.class);
@@ -62,6 +64,9 @@ public class EtradeBuyOrderControllerTest {
         ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(System.currentTimeMillis() - 2000L).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(1L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
+
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
         orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         totals = Mockito.mock(PortfolioResponse.Totals.class);
@@ -79,6 +84,9 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(System.currentTimeMillis() - 1000L).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(2L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         Mockito.doReturn(spiedSymbolToBuyOrdersIndex).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
+
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
         orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         totals = Mockito.mock(PortfolioResponse.Totals.class);
@@ -97,9 +105,11 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(System.currentTimeMillis() - 1000L).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(2L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         Mockito.doReturn(spiedSymbolToBuyOrdersIndex).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
-        orderController.setOrdersDataFetcher(ordersDataFetcher);
 
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
         orderController.setHaltBuyOrderCashBalance(0L);
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         totals = new PortfolioResponse.Totals();
         totals.setCashBalance(-100.00F);
@@ -149,9 +159,9 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(1L).when(portfolioDataFetcher).getPortfolioDataExpirationSeconds();
 
         mockExecutor = Mockito.mock(ExecutorService.class);
-        orderController = Mockito.spy(new EtradeBuyOrderController());
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(portfolioDataFetcher, Mockito.mock(EtradeOrdersDataFetcher.class), mockExecutor));
         orderController.enableNewSymbol("FETCH_COMPLETION_AFTER_LONG_FETCH");
-        orderController.setExecutor(mockExecutor);
         orderController.setPortfolioDataFetcher(portfolioDataFetcher);
 
         timeFetchStarted = System.currentTimeMillis();
@@ -172,9 +182,9 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(symbolToLotsIndex).when(portfolioDataFetcher).getSymbolToLotsIndex();
 
         mockExecutor = Mockito.mock(ExecutorService.class);
-        orderController = Mockito.spy(new EtradeBuyOrderController());
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(portfolioDataFetcher, Mockito.mock(EtradeOrdersDataFetcher.class), mockExecutor));
         orderController.enableNewSymbol("FETCH_COMPLETION_WITH_EXISTING_ORDER");
-        orderController.setExecutor(mockExecutor);
         orderController.setPortfolioDataFetcher(portfolioDataFetcher);
 
         timeFetchStarted = System.currentTimeMillis();
@@ -236,10 +246,9 @@ public class EtradeBuyOrderControllerTest {
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.InitialBuyOrderRunnable.class));
 
-        orderController = Mockito.spy(new EtradeBuyOrderController());
+        orderController = Mockito.spy(new EtradeBuyOrderController(portfolioDataFetcher, ordersDataFetcher, mockExecutor));
         orderController.enableNewSymbol("FETCH_COMPLETION_WITHOUT_EXISTING_ORDER");
         orderController.setEmailHelper(mockEmailHelper);
-        orderController.setExecutor(mockExecutor);
         orderController.setHaltBuyOrderCashBalance(-10000L);
         orderController.setOrdersDataFetcher(ordersDataFetcher);
         orderController.setPortfolioDataFetcher(portfolioDataFetcher);
@@ -255,16 +264,11 @@ public class EtradeBuyOrderControllerTest {
 
     public void testHandleSymbolToLotsIndexPut() {
         EmailHelper mockEmailHelper = Mockito.mock(EmailHelper.class);
-        EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
-        orderController.enableNewSymbol("SYMBOL_TO_LOT_INDEX_PUT");
-        orderController.setEmailHelper(mockEmailHelper);
-        orderController.setHaltBuyOrderCashBalance(-10000L);
 
         EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(new HashMap<>()).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
         Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(180L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
-        orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
         Mockito.doAnswer((Answer<Void>) invocation -> {
@@ -276,8 +280,15 @@ public class EtradeBuyOrderControllerTest {
             Mockito.verify(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
+
+        EtradeBuyOrderController orderController = Mockito.spy(
+                new EtradeBuyOrderController(
+                        Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher, mockExecutor));
+        orderController.enableNewSymbol("SYMBOL_TO_LOT_INDEX_PUT");
+        orderController.setEmailHelper(mockEmailHelper);
+        orderController.setHaltBuyOrderCashBalance(-10000L);
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
         Mockito.doReturn(true).when(orderController).isBuyOrderCreationEnabled(Mockito.anyString());
-        orderController.setExecutor(mockExecutor);
 
         PositionLotsResponse.PositionLot lot = new PositionLotsResponse.PositionLot();
         lot.setFollowPrice(11.00F);
@@ -292,14 +303,13 @@ public class EtradeBuyOrderControllerTest {
     }
 
     public void testHandleSymbolToLotsIndexPutWithNotEnoughCashBalance() {
-        EtradeBuyOrderController orderController = Mockito.spy(new EtradeBuyOrderController());
-        orderController.setHaltBuyOrderCashBalance(-10000L);
 
         EtradeOrdersDataFetcher ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(new HashMap<>()).when(ordersDataFetcher).getSymbolToBuyOrdersIndex();
-        orderController.setOrdersDataFetcher(ordersDataFetcher);
 
         ExecutorService mockExecutor = Mockito.spy(ExecutorService.class);
+        EtradeBuyOrderController orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher, mockExecutor));
         Mockito.doAnswer((Answer<Void>) invocation -> {
             EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
                     .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
@@ -309,8 +319,9 @@ public class EtradeBuyOrderControllerTest {
                     .isBelowMaxBuyOrdersPerDayLimit(Mockito.anyString());
             return null;
         }).when(mockExecutor).submit(Mockito.any(EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
+        orderController.setHaltBuyOrderCashBalance(-10000L);
+        orderController.setOrdersDataFetcher(ordersDataFetcher);
         Mockito.doReturn(true).when(orderController).isBuyOrderCreationEnabled(Mockito.anyString());
-        orderController.setExecutor(mockExecutor);
 
         PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
         totals.setCashBalance(-10001.00F);
@@ -319,7 +330,8 @@ public class EtradeBuyOrderControllerTest {
     }
 
     public void testIsBelowMaxBuyOrdersPerDayLimit() {
-        EtradeBuyOrderController orderController = new EtradeBuyOrderController();
+        EtradeBuyOrderController orderController = new EtradeBuyOrderController(
+                Mockito.mock(EtradePortfolioDataFetcher.class), Mockito.mock(EtradeOrdersDataFetcher.class));
         orderController.enableNewSymbol("MAX_ORDER_CHECK");
 
         Order mockPlacedOrder1 = new Order();
@@ -342,14 +354,16 @@ public class EtradeBuyOrderControllerTest {
     }
 
     public void testIsBuyOrderCreationEnabled() {
-        EtradeBuyOrderController orderController = new EtradeBuyOrderController();
+        EtradeBuyOrderController orderController = new EtradeBuyOrderController(
+                Mockito.mock(EtradePortfolioDataFetcher.class), Mockito.mock(EtradeOrdersDataFetcher.class));
         orderController.enableNewSymbol("IS_BUY_ENABLED_CHECK");
         Assert.assertTrue(orderController.isBuyOrderCreationEnabled("IS_BUY_ENABLED_CHECK"));
     }
 
     public void testQuantityFromLastPrice() {
         float lastPrice;
-        EtradeBuyOrderController orderController = new EtradeBuyOrderController();
+        EtradeBuyOrderController orderController = new EtradeBuyOrderController(
+                Mockito.mock(EtradePortfolioDataFetcher.class), Mockito.mock(EtradeOrdersDataFetcher.class));
 
         lastPrice = 11F;
         Assert.assertEquals(orderController.quantityFromLastPrice(lastPrice), 91L);

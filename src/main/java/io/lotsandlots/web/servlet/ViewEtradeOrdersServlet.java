@@ -1,16 +1,13 @@
 package io.lotsandlots.web.servlet;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.util.DateFormatter;
 import io.lotsandlots.util.HtmlHelper;
+import io.lotsandlots.web.listener.LifecycleListener;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -25,9 +22,6 @@ import java.util.Map;
 public class ViewEtradeOrdersServlet extends HttpServlet {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.00");
-    private static final Logger LOG = LoggerFactory.getLogger(ViewEtradeOrdersServlet.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     @ApiOperation(
             httpMethod = "GET",
@@ -39,7 +33,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<Order> ordersToDisplay = new LinkedList<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = EtradeOrdersDataFetcher.getDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             if (StringUtils.isBlank(symbol)) {
                 for (List<Order> buyOrders : ordersDataFetcher.getSymbolToBuyOrdersIndex().values()) {
