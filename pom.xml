@@ -13,7 +13,7 @@
         <maven.compiler.target>${version.jdk}</maven.compiler.target>
         <version.commons-codec>1.15</version.commons-codec>
         <version.commons-lang3 >3.12.0</version.commons-lang3>
-        <version.eclipse.jetty>9.4.43.v20210629</version.eclipse.jetty>
+        <version.eclipse.jetty>9.4.44.v20210927</version.eclipse.jetty>
         <version.fasterxml.jackson>2.12.5</version.fasterxml.jackson>
         <version.jdk>1.8</version.jdk>
         <version.slf4j>1.7.26</version.slf4j>
