@@ -47,7 +47,7 @@ public class EtradeLotsServlet extends HttpServlet implements EtradeApiServlet {
     public void handleException(HttpServletResponse response, Exception e) throws IOException {
         LOG.error("Failed to fetch lots", e);
         if (e instanceof InvalidParameterException) {
-            response.sendError(400, e.getMessage());
+            response.sendError(400, "Invalid parameter");
         } else {
             response.sendError(500, "Unable to fetch lots");
         }
