@@ -29,18 +29,7 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-    PreviewOrderRequest newPreviewOrderRequest(String clientOrderId,
-                                               OrderDetail orderDetail)
-            throws JsonProcessingException {
-        PreviewOrderRequest previewOrderRequest = new PreviewOrderRequest();
-        previewOrderRequest.setOrderDetailList(orderDetail);
-        previewOrderRequest.setOrderType("EQ");
-        previewOrderRequest.setClientOrderId(clientOrderId);
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("PreviewOrderRequest{}", OBJECT_MAPPER.writeValueAsString(previewOrderRequest));
-        }
-        return previewOrderRequest;
-    }
+    private LifecycleListener lifecycleListener  = LifecycleListener.getListener();
 
     PreviewOrderResponse fetchPreviewOrderResponse(SecurityContext securityContext,
                                                    PreviewOrderRequest previewOrderRequest)
@@ -70,6 +59,19 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
             LOG.debug("PreviewOrderResponse{}", OBJECT_MAPPER.writeValueAsString(previewOrderResponse));
         }
         return previewOrderResponse;
+    }
+
+    PreviewOrderRequest newPreviewOrderRequest(String clientOrderId,
+                                               OrderDetail orderDetail)
+            throws JsonProcessingException {
+        PreviewOrderRequest previewOrderRequest = new PreviewOrderRequest();
+        previewOrderRequest.setOrderDetailList(orderDetail);
+        previewOrderRequest.setOrderType("EQ");
+        previewOrderRequest.setClientOrderId(clientOrderId);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("PreviewOrderRequest{}", OBJECT_MAPPER.writeValueAsString(previewOrderRequest));
+        }
+        return previewOrderRequest;
     }
 
     Order placeOrder(SecurityContext securityContext,
@@ -130,9 +132,13 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
                                            .getInstrumentList().get(0)
                                            .getProduct()
                                            .getSymbol());
-        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
         ordersDataFetcher.getOrderCache().put(order.getOrderId(), order);
         ordersDataFetcher.indexOrdersBySymbol();
         return order;
+    }
+
+    void setLifecycleListener(LifecycleListener lifecycleListener) {
+        this.lifecycleListener = lifecycleListener;
     }
 }
