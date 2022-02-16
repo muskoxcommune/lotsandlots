@@ -88,7 +88,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
                 "action",
                 "status"
         );
-        htmlBuilder.append("<tbody id=orderRows>");
+        htmlBuilder.append("<tbody>");
         for (Order order : ordersToDisplay) {
             htmlBuilder.append("<tr>");
             htmlBuilder.append("<td>")

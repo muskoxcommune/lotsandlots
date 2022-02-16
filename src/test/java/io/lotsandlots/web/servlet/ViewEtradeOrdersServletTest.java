@@ -59,7 +59,11 @@ public class ViewEtradeOrdersServletTest {
             Assert.assertEquals(body.tagName(), "body");
             Element table = body.getElementById("orders");
             Assert.assertNotNull(table);
-            Element tbody = table.getElementById("orderRows");
+            Assert.assertEquals(table.tagName(), "table");
+            Element thead = table.child(0);
+            Assert.assertNotNull(thead);
+            Assert.assertEquals(thead.tagName(), "thead");
+            Element tbody = table.child(1);
             Assert.assertNotNull(tbody);
 
             Element tr1 = tbody.child(0);
@@ -129,6 +133,9 @@ public class ViewEtradeOrdersServletTest {
         Mockito.doReturn(symbolToBuyOrdersIndex).when(mockOrdersFetcher).getSymbolToBuyOrdersIndex();
         Mockito.doReturn(symbolToSellOrdersIndex).when(mockOrdersFetcher).getSymbolToSellOrdersIndex();
 
+        ////
+        // If asked for SYMBOL B, we should not include anything else.
+
         HttpServletRequest mockRequest = Mockito.mock(HttpServletRequest.class);
         Mockito.doAnswer((Answer<String>) invocation -> {
             String parameter = invocation.getArgument(0);
@@ -147,9 +154,12 @@ public class ViewEtradeOrdersServletTest {
             Assert.assertEquals(body.tagName(), "body");
             Element table = body.getElementById("orders");
             Assert.assertNotNull(table);
-            Element tbody = table.getElementById("orderRows");
+            Assert.assertEquals(table.tagName(), "table");
+            Element thead = table.child(0);
+            Assert.assertNotNull(thead);
+            Assert.assertEquals(thead.tagName(), "thead");
+            Element tbody = table.child(1);
             Assert.assertNotNull(tbody);
-
             Elements rows = tbody.children();
             Assert.assertEquals(rows.size(), 2);
 
@@ -208,6 +218,13 @@ public class ViewEtradeOrdersServletTest {
             Element table = body.getElementById("orders");
             Assert.assertNotNull(table);
             Assert.assertEquals(table.tagName(), "table");
+            Element thead = table.child(0);
+            Assert.assertNotNull(thead);
+            Assert.assertEquals(thead.tagName(), "thead");
+            Element tbody = table.child(1);
+            Assert.assertNotNull(tbody);
+            Elements rows = tbody.children();
+            Assert.assertEquals(rows.size(), 0);
             return null;
         }).when(mockPrintWriter).print(Mockito.anyString());
         Mockito.doReturn(mockPrintWriter).when(mockResponse).getWriter();
