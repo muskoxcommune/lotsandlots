@@ -4,6 +4,7 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.util.DateFormatter;
+import io.lotsandlots.web.error.InvalidParameterException;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;

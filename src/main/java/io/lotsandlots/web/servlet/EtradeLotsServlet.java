@@ -3,6 +3,7 @@ package io.lotsandlots.web.servlet;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.api.ApiConfig;
+import io.lotsandlots.web.error.InvalidParameterException;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;

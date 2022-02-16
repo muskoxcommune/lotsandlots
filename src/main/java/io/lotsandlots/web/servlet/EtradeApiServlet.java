@@ -5,6 +5,7 @@ import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.web.error.InvalidParameterException;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
 
@@ -40,11 +41,4 @@ public interface EtradeApiServlet extends EtradeOAuthClient {
     void handleException(HttpServletResponse response, Exception e) throws IOException;
 
     Message newMessage(HttpServletRequest request) throws InvalidParameterException;
-
-    class InvalidParameterException extends Exception {
-
-        InvalidParameterException(String message) {
-            super(message);
-        }
-    }
 }

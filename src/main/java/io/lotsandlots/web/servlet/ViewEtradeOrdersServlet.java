@@ -24,6 +24,8 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.00");
 
+    private LifecycleListener lifecycleListener = LifecycleListener.getListener();
+
     @ApiOperation(
             httpMethod = "GET",
             value = "Get view of E*Trade orders.",
@@ -37,7 +39,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<Order> ordersToDisplay = new LinkedList<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             if (StringUtils.isBlank(symbol)) {
                 for (List<Order> buyOrders : ordersDataFetcher.getSymbolToBuyOrdersIndex().values()) {
@@ -86,7 +88,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
                 "action",
                 "status"
         );
-        htmlBuilder.append("<tbody>");
+        htmlBuilder.append("<tbody id=orderRows>");
         for (Order order : ordersToDisplay) {
             htmlBuilder.append("<tr>");
             htmlBuilder.append("<td>")
@@ -105,5 +107,9 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         htmlBuilder.append("</body>");
         htmlBuilder.append("</html>");
         response.getWriter().print(htmlBuilder.substring(0, htmlBuilder.length() - 1));
+    }
+
+    void setLifecycleListener(LifecycleListener lifecycleListener) {
+        this.lifecycleListener = lifecycleListener;
     }
 }

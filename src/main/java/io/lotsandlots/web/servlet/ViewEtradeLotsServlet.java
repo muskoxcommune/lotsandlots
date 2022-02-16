@@ -27,6 +27,8 @@ public class ViewEtradeLotsServlet extends HttpServlet {
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.00");
 
+    private LifecycleListener lifecycleListener = LifecycleListener.getListener();
+
     @ApiOperation(
             httpMethod = "GET",
             value = "Get view of E*Trade lots.",
@@ -41,7 +43,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        EtradePortfolioDataFetcher portfolioDataFetcher = LifecycleListener.getListener().getPortfolioDataFetcher();
+        EtradePortfolioDataFetcher portfolioDataFetcher = lifecycleListener.getPortfolioDataFetcher();
         if (portfolioDataFetcher != null) {
             for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
                     portfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
@@ -63,7 +65,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             }
         }
         Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = LifecycleListener.getListener().getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
         }
@@ -140,5 +142,9 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         htmlBuilder.append("</body>");
         htmlBuilder.append("</html>");
         response.getWriter().print(htmlBuilder.substring(0, htmlBuilder.length() - 1));
+    }
+
+    void setLifecycleListener(LifecycleListener lifecycleListener) {
+        this.lifecycleListener = lifecycleListener;
     }
 }
