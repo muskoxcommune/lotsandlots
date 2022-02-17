@@ -7,6 +7,7 @@ import io.lotsandlots.etrade.EtradePortfolioDataFetcher;
 import io.lotsandlots.etrade.EtradeSellOrderController;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.util.ConfigWrapper;
+import io.lotsandlots.util.TimeBoxedRunnableRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +26,10 @@ public class LifecycleListener implements ServletContextListener {
 
     private static LifecycleListener LISTENER;
 
-    private EtradeOrdersDataFetcher ordersDataFetcher;
-    private EtradePortfolioDataFetcher portfolioDataFetcher;
+    private TimeBoxedRunnableRunner<EtradeOrdersDataFetcher> etradeOrdersDataFetcherRunner;
+    private TimeBoxedRunnableRunner<EtradePortfolioDataFetcher> etradePortfolioDataFetcherRunner;
+    private EtradeOrdersDataFetcher etradeOrdersDataFetcher;
+    private EtradePortfolioDataFetcher etradePortfolioDataFetcher;
 
     private EtradeBuyOrderController buyOrderController;
     private EtradeSellOrderController sellOrderController;
@@ -57,34 +60,34 @@ public class LifecycleListener implements ServletContextListener {
         LOG.info("Servlet context destroyed");
     }
 
+    public void setEtradeOrdersDataFetcherRunner(
+            TimeBoxedRunnableRunner<EtradeOrdersDataFetcher> etradeOrdersDataFetcherRunner) {
+        this.etradeOrdersDataFetcherRunner = etradeOrdersDataFetcherRunner;
+        this.etradeOrdersDataFetcher = etradeOrdersDataFetcherRunner.getRunnable();
+    }
+
+    public void setEtradePortfolioDataFetcherRunner(
+            TimeBoxedRunnableRunner<EtradePortfolioDataFetcher> etradePortfolioDataFetcherRunner) {
+        this.etradePortfolioDataFetcherRunner = etradePortfolioDataFetcherRunner;
+        this.etradePortfolioDataFetcher = etradePortfolioDataFetcherRunner.getRunnable();
+    }
+
     public static LifecycleListener getListener() {
         return LISTENER;
     }
 
-    public EtradeBuyOrderController getBuyOrderController() {
-        return buyOrderController;
-    }
     public void setBuyOrderController(EtradeBuyOrderController buyOrderController) {
         this.buyOrderController = buyOrderController;
     }
 
-    public EtradeOrdersDataFetcher getOrdersDataFetcher() {
-        return ordersDataFetcher;
-    }
-    public void setOrdersDataFetcher(EtradeOrdersDataFetcher ordersDataFetcher) {
-        this.ordersDataFetcher = ordersDataFetcher;
+    public EtradeOrdersDataFetcher getEtradeOrdersDataFetcher() {
+        return etradeOrdersDataFetcher;
     }
 
-    public EtradePortfolioDataFetcher getPortfolioDataFetcher() {
-        return portfolioDataFetcher;
-    }
-    public void setPortfolioDataFetcher(EtradePortfolioDataFetcher portfolioDataFetcher) {
-        this.portfolioDataFetcher = portfolioDataFetcher;
+    public EtradePortfolioDataFetcher getEtradePortfolioDataFetcher() {
+        return etradePortfolioDataFetcher;
     }
 
-    public EtradeSellOrderController getSellOrderController() {
-        return sellOrderController;
-    }
     public void setSellOrderController(EtradeSellOrderController sellOrderController) {
         this.sellOrderController = sellOrderController;
     }

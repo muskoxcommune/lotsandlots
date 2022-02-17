@@ -132,7 +132,7 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
                                            .getInstrumentList().get(0)
                                            .getProduct()
                                            .getSymbol());
-        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
         ordersDataFetcher.getOrderCache().put(order.getOrderId(), order);
         ordersDataFetcher.indexOrdersBySymbol();
         return order;

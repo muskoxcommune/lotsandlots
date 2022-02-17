@@ -39,7 +39,7 @@ public class ViewEtradeOrdersServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<Order> ordersToDisplay = new LinkedList<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             if (StringUtils.isBlank(symbol)) {
                 for (List<Order> buyOrders : ordersDataFetcher.getSymbolToBuyOrdersIndex().values()) {

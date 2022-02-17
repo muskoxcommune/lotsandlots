@@ -33,7 +33,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
     private Long portfolioDataExpirationSeconds = 120L;
     private Long portfolioDataFetchIntervalSeconds = 60L;
     private Double defaultOrderCreationThreshold = 0.03;
-    private boolean isStarted = false;
     private Cache<String, PortfolioResponse.Position> positionCache;
     private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
@@ -51,7 +50,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
         positionCache = newCacheFromCacheBuilder(
                 CacheBuilder.newBuilder(), portfolioDataExpirationSeconds);
-        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
 
         LOG.info("Initialized EtradePortfolioDataFetcher, defaultOrderCreationThreshold={} "
                         + "portfolioDataExpirationSeconds={} portfolioDataFetchIntervalSeconds={}",
@@ -174,6 +172,10 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         return portfolioDataExpirationSeconds;
     }
 
+    public Long getPortfolioDataFetchIntervalSeconds() {
+        return portfolioDataFetchIntervalSeconds;
+    }
+
     public Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
         return symbolToLotsIndex;
     }
@@ -233,14 +235,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             long timeFailedMillis = System.currentTimeMillis();
             LOG.info("Failed to fetch portfolio and lots data, duration={}ms", timeFailedMillis - timeStartedMillis, e);
             setLastFailedFetchTimeMillis(timeFailedMillis);
-        }
-    }
-
-    public void start() {
-        if (!isStarted) {
-            getScheduledExecutor().scheduleAtFixedRate(
-                    this, 0, portfolioDataFetchIntervalSeconds, TimeUnit.SECONDS);
-            isStarted = true;
         }
     }
 

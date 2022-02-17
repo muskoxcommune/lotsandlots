@@ -43,7 +43,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String symbol = request.getParameter("symbol");
 
         List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        EtradePortfolioDataFetcher portfolioDataFetcher = lifecycleListener.getPortfolioDataFetcher();
+        EtradePortfolioDataFetcher portfolioDataFetcher = lifecycleListener.getEtradePortfolioDataFetcher();
         if (portfolioDataFetcher != null) {
             for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
                     portfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
@@ -65,7 +65,7 @@ public class ViewEtradeLotsServlet extends HttpServlet {
             }
         }
         Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getOrdersDataFetcher();
+        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
         if (ordersDataFetcher != null) {
             symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
         }
