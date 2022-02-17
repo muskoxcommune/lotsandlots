@@ -30,7 +30,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
     private final Cache<Long, Order> orderCache;
-    private boolean isStarted = false;
     private Long ordersDataExpirationSeconds = 120L;
     private Long ordersDataFetchIntervalSeconds = 60L;
     private Map<String, List<Order>> symbolToBuyOrdersIndex = new HashMap<>();
@@ -49,7 +48,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 .newBuilder()
                 .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
                 .build();
-        setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
 
         LOG.info("Initialized EtradeOrdersDataFetcher, ordersDataExpirationSeconds={} ordersDataFetchIntervalSeconds={}",
                 ordersDataExpirationSeconds, ordersDataFetchIntervalSeconds);
@@ -80,6 +78,10 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     public Long getOrdersDataExpirationSeconds() {
         return ordersDataExpirationSeconds;
+    }
+
+    public Long getOrdersDataFetchIntervalSeconds() {
+        return ordersDataFetchIntervalSeconds;
     }
 
     public Map<String, List<Order>> getSymbolToBuyOrdersIndex() {
@@ -202,14 +204,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             long currentTimeMillis = System.currentTimeMillis();
             LOG.info("Failed to fetch orders data, duration={}ms", currentTimeMillis - timeStartedMillis, e);
             setLastFailedFetchTimeMillis(currentTimeMillis);
-        }
-    }
-
-    public void start() {
-        if (!isStarted) {
-            getScheduledExecutor().scheduleAtFixedRate(
-                    this, 0, ordersDataFetchIntervalSeconds, TimeUnit.SECONDS);
-            isStarted = true;
         }
     }
 }

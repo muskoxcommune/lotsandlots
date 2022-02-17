@@ -4,20 +4,15 @@ import io.lotsandlots.etrade.api.ApiConfig;
 import io.lotsandlots.etrade.oauth.EtradeOAuthClient;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-
 public abstract class EtradeDataFetcher implements EtradeOAuthClient, Runnable {
 
-    private static final ApiConfig DEFAULT_API = EtradeRestTemplateFactory.getTemplateFactory().getApiConfig();
-    private static final EtradeRestTemplateFactory DEFAULT_REST_TEMPLATE_FACTORY = EtradeRestTemplateFactory.getTemplateFactory();
-    private static final ScheduledExecutorService DEFAULT_SCHEDULED_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private static final ApiConfig API = EtradeRestTemplateFactory.getTemplateFactory().getApiConfig();
+    private static final EtradeRestTemplateFactory REST_TEMPLATE_FACTORY = EtradeRestTemplateFactory.getTemplateFactory();
 
-    private ApiConfig apiConfig = DEFAULT_API;
+    private ApiConfig apiConfig = API;
     private Long lastFailedFetchTimeMillis = null;
     private Long lastSuccessfulFetchTimeMillis = null;
-    private EtradeRestTemplateFactory restTemplateFactory = DEFAULT_REST_TEMPLATE_FACTORY;
-    private ScheduledExecutorService scheduledExecutor = DEFAULT_SCHEDULED_EXECUTOR;
+    private EtradeRestTemplateFactory restTemplateFactory = REST_TEMPLATE_FACTORY;
 
     ApiConfig getApiConfig() {
         return apiConfig;
@@ -45,12 +40,5 @@ public abstract class EtradeDataFetcher implements EtradeOAuthClient, Runnable {
     }
     void setRestTemplateFactory(EtradeRestTemplateFactory restTemplateFactory) {
         this.restTemplateFactory = restTemplateFactory;
-    }
-
-    ScheduledExecutorService getScheduledExecutor() {
-        return scheduledExecutor;
-    }
-    void setScheduledExecutor(ScheduledExecutorService scheduledExecutor) {
-        this.scheduledExecutor = scheduledExecutor;
     }
 }

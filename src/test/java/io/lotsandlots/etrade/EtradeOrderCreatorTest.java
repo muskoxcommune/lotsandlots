@@ -12,7 +12,6 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.web.listener.LifecycleListener;
 import org.mockito.Mockito;
-import org.mockito.stubbing.Answer;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -116,7 +115,7 @@ public class EtradeOrderCreatorTest {
         Mockito.doReturn(mockOrderCache).when(mockDataFetcher).getOrderCache();
 
         LifecycleListener mockLifecycleListener = Mockito.mock(LifecycleListener.class);
-        Mockito.doReturn(mockDataFetcher).when(mockLifecycleListener).getOrdersDataFetcher();
+        Mockito.doReturn(mockDataFetcher).when(mockLifecycleListener).getEtradeOrdersDataFetcher();
 
         TestEtradeOrderCreator etradeOrderCreator = Mockito.spy(new TestEtradeOrderCreator());
         Mockito.doAnswer(invocation -> {

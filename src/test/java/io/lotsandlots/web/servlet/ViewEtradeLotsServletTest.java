@@ -213,8 +213,8 @@ public class ViewEtradeLotsServletTest {
         Mockito.doReturn(mockPrintWriter).when(mockResponse).getWriter();
 
         LifecycleListener mockLifecycleListener = Mockito.mock(LifecycleListener.class);
-        Mockito.doReturn(mockOrdersFetcher).when(mockLifecycleListener).getOrdersDataFetcher();
-        Mockito.doReturn(mockPortfolioFetcher).when(mockLifecycleListener).getPortfolioDataFetcher();
+        Mockito.doReturn(mockOrdersFetcher).when(mockLifecycleListener).getEtradeOrdersDataFetcher();
+        Mockito.doReturn(mockPortfolioFetcher).when(mockLifecycleListener).getEtradePortfolioDataFetcher();
 
         ViewEtradeLotsServlet viewLotsServlet = new ViewEtradeLotsServlet();
         viewLotsServlet.setLifecycleListener(mockLifecycleListener);
@@ -255,8 +255,8 @@ public class ViewEtradeLotsServletTest {
         Mockito.doReturn(mockPrintWriter).when(mockResponse).getWriter();
 
         LifecycleListener mockLifecycleListener = Mockito.mock(LifecycleListener.class);
-        Mockito.doReturn(mockOrdersFetcher).when(mockLifecycleListener).getOrdersDataFetcher();
-        Mockito.doReturn(mockPortfolioFetcher).when(mockLifecycleListener).getPortfolioDataFetcher();
+        Mockito.doReturn(mockOrdersFetcher).when(mockLifecycleListener).getEtradeOrdersDataFetcher();
+        Mockito.doReturn(mockPortfolioFetcher).when(mockLifecycleListener).getEtradePortfolioDataFetcher();
 
         ViewEtradeLotsServlet viewLotsServlet = new ViewEtradeLotsServlet();
         viewLotsServlet.setLifecycleListener(mockLifecycleListener);

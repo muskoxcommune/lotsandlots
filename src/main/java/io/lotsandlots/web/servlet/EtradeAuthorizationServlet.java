@@ -9,6 +9,7 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.etrade.oauth.OAuthToken;
 import io.lotsandlots.etrade.oauth.SecurityContext;
+import io.lotsandlots.util.TimeBoxedRunnableRunner;
 import io.lotsandlots.web.listener.LifecycleListener;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
@@ -39,6 +40,7 @@ import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
 
 @Api(value = "/etrade")
 public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAuthClient {
@@ -133,16 +135,28 @@ public class EtradeAuthorizationServlet extends HttpServlet implements EtradeOAu
                     // Initialize data fetchers and order controllers.
 
                     EtradeOrdersDataFetcher ordersDataFetcher = new EtradeOrdersDataFetcher();
-                    ordersDataFetcher.start();
-                    lifecycleListener.setOrdersDataFetcher(ordersDataFetcher);
+
+                    TimeBoxedRunnableRunner<EtradeOrdersDataFetcher> etradeOrdersDataFetcherRunner =
+                            new TimeBoxedRunnableRunner<>(
+                                    ordersDataFetcher,
+                                    0,
+                                    ordersDataFetcher.getOrdersDataFetchIntervalSeconds(),
+                                    TimeUnit.SECONDS);
+                    lifecycleListener.setEtradeOrdersDataFetcherRunner(etradeOrdersDataFetcherRunner);
 
                     EtradePortfolioDataFetcher portfolioDataFetcher = new EtradePortfolioDataFetcher();
                     lifecycleListener.setBuyOrderController(
                             new EtradeBuyOrderController(portfolioDataFetcher, ordersDataFetcher));
                     lifecycleListener.setSellOrderController(
                             new EtradeSellOrderController(portfolioDataFetcher, ordersDataFetcher));
-                    portfolioDataFetcher.start();
-                    lifecycleListener.setPortfolioDataFetcher(portfolioDataFetcher);
+
+                    TimeBoxedRunnableRunner<EtradePortfolioDataFetcher> etradePortfolioDataFetcherRunner =
+                            new TimeBoxedRunnableRunner<>(
+                                    portfolioDataFetcher,
+                                    0,
+                                    portfolioDataFetcher.getPortfolioDataFetchIntervalSeconds(),
+                                    TimeUnit.SECONDS);
+                    lifecycleListener.setEtradePortfolioDataFetcherRunner(etradePortfolioDataFetcherRunner);
 
                     isInitialized = true;
                 }
