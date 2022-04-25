@@ -2,3 +2,5 @@
 *.iml
 logs
 target
+tmp/
+*venv/
