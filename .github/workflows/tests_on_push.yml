@@ -7,7 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: make test
+      - run: |
+          set -x
+          java -version
+          make test
       - uses: cicirello/jacoco-badge-generator@v2
         with:
             fail-if-coverage-less-than: 50
