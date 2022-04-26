@@ -16,7 +16,7 @@
         <version.eclipse.jetty>9.4.44.v20210927</version.eclipse.jetty>
         <version.fasterxml.jackson>2.12.5</version.fasterxml.jackson>
         <!--<version.jdk>1.8</version.jdk>-->
-        <version.jdk>11</version.jdk>
+        <version.jdk>17</version.jdk>
         <version.slf4j>1.7.26</version.slf4j>
         <version.springframework>5.3.14</version.springframework>
         <version.surefire-plugin>2.22.2</version.surefire-plugin>
