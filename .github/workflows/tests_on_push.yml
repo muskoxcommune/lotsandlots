@@ -10,11 +10,15 @@ jobs:
       - uses: actions/setup-java@v3
         with:
             distribution: adopt
-            java-version: '17'
+            java-version: '8'
       - run: |
           set -x
           java --version
-          mvn -B clean install test || (cat target/surefire-reports/testng-results.xml && exit 1)
+          mvn -B clean install test || (
+            find target/classes -name *.class \
+            && cat target/surefire-reports/testng-results.xml \
+            && exit 1
+          )
       - uses: cicirello/jacoco-badge-generator@v2
         with:
             fail-if-coverage-less-than: 50
