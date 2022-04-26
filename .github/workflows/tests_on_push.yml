@@ -13,12 +13,8 @@ jobs:
             java-version: '17'
       - run: |
           set -x
-          java -version
-          make test
-          if [[ $? -ne 0 ]]; then
-              cat target/surefire-reports/testng-results.xml
-              exit 1
-          fi
+          java --version
+          mvn -B clean install test || (cat target/surefire-reports/testng-results.xml && exit 1)
       - uses: cicirello/jacoco-badge-generator@v2
         with:
             fail-if-coverage-less-than: 50
