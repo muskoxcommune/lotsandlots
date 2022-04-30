@@ -15,6 +15,8 @@ if not os.path.isdir(args.output):
     print('ERROR: ' + args.output + ' is not a directory')
     exit(1)
 
-r = requests.get(QUERY_URL + 'function=TREASURY_YIELD&interval=daily&maturity=' + args.maturity + '&datatype=json&apikey=' + args.apikey)
+r = requests.get(QUERY_URL + 'function=TREASURY_YIELD&interval=daily&maturity=' + args.maturity + '&datatype=json&apikey=' + args.apikey, timeout=5)
+if r.status_code != 200:
+    exit(1)
 with open(args.output + '/' + args.maturity.lower() + '.json', 'w') as fd:
     fd.write(r.text)

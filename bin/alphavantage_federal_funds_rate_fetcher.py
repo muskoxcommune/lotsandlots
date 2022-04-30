@@ -14,6 +14,8 @@ if not os.path.isdir(args.output):
     print('ERROR: ' + args.output + ' is not a directory')
     exit(1)
 
-r = requests.get(QUERY_URL + 'function=FEDERAL_FUNDS_RATE&interval=daily&datatype=json&apikey=' + args.apikey)
+r = requests.get(QUERY_URL + 'function=FEDERAL_FUNDS_RATE&interval=monthly&datatype=json&apikey=' + args.apikey, timeout=5)
+if r.status_code != 200:
+    exit(1)
 with open(args.output + '/federal_funds_rate.json', 'w') as fd:
     fd.write(r.text)

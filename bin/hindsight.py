@@ -2,8 +2,6 @@
 import argparse
 import json
 import logging
-import os
-import sys
 
 IDEAL_LOT_SIZE = 1000
 MIN_LOT_SIZE = 900
@@ -43,40 +41,44 @@ def buy_new_lot(date, transaction_price, lots, buy_transactions):
 def buy_threshold_from_price(price):
     return (1 - ORDER_CREATION_THRESHOLD) * price
 
-def prepare_timeseries_data(input_file, begin_date, end_date):
-    timeseries_data = []
-    with open(input_file) as fd:
-        input_dict = json.load(fd)
-        logging.info("Preparing data: symbol: %s, creation date: %s",
-            input_dict[METADATA_KEY][SYMBOL_KEY], input_dict[METADATA_KEY][LAST_REFRESHED_DATE_KEY])
+def load_data_to_dict(filename):
+    with open(filename) as fd:
+        return json.load(fd)
 
-        # Expected input format
-        """ {
-                "Meta Data": {
-                    "1. Information": "Daily Prices (open, high, low, close) and Volumes",
-                    "2. Symbol": "X",
-                    "3. Last Refreshed": "2022-04-21",
-                    "4. Output Size": "Full size",
-                    "5. Time Zone": "US/Eastern"
+def prepare_timeseries_data(input_dict, begin_date, end_date):
+    timeseries_data = []
+    last_month = False
+    # Expected input format
+    """ {
+            "Meta Data": {
+                "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+                "2. Symbol": "X",
+                "3. Last Refreshed": "2022-04-21",
+                "4. Output Size": "Full size",
+                "5. Time Zone": "US/Eastern"
+            },
+            "Time Series (Daily)": {
+                "2022-04-21": {
+                    "1. open": "37.0000",
+                    "2. high": "37.7900",
+                    "3. low": "33.7250",
+                    "4. close": "34.6700",
+                    "5. volume": "18502433"
                 },
-                "Time Series (Daily)": {
-                    "2022-04-21": {
-                        "1. open": "37.0000",
-                        "2. high": "37.7900",
-                        "3. low": "33.7250",
-                        "4. close": "34.6700",
-                        "5. volume": "18502433"
-                    },
-                    ...
-                }
+                ...
             }
-        """
-        for date in sorted(input_dict[TIMESERIES_KEY].keys()):
-            if not timeseries_data and date != begin_date:
-                continue
-            timeseries_data.append((date, input_dict[TIMESERIES_KEY][date]))
-            if date == end_date:
-                break
+        }
+    """
+    logging.info("Preparing data: symbol: %s, begin_date: %s, end_date: %s",
+        input_dict[METADATA_KEY][SYMBOL_KEY], begin_date, end_date)
+    for date in sorted(input_dict[TIMESERIES_KEY].keys()):
+        if not timeseries_data and not date.startswith(begin_date):
+            continue
+        if date.startswith(end_date):
+            last_month = True
+        elif last_month:
+            break
+        timeseries_data.append((date, input_dict[TIMESERIES_KEY][date]))
     return timeseries_data
 
 def process_lot_acquired_after_market_opens(
@@ -144,7 +146,8 @@ def quantity_from_price(price):
 def run_simulation(timeseries_data):
     lots = []
     profits = []
-    logging.info('Evaluating %s dates', len(timeseries_data))
+    logging.info('Evaluating %s dates, start: %s, end: %s',
+        len(timeseries_data), timeseries_data[0][0], timeseries_data[-1][0])
 
     max_lots_observed = 0
     num_dates_with_gt_10_lots = 0
@@ -212,7 +215,11 @@ def run_simulation(timeseries_data):
     logging.info('Total profit: %s, Remaining lots: %s', sum(profits), len(lots))
     logging.info('Max lots observed: %s, # Dates /w 10+ lots: %s, # Dates /w 20+ lots: %s',
         max_lots_observed, num_dates_with_gt_10_lots, num_dates_with_gt_20_lots)
-    return lots, profits
+    return lots, profits, {
+        "max_lots_observed": max_lots_observed,
+        "num_dates_with_gt_10_lots": num_dates_with_gt_10_lots,
+        "num_dates_with_gt_20_lots": num_dates_with_gt_20_lots
+    }
 
 def sell_and_replace_lot(date, transaction_price, purchase_price, shares, lots, profits):
     """ The Java program creates buy orders at the market rate. When a lot is
@@ -238,12 +245,14 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('-b', '--begin-date', required=True, help='Begin date')
     argparser.add_argument('-e', '--end-date',   required=True, help='End date')
-    argparser.add_argument('-i', '--input',      required=True, help='input file')
+    argparser.add_argument('-s', '--stock-data', required=True, help='Path to stock data file')
     argparser.add_argument('--debug', action='store_true', default=False, help='Enable debug logs')
     args = argparser.parse_args()
 
     logging.basicConfig(
         format="%(levelname).1s:%(message)s",
         level=(logging.DEBUG if args.debug else logging.INFO))
-    timeseries_data = prepare_timeseries_data(args.input, args.begin_date, args.end_date)
+
+    loaded_stock_data = load_data_to_dict(args.stock_data)
+    timeseries_data = prepare_timeseries_data(loaded_stock_data, args.begin_date, args.end_date)
     run_simulation(timeseries_data)
