@@ -1,143 +1,163 @@
 #!/usr/bin/env/python3
 import argparse
-import hindsight
-import json
 import logging
+import numpy as np
 import os
-import sys
+import pandas as pd
+import time
+
+import hindsight
+
+# Requires data exported using Yahoo Finance Plus.
 
 MAX_LOTS_OBSERVED = 15
 MAX_DAYS_WITH_10_OR_MORE_LOTS = 20
 MIN_PROFITS_PER_QUARTER = 300
 
-BALANCE_SHEET_TOTAL_ASSETS_KEY = 'totalAssets'
-BALANCE_SHEET_TOTAL_LIABILITIES_KEY = 'totalLiabilities'
-BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY = 'totalShareholderEquity'
-CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY = 'capitalExpenditures'
-CASHFLOW_DATA_OPERATING_CASHFLOW_KEY = 'operatingCashflow'
-DATA_KEY = 'data'
-DATE_KEY = 'date'
-FISCAL_DATE_ENDING_KEY = 'fiscalDateEnding'
-INCOME_DATA_COST_OF_REVENUE_KEY = 'costOfRevenue'
-INCOME_DATA_EBITDA_KEY = 'ebitda'
-INCOME_DATA_TOTAL_REVENUE_KEY = 'totalRevenue'
-QUARTERLY_REPORTS_KEY = 'quarterlyReports'
-SHOULD_TRADE_KEY = 'shouldTrade'
-VALUE_KEY = 'value'
+AGE = '_Age'
+CAPITAL_EXPENDITURE = 'CapitalExpenditure'
+COST_OF_REVENUE = 'CostOfRevenue'
+DATE = 'Date'
+EBITDA = 'EBITDA'
+ENTERPRISE_VALUE = 'EnterpriseValue'
+MARKET_CAP = 'MarketCap'
+OPERATING_CASH_FLOW = 'OperatingCashFlow'
+SHOULD_TRADE = 'ShouldTrade'
+TOTAL_ASSETS = 'TotalAssets'
+TOTAL_EQUITY = 'TotalEquityGrossMinorityInterest'
+TOTAL_LIABILITIES = 'TotalLiabilitiesNetMinorityInterest'
+TOTAL_REVENUE = 'TotalRevenue'
 
-def prepare_business_data(loaded_data, template):
-    column_names = list(template.keys())
-    for name in column_names:
-        template[name + 'Previous'] = []
-    loaded_data_size = len(loaded_data[QUARTERLY_REPORTS_KEY])
-    # Loaded data is sorted in descending order, so we iterate in reverse.
-    for i in range(loaded_data_size)[::-1]:
-        fiscal_quarter = loaded_data[QUARTERLY_REPORTS_KEY][i]
-        for k in column_names:
-            # Skip earliest date since we look at last two quarters.
-            if i != (loaded_data_size - 1):
-                template[k].append(fiscal_quarter[k])
-                template[k + 'Previous'].append(loaded_data[QUARTERLY_REPORTS_KEY][i+1][k])
-    data_size = len(template[FISCAL_DATE_ENDING_KEY])
-    # All columns should be sized equally, abort if that's not the case.
-    for k in template.keys():
-        k_data_size = len(template[k])
-        assert data_size == k_data_size, 'data_size: %s, k: %s, k_data_size: %s' % (data_size, k, k_data_size)
-    return template
+def load_financial_data_from_csv(csv_file):
+    data_read_start_time = time.time()
+    data = pd.read_csv(csv_file)
+    if 'ttm' in data:
+        data.pop('ttm') # Drop ttm column (trailing twelve months)
+    data['name'] = data['name'].apply(lambda n: n.strip()) # Metric names can have white spaces
+    data = data.fillna(0) # Replace NaN with 0
+    data = data.replace(',', '', regex=True) # Numbers in CSV are serialized as strings with commas
+    column_remap = {}
+    for c in data.columns:
+        if c == 'name':
+            column_remap[c] = DATE
+        else:
+            month, date, year = c.strip().split('/')
+            column_remap[c] = np.datetime64('%s-%s-%s' % (year, month, date)) # Conform to stock data Date format
+            data[c] = data[c].apply(lambda s: float(s)) # Convert strings to floats
+    data.rename(columns=column_remap, inplace=True)
+    data = data.set_index(DATE).T # Transpose columns and rows
+    logging.debug('Finished reading %s after %s seconds:\n%s', csv_file, time.time() - data_read_start_time, data)
+    return data
+
+def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
+    data = None
+    annual_csv_file = input_dir + '/' + symbol + '_annual_' + filename_suffix + '.csv'
+    monthly_csv_file = input_dir + '/' + symbol + '_monthly_' + filename_suffix + '.csv'
+    quarterly_csv_file = input_dir + '/' + symbol + '_quarterly_' + filename_suffix + '.csv'
+    if os.path.exists(monthly_csv_file):
+        data = load_financial_data_from_csv(monthly_csv_file)
+    elif os.path.exists(quarterly_csv_file):
+        data = load_financial_data_from_csv(quarterly_csv_file)
+    elif os.path.exists(annual_csv_file):
+        data = load_financial_data_from_csv(annual_csv_file)
+    return data
+
+def load_stock_data_from_csv(csv_file):
+    stock_data_read_start_time = time.time()
+    stock_data = pd.read_csv(csv_file)
+    stock_data[DATE] = stock_data[DATE].apply(lambda s: np.datetime64(s))
+    stock_data = stock_data.set_index(DATE)
+    logging.debug('Finished reading %s after %s seconds:\n%s',
+        csv_file, time.time() - stock_data_read_start_time, stock_data)
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-e', '--evaluation-output', required=True, help='output file')
-    argparser.add_argument('-s', '--stock-data', required=True, help='path ot stock data file')
-    argparser.add_argument('-t', '--training-output', required=True, help='output file')
-
-    argparser.add_argument('--balance-sheet-data', required=True, help='path to balance sheet data file')
-    argparser.add_argument('--cashflow-data', required=True, help='path to cashflow data file')
-    argparser.add_argument('--income-data', required=True, help='path to income statement data file')
-    argparser.add_argument('--overview-data', required=True, help='path overview data file')
-
     argparser.add_argument('--debug', action='store_true', default=False, help='Enable debug logs')
+
+    argparser.add_argument('-i', '--input-dir', required=True, help='path to input directory')
+    argparser.add_argument('-o', '--output-dir', required=True, help='path to output directoryfile')
+    argparser.add_argument('-s', '--symbol', required=True, help='stock symbol')
+
     args = argparser.parse_args()
 
     logging.basicConfig(
         format="%(levelname).1s:%(message)s",
         level=(logging.DEBUG if args.debug else logging.INFO))
 
-    loaded_balance_sheet_data = hindsight.load_data_to_dict(args.balance_sheet_data)
-    loaded_cashflow_data = hindsight.load_data_to_dict(args.cashflow_data)
-    loaded_income_data = hindsight.load_data_to_dict(args.income_data)
-    loaded_stock_data = hindsight.load_data_to_dict(args.stock_data)
+    input_dir = args.input_dir.rstrip('/')
+    symbol = args.symbol.upper()
 
-    balance_sheet_data_template = {
-        FISCAL_DATE_ENDING_KEY: [],
-        BALANCE_SHEET_TOTAL_ASSETS_KEY: [],
-        BALANCE_SHEET_TOTAL_LIABILITIES_KEY: [],
-        BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY: [],
+    assert os.path.isdir(input_dir), input_dir + ' is not a directory'
+
+    # Load financial data
+    """ We currently load the highest granularity data. In the future, we may not want to
+        default to that. No all information is available at the same granularity.
+    """
+
+    balance_sheet_data = None
+    balance_sheet_data = load_highest_granularity_financial_data_from_csv(symbol, 'balance-sheet')
+    assert balance_sheet_data is not None
+
+    cash_flow_data = None
+    cash_flow_data = load_highest_granularity_financial_data_from_csv(symbol, 'cash-flow')
+    assert cash_flow_data is not None
+
+    income_statement_data = None
+    income_statement_data = load_highest_granularity_financial_data_from_csv(symbol, 'financials')
+    assert income_statement_data is not None
+
+    valuation_data = None
+    valuation_data = load_highest_granularity_financial_data_from_csv(symbol, 'valuation_measures')
+    assert valuation_data is not None
+
+    financial_data = {
+        CAPITAL_EXPENDITURE: cash_flow_data,
+        COST_OF_REVENUE: income_statement_data,
+        EBITDA: income_statement_data,
+        ENTERPRISE_VALUE: valuation_data,
+        MARKET_CAP: valuation_data,
+        OPERATING_CASH_FLOW: cash_flow_data,
+        TOTAL_ASSETS: balance_sheet_data,
+        TOTAL_EQUITY: balance_sheet_data,
+        TOTAL_LIABILITIES: balance_sheet_data,
+        TOTAL_REVENUE: income_statement_data,
     }
-    balance_sheet_data = prepare_business_data(loaded_balance_sheet_data, balance_sheet_data_template)
 
-    cashflow_data_template = {
-        FISCAL_DATE_ENDING_KEY: [],
-        CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY: [],
-        CASHFLOW_DATA_OPERATING_CASHFLOW_KEY: [],
+    # Load stock data
+
+    stock_data_csv_file = input_dir + '/' + symbol + '.csv'
+    assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
+    stock_data = load_stock_data_from_csv(stock_data_csv_file)
+
+    stock_dividends_data = None
+    stock_dividends_data_csv_file = input_dir + '/' + symbol + '_dividends.csv'
+    if os.path.exists(stock_dividends_data_csv_file):
+        stock_dividends_data = load_stock_data_from_csv(stock_dividends_data_csv_file)
+
+    stock_split_data = None
+    stock_split_data_csv_file = input_dir + '/' + symbol + '_splits.csv'
+    if os.path.exists(stock_split_data_csv_file):
+        stock_split_data = load_stock_data_from_csv(stock_split_data_csv_file)
+
+    composite_data_template = {
+        DATE: [],
+        SHOULD_TRADE: [],
     }
-    cashflow_data = prepare_business_data(loaded_cashflow_data, cashflow_data_template)
+    for column_name in financial_data.keys():
+        composite_data_template[column_name] = []
+        composite_data_template[column_name + AGE] = []
 
-    income_data_template = {
-        FISCAL_DATE_ENDING_KEY: [],
-        INCOME_DATA_COST_OF_REVENUE_KEY: [],
-        INCOME_DATA_EBITDA_KEY: [],
-        INCOME_DATA_TOTAL_REVENUE_KEY: [],
-    }
-    income_data = prepare_business_data(loaded_income_data, income_data_template)
+    composite_data = pd.DataFrame(composite_data_template)
+    composite_data.set_index(DATE)
+    logging.debug('Generated composite DataFrame:\n%s', composite_data)
 
-    balance_sheet_data_size = len(balance_sheet_data[FISCAL_DATE_ENDING_KEY])
-    assert balance_sheet_data_size == len(cashflow_data[FISCAL_DATE_ENDING_KEY])
-    assert balance_sheet_data_size == len(income_data[FISCAL_DATE_ENDING_KEY])
 
-    business_data = {}
-    business_data.update(balance_sheet_data)
-    business_data.update(cashflow_data)
-    business_data.update(income_data)
 
-    column_headers = [SHOULD_TRADE_KEY] + list(business_data.keys())
-    evaluation_rows = []
-    training_rows = []
-    for i in range(balance_sheet_data_size - 1): # Drop most recent quarter
-        timeseries_data = hindsight.prepare_timeseries_data(
-            loaded_stock_data,
-            # Format: YYYY-MM-DD
-            # We drop the DD and match with YYYY-MM
-            '-'.join(balance_sheet_data[FISCAL_DATE_ENDING_KEY][i].split('-')[:2]), # This end date
-            '-'.join(balance_sheet_data[FISCAL_DATE_ENDING_KEY][i+1].split('-')[:2]), # Next end date
-        )
-        should_trade = '1'
-        lots, profits, stats = hindsight.run_simulation(timeseries_data)
-        if sum(profits) < MIN_PROFITS_PER_QUARTER:
-            should_trade = '0'
-        if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
-            should_trade = '0'
-        if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
-            should_trade = '0'
 
-        new_row = []
-        for header in column_headers:
-            if header == SHOULD_TRADE_KEY:
-                new_row.append(should_trade)
-            else:
-                new_row.append(business_data[header][i])
 
-        if i < (balance_sheet_data_size / 2):
-            training_rows.append(new_row)
-        else:
-            evaluation_rows.append(new_row)
 
-    with open(args.evaluation_output, 'w') as fd:
-        fd.write(','.join(column_headers) + '\n')
-        for row in evaluation_rows:
-            fd.write(','.join(row) + '\n')
 
-    with open(args.training_output, 'w') as fd:
-        fd.write(','.join(column_headers) + '\n')
-        for row in training_rows:
-            fd.write(','.join(row) + '\n')
+
+
+
+
