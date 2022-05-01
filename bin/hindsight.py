@@ -150,6 +150,10 @@ def run_simulation(timeseries_data):
         len(timeseries_data), timeseries_data[0][0], timeseries_data[-1][0])
 
     max_lots_observed = 0
+    num_lots_counters = {
+        5: 0, 10: 0, 15: 0, 25: 0, 40: 0
+    }
+    num_dates_with_gt_5_lots = 0
     num_dates_with_gt_10_lots = 0
     num_dates_with_gt_20_lots = 0
     for date, data in timeseries_data:
@@ -184,9 +188,12 @@ def run_simulation(timeseries_data):
         logging.debug('%s begin lots: %s', date, lots)
 
         # Evaluate existing lots
-        num_lots = 0
+        num_lots_thresholds_breached = {}
         while lots:
             num_lots = len(lots)
+            for threshold in num_lots_counters.keys():
+                if num_lots >= threshold:
+                    num_lots_thresholds_breached[threshold] = True
             if num_lots > max_lots_observed:
                 max_lots_observed = num_lots
             # Assumption: the last appended lot is always lowest
@@ -208,17 +215,14 @@ def run_simulation(timeseries_data):
             # If we don't add any lots, we don't want to loop again.
             break
         logging.debug('%s end lots: %s', date, lots)
-        if num_lots >= 10:
-            num_dates_with_gt_10_lots += 1
-        if num_lots >= 20:
-            num_dates_with_gt_20_lots += 1
+        for threshold in num_lots_counters.keys():
+            if threshold in num_lots_thresholds_breached:
+                num_lots_counters[threshold] += 1
     logging.info('Total profit: %s, Remaining lots: %s', sum(profits), len(lots))
-    logging.info('Max lots observed: %s, # Dates /w 10+ lots: %s, # Dates /w 20+ lots: %s',
-        max_lots_observed, num_dates_with_gt_10_lots, num_dates_with_gt_20_lots)
+    logging.info('Max lots observed: %s, Lot counts %s', max_lots_observed, num_lots_counters)
     return lots, profits, {
         "max_lots_observed": max_lots_observed,
-        "num_dates_with_gt_10_lots": num_dates_with_gt_10_lots,
-        "num_dates_with_gt_20_lots": num_dates_with_gt_20_lots
+        "num_lots_counters": num_lots_counters
     }
 
 def sell_and_replace_lot(date, transaction_price, purchase_price, shares, lots, profits):

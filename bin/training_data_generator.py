@@ -6,6 +6,10 @@ import logging
 import os
 import sys
 
+MAX_LOTS_OBSERVED = 15
+MAX_DAYS_WITH_10_OR_MORE_LOTS = 20
+MIN_PROFITS_PER_QUARTER = 300
+
 BALANCE_SHEET_TOTAL_ASSETS_KEY = 'totalAssets'
 BALANCE_SHEET_TOTAL_LIABILITIES_KEY = 'totalLiabilities'
 BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY = 'totalShareholderEquity'
@@ -105,7 +109,6 @@ if __name__ == '__main__':
     fundamentals_data_size = len(balance_sheet_data[FISCAL_DATE_ENDING_KEY])
     assert fundamentals_data_size == len(cashflow_data[FISCAL_DATE_ENDING_KEY])
     assert fundamentals_data_size == len(income_data[FISCAL_DATE_ENDING_KEY])
-    assert fundamentals_data_size == 20 # 5 years of quarterly data
 
     column_headers = [
         FISCAL_DATE_ENDING_KEY, # Included for human readablity
@@ -121,7 +124,7 @@ if __name__ == '__main__':
     ]
     evaluation_rows = []
     training_rows = []
-    for i in range(19): # Drop most recent quarter
+    for i in range(fundamentals_data_size - 1):# Drop most recent quarter
         timeseries_data = hindsight.prepare_timeseries_data(
             loaded_stock_data,
             # Format: YYYY-MM-DD
@@ -131,13 +134,13 @@ if __name__ == '__main__':
         )
         should_trade = '1'
         lots, profits, stats = hindsight.run_simulation(timeseries_data)
-        if sum(profits) < 500:
+        if sum(profits) < MIN_PROFITS_PER_QUARTER:
             should_trade = '0'
-        if stats['max_lots_observed'] > 15:
+        if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
             should_trade = '0'
-        if stats['num_dates_with_gt_10_lots'] > 30:
+        if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
             should_trade = '0'
-        if i < 15:
+        if i < (fundamentals_data_size / 2):
             training_rows.append([
                 balance_sheet_data[FISCAL_DATE_ENDING_KEY][i],
                 should_trade,
