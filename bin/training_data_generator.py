@@ -25,59 +25,25 @@ QUARTERLY_REPORTS_KEY = 'quarterlyReports'
 SHOULD_TRADE_KEY = 'shouldTrade'
 VALUE_KEY = 'value'
 
-def prepare_balance_sheet_data(loaded_balance_sheet_data):
-    balance_sheet_data = {
-        FISCAL_DATE_ENDING_KEY: [],
-        BALANCE_SHEET_TOTAL_ASSETS_KEY: [],
-        BALANCE_SHEET_TOTAL_LIABILITIES_KEY: [],
-        BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY: [],
-    }
-    while loaded_balance_sheet_data[QUARTERLY_REPORTS_KEY]:
-        fiscal_quarter = loaded_balance_sheet_data[QUARTERLY_REPORTS_KEY].pop() # Data is sorted in descending order
-        balance_sheet_data[FISCAL_DATE_ENDING_KEY].append(fiscal_quarter[FISCAL_DATE_ENDING_KEY])
-        balance_sheet_data[BALANCE_SHEET_TOTAL_ASSETS_KEY].append(fiscal_quarter[BALANCE_SHEET_TOTAL_ASSETS_KEY])
-        balance_sheet_data[BALANCE_SHEET_TOTAL_LIABILITIES_KEY].append(fiscal_quarter[BALANCE_SHEET_TOTAL_LIABILITIES_KEY])
-        balance_sheet_data[BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY].append(fiscal_quarter[BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY])
-    data_size = len(balance_sheet_data[FISCAL_DATE_ENDING_KEY])
-    assert data_size == len(balance_sheet_data[BALANCE_SHEET_TOTAL_ASSETS_KEY])
-    assert data_size == len(balance_sheet_data[BALANCE_SHEET_TOTAL_LIABILITIES_KEY])
-    assert data_size == len(balance_sheet_data[BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY])
-    return balance_sheet_data
-
-def prepare_cashflow_data(loaded_cashflow_data):
-    cashflow_data = {
-        FISCAL_DATE_ENDING_KEY: [],
-        CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY: [],
-        CASHFLOW_DATA_OPERATING_CASHFLOW_KEY: [],
-    }
-    while loaded_cashflow_data[QUARTERLY_REPORTS_KEY]:
-        fiscal_quarter = loaded_cashflow_data[QUARTERLY_REPORTS_KEY].pop() # Data is sorted in descending order
-        cashflow_data[FISCAL_DATE_ENDING_KEY].append(fiscal_quarter[FISCAL_DATE_ENDING_KEY])
-        cashflow_data[CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY].append(fiscal_quarter[CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY])
-        cashflow_data[CASHFLOW_DATA_OPERATING_CASHFLOW_KEY].append(fiscal_quarter[CASHFLOW_DATA_OPERATING_CASHFLOW_KEY])
-    data_size = len(cashflow_data[FISCAL_DATE_ENDING_KEY])
-    assert data_size == len(cashflow_data[CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY])
-    assert data_size == len(cashflow_data[CASHFLOW_DATA_OPERATING_CASHFLOW_KEY])
-    return cashflow_data
-
-def prepare_income_data(loaded_income_data):
-    income_data = {
-        FISCAL_DATE_ENDING_KEY: [],
-        INCOME_DATA_COST_OF_REVENUE_KEY: [],
-        INCOME_DATA_EBITDA_KEY: [],
-        INCOME_DATA_TOTAL_REVENUE_KEY: [],
-    }
-    while loaded_income_data[QUARTERLY_REPORTS_KEY]:
-        fiscal_quarter = loaded_income_data[QUARTERLY_REPORTS_KEY].pop() # Data is sorted in descending order
-        income_data[INCOME_DATA_COST_OF_REVENUE_KEY].append(fiscal_quarter[INCOME_DATA_COST_OF_REVENUE_KEY])
-        income_data[INCOME_DATA_EBITDA_KEY].append(fiscal_quarter[INCOME_DATA_EBITDA_KEY])
-        income_data[FISCAL_DATE_ENDING_KEY].append(fiscal_quarter[FISCAL_DATE_ENDING_KEY])
-        income_data[INCOME_DATA_TOTAL_REVENUE_KEY].append(fiscal_quarter[INCOME_DATA_TOTAL_REVENUE_KEY])
-    data_size = len(income_data[FISCAL_DATE_ENDING_KEY])
-    assert data_size == len(income_data[INCOME_DATA_COST_OF_REVENUE_KEY])
-    assert data_size == len(income_data[INCOME_DATA_EBITDA_KEY])
-    assert data_size == len(income_data[INCOME_DATA_TOTAL_REVENUE_KEY])
-    return income_data
+def prepare_business_data(loaded_data, template):
+    column_names = list(template.keys())
+    for name in column_names:
+        template[name + 'Previous'] = []
+    loaded_data_size = len(loaded_data[QUARTERLY_REPORTS_KEY])
+    # Loaded data is sorted in descending order, so we iterate in reverse.
+    for i in range(loaded_data_size)[::-1]:
+        fiscal_quarter = loaded_data[QUARTERLY_REPORTS_KEY][i]
+        for k in column_names:
+            # Skip earliest date since we look at last two quarters.
+            if i != (loaded_data_size - 1):
+                template[k].append(fiscal_quarter[k])
+                template[k + 'Previous'].append(loaded_data[QUARTERLY_REPORTS_KEY][i+1][k])
+    data_size = len(template[FISCAL_DATE_ENDING_KEY])
+    # All columns should be sized equally, abort if that's not the case.
+    for k in template.keys():
+        k_data_size = len(template[k])
+        assert data_size == k_data_size, 'data_size: %s, k: %s, k_data_size: %s' % (data_size, k, k_data_size)
+    return template
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
@@ -102,29 +68,42 @@ if __name__ == '__main__':
     loaded_income_data = hindsight.load_data_to_dict(args.income_data)
     loaded_stock_data = hindsight.load_data_to_dict(args.stock_data)
 
-    balance_sheet_data = prepare_balance_sheet_data(loaded_balance_sheet_data)
-    cashflow_data = prepare_cashflow_data(loaded_cashflow_data)
-    income_data = prepare_income_data(loaded_income_data)
+    balance_sheet_data_template = {
+        FISCAL_DATE_ENDING_KEY: [],
+        BALANCE_SHEET_TOTAL_ASSETS_KEY: [],
+        BALANCE_SHEET_TOTAL_LIABILITIES_KEY: [],
+        BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY: [],
+    }
+    balance_sheet_data = prepare_business_data(loaded_balance_sheet_data, balance_sheet_data_template)
 
-    fundamentals_data_size = len(balance_sheet_data[FISCAL_DATE_ENDING_KEY])
-    assert fundamentals_data_size == len(cashflow_data[FISCAL_DATE_ENDING_KEY])
-    assert fundamentals_data_size == len(income_data[FISCAL_DATE_ENDING_KEY])
+    cashflow_data_template = {
+        FISCAL_DATE_ENDING_KEY: [],
+        CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY: [],
+        CASHFLOW_DATA_OPERATING_CASHFLOW_KEY: [],
+    }
+    cashflow_data = prepare_business_data(loaded_cashflow_data, cashflow_data_template)
 
-    column_headers = [
-        FISCAL_DATE_ENDING_KEY, # Included for human readablity
-        SHOULD_TRADE_KEY,
-        BALANCE_SHEET_TOTAL_ASSETS_KEY,
-        BALANCE_SHEET_TOTAL_LIABILITIES_KEY,
-        BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY,
-        CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY,
-        CASHFLOW_DATA_OPERATING_CASHFLOW_KEY,
-        INCOME_DATA_COST_OF_REVENUE_KEY,
-        INCOME_DATA_EBITDA_KEY,
-        INCOME_DATA_TOTAL_REVENUE_KEY,
-    ]
+    income_data_template = {
+        FISCAL_DATE_ENDING_KEY: [],
+        INCOME_DATA_COST_OF_REVENUE_KEY: [],
+        INCOME_DATA_EBITDA_KEY: [],
+        INCOME_DATA_TOTAL_REVENUE_KEY: [],
+    }
+    income_data = prepare_business_data(loaded_income_data, income_data_template)
+
+    balance_sheet_data_size = len(balance_sheet_data[FISCAL_DATE_ENDING_KEY])
+    assert balance_sheet_data_size == len(cashflow_data[FISCAL_DATE_ENDING_KEY])
+    assert balance_sheet_data_size == len(income_data[FISCAL_DATE_ENDING_KEY])
+
+    business_data = {}
+    business_data.update(balance_sheet_data)
+    business_data.update(cashflow_data)
+    business_data.update(income_data)
+
+    column_headers = [SHOULD_TRADE_KEY] + list(business_data.keys())
     evaluation_rows = []
     training_rows = []
-    for i in range(fundamentals_data_size - 1):# Drop most recent quarter
+    for i in range(balance_sheet_data_size - 1): # Drop most recent quarter
         timeseries_data = hindsight.prepare_timeseries_data(
             loaded_stock_data,
             # Format: YYYY-MM-DD
@@ -140,32 +119,18 @@ if __name__ == '__main__':
             should_trade = '0'
         if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
             should_trade = '0'
-        if i < (fundamentals_data_size / 2):
-            training_rows.append([
-                balance_sheet_data[FISCAL_DATE_ENDING_KEY][i],
-                should_trade,
-                balance_sheet_data[BALANCE_SHEET_TOTAL_ASSETS_KEY][i],
-                balance_sheet_data[BALANCE_SHEET_TOTAL_LIABILITIES_KEY][i],
-                balance_sheet_data[BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY][i],
-                cashflow_data[CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY][i],
-                cashflow_data[CASHFLOW_DATA_OPERATING_CASHFLOW_KEY][i],
-                income_data[INCOME_DATA_COST_OF_REVENUE_KEY][i],
-                income_data[INCOME_DATA_EBITDA_KEY][i],
-                income_data[INCOME_DATA_TOTAL_REVENUE_KEY][i],
-            ])
+
+        new_row = []
+        for header in column_headers:
+            if header == SHOULD_TRADE_KEY:
+                new_row.append(should_trade)
+            else:
+                new_row.append(business_data[header][i])
+
+        if i < (balance_sheet_data_size / 2):
+            training_rows.append(new_row)
         else:
-            evaluation_rows.append([
-                balance_sheet_data[FISCAL_DATE_ENDING_KEY][i],
-                should_trade,
-                balance_sheet_data[BALANCE_SHEET_TOTAL_ASSETS_KEY][i],
-                balance_sheet_data[BALANCE_SHEET_TOTAL_LIABILITIES_KEY][i],
-                balance_sheet_data[BALANCE_SHEET_TOTAL_SHAREHOLDER_EQUITY_KEY][i],
-                cashflow_data[CASHFLOW_DATA_CAPITAL_EXPENDITURES_KEY][i],
-                cashflow_data[CASHFLOW_DATA_OPERATING_CASHFLOW_KEY][i],
-                income_data[INCOME_DATA_COST_OF_REVENUE_KEY][i],
-                income_data[INCOME_DATA_EBITDA_KEY][i],
-                income_data[INCOME_DATA_TOTAL_REVENUE_KEY][i],
-            ])
+            evaluation_rows.append(new_row)
 
     with open(args.evaluation_output, 'w') as fd:
         fd.write(','.join(column_headers) + '\n')
