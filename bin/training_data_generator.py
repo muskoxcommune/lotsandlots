@@ -42,7 +42,7 @@ def load_financial_data_from_csv(csv_file):
             column_remap[c] = DATE
         else:
             month, date, year = c.strip().split('/')
-            column_remap[c] = np.datetime64('%s-%s-%s' % (year, month, date)) # Conform to stock data Date format
+            column_remap[c] = '%s-%s-%s' % (year, month, date) # Conform to stock data Date format
             data[c] = data[c].apply(lambda s: float(s)) # Convert strings to floats
     data.rename(columns=column_remap, inplace=True)
     data = data.set_index(DATE).T # Transpose columns and rows
@@ -63,12 +63,13 @@ def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
     return data
 
 def load_stock_data_from_csv(csv_file):
-    stock_data_read_start_time = time.time()
-    stock_data = pd.read_csv(csv_file)
-    stock_data[DATE] = stock_data[DATE].apply(lambda s: np.datetime64(s))
-    stock_data = stock_data.set_index(DATE)
+    data_read_start_time = time.time()
+    data = pd.read_csv(csv_file)
+    #data[DATE] = data[DATE].apply(lambda s: np.datetime64(s))
+    data = data.set_index(DATE)
     logging.debug('Finished reading %s after %s seconds:\n%s',
-        csv_file, time.time() - stock_data_read_start_time, stock_data)
+        csv_file, time.time() - data_read_start_time, data)
+    return data
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
@@ -91,25 +92,66 @@ if __name__ == '__main__':
 
     # Load financial data
     """ We currently load the highest granularity data. In the future, we may not want to
-        default to that. No all information is available at the same granularity.
+        default to that. Not all information is available at the same granularity.
     """
 
     balance_sheet_data = None
     balance_sheet_data = load_highest_granularity_financial_data_from_csv(symbol, 'balance-sheet')
     assert balance_sheet_data is not None
+    earliest_common_datetime = np.datetime64(balance_sheet_data.index[-1]) # Initial value
 
     cash_flow_data = None
     cash_flow_data = load_highest_granularity_financial_data_from_csv(symbol, 'cash-flow')
     assert cash_flow_data is not None
+    earliest_cash_flow_date = np.datetime64(cash_flow_data.index[-1])
+    if earliest_cash_flow_date > earliest_common_datetime:
+        earliest_common_datetime = earliest_cash_flow_date
 
     income_statement_data = None
     income_statement_data = load_highest_granularity_financial_data_from_csv(symbol, 'financials')
     assert income_statement_data is not None
+    earliest_income_statement_date = np.datetime64(income_statement_data.index[-1])
+    if earliest_income_statement_date > earliest_common_datetime:
+        earliest_common_datetime = earliest_income_statement_date
 
     valuation_data = None
     valuation_data = load_highest_granularity_financial_data_from_csv(symbol, 'valuation_measures')
     assert valuation_data is not None
+    earliest_valuation_date = np.datetime64(valuation_data.index[-1])
+    if earliest_valuation_date > earliest_common_datetime:
+        earliest_common_datetime = earliest_valuation_date
 
+    # Load stock data
+
+    stock_data_csv_file = input_dir + '/' + symbol + '.csv'
+    assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
+    stock_data = load_stock_data_from_csv(stock_data_csv_file)
+    earliest_stock_date = np.datetime64(stock_data.index[0])
+    if earliest_stock_date > earliest_common_datetime:
+        earliest_common_datetime = earliest_stock_date
+
+    stock_dividends_data = None
+    stock_dividends_data_csv_file = input_dir + '/' + symbol + '_dividends.csv'
+    if os.path.exists(stock_dividends_data_csv_file):
+        stock_dividends_data = load_stock_data_from_csv(stock_dividends_data_csv_file)
+
+    stock_split_data = None
+    stock_split_data_csv_file = input_dir + '/' + symbol + '_splits.csv'
+    if os.path.exists(stock_split_data_csv_file):
+        stock_split_data = load_stock_data_from_csv(stock_split_data_csv_file)
+
+    # Generate composite training data
+    
+    """ We start with a scaffold dictionary. This will be fleshed out and used to initialize
+        a pandas DataFrame. We will use this DataFrame to create our training and evaluation
+        data sets.
+    """
+    composite_data_dict = {
+        DATE: [],
+        SHOULD_TRADE: [],
+    }
+
+    # Mapping of column to source data DataFrame for convenience when looking up data.
     financial_data = {
         CAPITAL_EXPENDITURE: cash_flow_data,
         COST_OF_REVENUE: income_statement_data,
@@ -123,32 +165,70 @@ if __name__ == '__main__':
         TOTAL_REVENUE: income_statement_data,
     }
 
-    # Load stock data
+    """ We have to deal with inputs at varying intervals. Some data is available at annual
+        intervals. Others are available at monthly, quarterly, or daily intervals. We want
+        to try to use whatever we have at hand.
 
-    stock_data_csv_file = input_dir + '/' + symbol + '.csv'
-    assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
-    stock_data = load_stock_data_from_csv(stock_data_csv_file)
+        The implementation below tries to do this by attempting to normalize inputs using their
+        age. That is to say, the age of a piece of information might factor into its weight when
+        informing a decision. Human traders have to do this also since real world information can
+        become stale.
 
-    stock_dividends_data = None
-    stock_dividends_data_csv_file = input_dir + '/' + symbol + '_dividends.csv'
-    if os.path.exists(stock_dividends_data_csv_file):
-        stock_dividends_data = load_stock_data_from_csv(stock_dividends_data_csv_file)
-
-    stock_split_data = None
-    stock_split_data_csv_file = input_dir + '/' + symbol + '_splits.csv'
-    if os.path.exists(stock_split_data_csv_file):
-        stock_split_data = load_stock_data_from_csv(stock_split_data_csv_file)
-
-    composite_data_template = {
-        DATE: [],
-        SHOULD_TRADE: [],
-    }
+        We will maintain a mapping of last known values and their "reported" date as we walk 
+        through our data.
+    """
+    last_known = {}
     for column_name in financial_data.keys():
-        composite_data_template[column_name] = []
-        composite_data_template[column_name + AGE] = []
+        # Financial data is sorted in descending order so we want to walk from the
+        # earliest available date.
+        earliest_date_datetime = np.datetime64(financial_data[column_name].index[-1])
+        for date in financial_data[column_name].index[::-1]:
+            date_datetime = np.datetime64(date)
+            if date_datetime <= earliest_common_datetime:
+                earliest_date_datetime = date_datetime
+            else:
+                break
+        earliest_date = np.datetime_as_string(earliest_date_datetime, unit='D'),
+        last_known[column_name] = {
+            DATE: earliest_date,
+            'Value': float(financial_data[column_name].loc[earliest_date][column_name]),
+        }
+        # Initialize composite columns
+        composite_data_dict[column_name] = []
+        composite_data_dict[column_name + AGE] = []
+    logging.debug('Initial last_known: %s', last_known)
 
-    composite_data = pd.DataFrame(composite_data_template)
-    composite_data.set_index(DATE)
+    """ Rather than iterating through each stock_data.index date, we initial a datetime object
+        and walk to the last date by incrementing 1 day at a time. Sometimes new data is
+        reported/published when the market is closed. If we go by days where the market is open,
+        we skip over those dates in the source data indexes.
+    """
+    current_datetime = np.datetime64(stock_data.index[0])
+    last_datetime = np.datetime64(stock_data.index[-1])
+    while current_datetime <= last_datetime:
+        if current_datetime < earliest_common_datetime:
+            current_datetime += np.timedelta64(1, 'D')
+            continue
+
+        current_date = np.datetime_as_string(current_datetime, unit='D')
+        is_trading_day = current_date in stock_data.index
+        for column_name in composite_data_dict.keys():
+            if column_name in financial_data:
+                if current_date in financial_data[column_name].index:
+                    last_known[column_name][DATE] = current_datetime
+                    last_known[column_name]['Value'] = float(financial_data[column_name].loc[current_date][column_name])
+                if is_trading_day:
+                    composite_data_dict[column_name].append(last_known[column_name]['Value'])
+                    composite_data_dict[column_name + AGE].append(current_datetime - last_known[column_name][DATE])
+        if is_trading_day:
+            composite_data_dict[DATE].append(current_date)
+            composite_data_dict[SHOULD_TRADE].append(0) # TODO: Flesh out code stub
+
+        current_datetime += np.timedelta64(1, 'D')
+
+    composite_data = pd.DataFrame(composite_data_dict)
+    composite_data = composite_data.set_index(DATE)
+    pd.set_option('display.max_rows', None)
     logging.debug('Generated composite DataFrame:\n%s', composite_data)
 
 
