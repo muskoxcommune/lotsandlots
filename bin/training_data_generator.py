@@ -62,14 +62,6 @@ def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
         data = load_financial_data_from_csv(annual_csv_file)
     return data
 
-def load_stock_data_from_csv(csv_file):
-    data_read_start_time = time.time()
-    data = pd.read_csv(csv_file)
-    data = data.set_index(DATE)
-    logging.debug('Finished reading %s after %s seconds:\n%s',
-        csv_file, time.time() - data_read_start_time, data)
-    return data
-
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--debug', action='store_true', default=False, help='Enable debug logs')
@@ -124,7 +116,7 @@ if __name__ == '__main__':
 
     stock_data_csv_file = input_dir + '/' + symbol + '.csv'
     assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
-    stock_data = load_stock_data_from_csv(stock_data_csv_file)
+    stock_data = hindsight.load_stock_data_from_csv(stock_data_csv_file)
     earliest_stock_date = np.datetime64(stock_data.index[0])
     if earliest_stock_date > earliest_common_datetime:
         earliest_common_datetime = earliest_stock_date
@@ -132,12 +124,12 @@ if __name__ == '__main__':
     stock_dividends_data = None
     stock_dividends_data_csv_file = input_dir + '/' + symbol + '_dividends.csv'
     if os.path.exists(stock_dividends_data_csv_file):
-        stock_dividends_data = load_stock_data_from_csv(stock_dividends_data_csv_file)
+        stock_dividends_data = hindsight.load_stock_data_from_csv(stock_dividends_data_csv_file)
 
     stock_split_data = None
     stock_split_data_csv_file = input_dir + '/' + symbol + '_splits.csv'
     if os.path.exists(stock_split_data_csv_file):
-        stock_split_data = load_stock_data_from_csv(stock_split_data_csv_file)
+        stock_split_data = hindsight.load_stock_data_from_csv(stock_split_data_csv_file)
 
     # Generate composite training data
     
