@@ -46,7 +46,7 @@ def load_financial_data_from_csv(csv_file):
             data[c] = data[c].apply(lambda s: float(s)) # Convert strings to floats
     data.rename(columns=column_remap, inplace=True)
     data = data.set_index(DATE).T # Transpose columns and rows
-    logging.debug('Finished reading %s after %s seconds:\n%s', csv_file, time.time() - data_read_start_time, data)
+    logging.info('Finished reading %s after %s seconds:\n%s', csv_file, time.time() - data_read_start_time, data)
     return data
 
 def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
@@ -186,8 +186,9 @@ if __name__ == '__main__':
     """ All source DataFrames are indexed by dates. To walk through our data, we initialize a
         datetime object and incrementing one day at a time. 
     """
+    simulation_duration_days = 90
     current_datetime = np.datetime64(stock_data.index[0])
-    last_datetime = np.datetime64(stock_data.index[-1])
+    last_datetime = np.datetime64(stock_data.index[-1]) - np.timedelta64(simulation_duration_days, 'D')
     while current_datetime <= last_datetime:
         if current_datetime < earliest_common_datetime:
             current_datetime += np.timedelta64(1, 'D')
@@ -205,21 +206,32 @@ if __name__ == '__main__':
                     #composite_data_dict[column_name + AGE].append(current_datetime - last_known[column_name][DATE])
         if is_trading_day:
             composite_data_dict[DATE].append(current_date)
-            composite_data_dict[SHOULD_TRADE].append(0) # TODO: Flesh out code stub
+
+            simulation_end_datetime = (current_datetime + np.timedelta64(simulation_duration_days, 'D'))
+            lots, profits, stats = hindsight.run_simulation(stock_data, current_date, np.datetime_as_string(simulation_end_datetime, unit='D'))
+
+            should_trade = 1
+            if sum(profits) < MIN_PROFITS_PER_QUARTER:
+                should_trade = 0
+            if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
+                should_trade = 0
+            if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
+                should_trade = 0
+            composite_data_dict[SHOULD_TRADE].append(should_trade)
 
         current_datetime += np.timedelta64(1, 'D')
 
     composite_data = pd.DataFrame(composite_data_dict)
     composite_data = composite_data.set_index(DATE)
     pd.set_option('display.max_rows', None)
-    logging.debug('Generated composite DataFrame:\n%s', composite_data)
+    logging.info('Generated composite DataFrame:\n%s', composite_data)
 
     """ To make the data ready for training, we just need to drop the date index and remove
         any duplicate entries.
     """
     composite_data.reset_index(drop=True, inplace=True)
     composite_data = composite_data.drop_duplicates()
-    logging.debug('Training ready DataFrame:\n%s', composite_data)
+    logging.info('Training ready DataFrame:\n%s', composite_data)
 
 
 

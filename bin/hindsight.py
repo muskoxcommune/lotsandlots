@@ -44,7 +44,7 @@ def load_stock_data_from_csv(csv_file):
     data_read_start_time = time.time()
     data = pd.read_csv(csv_file)
     data = data.set_index('Date')
-    logging.debug('Finished reading %s after %s seconds:\n%s',
+    logging.info('Finished reading %s after %s seconds:\n%s',
         csv_file, time.time() - data_read_start_time, data)
     return data
 
@@ -112,14 +112,16 @@ def quantity_from_price(price):
 
 def run_simulation(timeseries_data, begin_date, end_date):
 
-    assert begin_date in timeseries_data.index
-    assert end_date in timeseries_data.index
+    earliest_datetime = np.datetime64(timeseries_data.index[0])
+    last_datetime = np.datetime64(timeseries_data.index[-1])
 
     current_datetime = np.datetime64(begin_date)
-    last_datetime = np.datetime64(end_date)
-    assert current_datetime < last_datetime
+    simulation_end_datetime = np.datetime64(end_date)
+    assert current_datetime < simulation_end_datetime
+    assert current_datetime >= earliest_datetime
+    assert simulation_end_datetime <= last_datetime
 
-    logging.info('Running simulation, begin_date: %s, end_date: %s', begin_date, end_date)
+    logging.debug('Running simulation, begin_date: %s, end_date: %s', begin_date, end_date)
 
     lots = []
     profits = []
@@ -132,7 +134,7 @@ def run_simulation(timeseries_data, begin_date, end_date):
     num_dates_with_gt_10_lots = 0
     num_dates_with_gt_20_lots = 0
 
-    while current_datetime <= last_datetime:
+    while current_datetime <= simulation_end_datetime:
         """ We don't have per-minute granularity data so we can't made decisions as the
             Java program would. We have to aproximate some behaviors based on daily open,
             high, low, and close values.
@@ -203,8 +205,8 @@ def run_simulation(timeseries_data, begin_date, end_date):
                 num_lots_counters[threshold] += 1
         current_datetime += np.timedelta64(1, 'D')
 
-    logging.info('Total profit: %s, Remaining lots: %s', sum(profits), len(lots))
-    logging.info('Max lots observed: %s, Lot counts %s', max_lots_observed, num_lots_counters)
+    logging.info('%s %s profit:%s remainingLots:%s maxLotsObserved:%s counter:%s',
+        begin_date, end_date, sum(profits), len(lots), max_lots_observed, num_lots_counters)
     return lots, profits, {
         "max_lots_observed": max_lots_observed,
         "num_lots_counters": num_lots_counters
