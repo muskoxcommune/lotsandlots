@@ -65,7 +65,6 @@ def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
 def load_stock_data_from_csv(csv_file):
     data_read_start_time = time.time()
     data = pd.read_csv(csv_file)
-    #data[DATE] = data[DATE].apply(lambda s: np.datetime64(s))
     data = data.set_index(DATE)
     logging.debug('Finished reading %s after %s seconds:\n%s',
         csv_file, time.time() - data_read_start_time, data)
@@ -167,15 +166,9 @@ if __name__ == '__main__':
 
     """ We have to deal with inputs at varying intervals. Some data is available at annual
         intervals. Others are available at monthly, quarterly, or daily intervals. We want
-        to try to use whatever we have at hand.
-
-        The implementation below tries to do this by attempting to normalize inputs using their
-        age. That is to say, the age of a piece of information might factor into its weight when
-        informing a decision. Human traders have to do this also since real world information can
-        become stale.
-
-        We will maintain a mapping of last known values and their "reported" date as we walk 
-        through our data.
+        to try to use whatever we have at hand. To do this, we will maintain a mapping of last
+        known values as we walk through our data. At any instance in time we will try to recreate
+        a snapshot of what was known at that time.
     """
     last_known = {}
     for column_name in financial_data.keys():
@@ -195,13 +188,11 @@ if __name__ == '__main__':
         }
         # Initialize composite columns
         composite_data_dict[column_name] = []
-        composite_data_dict[column_name + AGE] = []
+        #composite_data_dict[column_name + AGE] = []
     logging.debug('Initial last_known: %s', last_known)
 
-    """ Rather than iterating through each stock_data.index date, we initial a datetime object
-        and walk to the last date by incrementing 1 day at a time. Sometimes new data is
-        reported/published when the market is closed. If we go by days where the market is open,
-        we skip over those dates in the source data indexes.
+    """ All source DataFrames are indexed by dates. To walk through our data, we initialize a
+        datetime object and incrementing one day at a time. 
     """
     current_datetime = np.datetime64(stock_data.index[0])
     last_datetime = np.datetime64(stock_data.index[-1])
@@ -219,7 +210,7 @@ if __name__ == '__main__':
                     last_known[column_name]['Value'] = float(financial_data[column_name].loc[current_date][column_name])
                 if is_trading_day:
                     composite_data_dict[column_name].append(last_known[column_name]['Value'])
-                    composite_data_dict[column_name + AGE].append(current_datetime - last_known[column_name][DATE])
+                    #composite_data_dict[column_name + AGE].append(current_datetime - last_known[column_name][DATE])
         if is_trading_day:
             composite_data_dict[DATE].append(current_date)
             composite_data_dict[SHOULD_TRADE].append(0) # TODO: Flesh out code stub
@@ -230,6 +221,13 @@ if __name__ == '__main__':
     composite_data = composite_data.set_index(DATE)
     pd.set_option('display.max_rows', None)
     logging.debug('Generated composite DataFrame:\n%s', composite_data)
+
+    """ To make the data ready for training, we just need to drop the date index and remove
+        any duplicate entries.
+    """
+    composite_data.reset_index(drop=True, inplace=True)
+    composite_data = composite_data.drop_duplicates()
+    logging.debug('Training ready DataFrame:\n%s', composite_data)
 
 
 
