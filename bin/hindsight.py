@@ -10,10 +10,10 @@ IDEAL_LOT_SIZE = 1000
 MIN_LOT_SIZE = 900
 ORDER_CREATION_THRESHOLD = 0.03
 
-DAILY_CLOSE_KEY = 'Close'
-DAILY_HIGH_KEY = 'High'
-DAILY_LOW_KEY = 'Low'
-DAILY_OPEN_KEY = 'Open'
+CLOSE = 'Close'
+HIGH = 'High'
+LOW = 'Low'
+OPEN = 'Open'
 
 def buy_new_lot(date, transaction_price, lots, buy_transactions):
     if transaction_price in buy_transactions:
@@ -146,10 +146,10 @@ def run_simulation(timeseries_data, begin_date, end_date):
             continue
 
         data = timeseries_data.loc[current_date]
-        open_price  = float(data[DAILY_OPEN_KEY])
-        high_price  = float(data[DAILY_HIGH_KEY])
-        low_price   = float(data[DAILY_LOW_KEY])
-        close_price = float(data[DAILY_CLOSE_KEY])
+        open_price  = float(data[OPEN])
+        high_price  = float(data[HIGH])
+        low_price   = float(data[LOW])
+        close_price = float(data[CLOSE])
         logging.debug('%s constraints: open:%s high:%s low:%s close:%s',
             current_date, open_price, high_price, low_price, close_price)
 

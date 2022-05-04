@@ -1,5 +1,6 @@
 #!/usr/bin/env/python3
 import argparse
+import copy
 import logging
 import numpy as np
 import os
@@ -140,6 +141,7 @@ if __name__ == '__main__':
     composite_data_dict = {
         DATE: [],
         SHOULD_TRADE: [],
+        hindsight.CLOSE: []
     }
 
     # Mapping of column to source data DataFrame for convenience when looking up data.
@@ -159,13 +161,17 @@ if __name__ == '__main__':
     """ We have to deal with inputs at varying intervals. Some data is available at annual
         intervals. Others are available at monthly, quarterly, or daily intervals. We want
         to try to use whatever we have at hand. To do this, we will maintain a mapping of last
-        known values and the time when those values became public, as we walk through our data.
-        At any instance in time we will try to recreate a snapshot of what was known at that time.
+        known values and the time when those values became public. At any instance in time we
+        will try to recreate a snapshot of what was known at that time and attempt to normalize
+        inputs using their age.
     """
     last_known = {}
     for column_name in financial_data.keys():
-        # Financial data is sorted in descending order so we want to walk from the
-        # earliest available date.
+        """ Company financial data is sorted using dates in descending order so we want to walk
+            from the earliest available date and stop at earliest_common_datetime. We stop there
+            because that is the earliest point from which all data is available we we will begin 
+            walking our data from there.
+        """
         earliest_date_datetime = np.datetime64(financial_data[column_name].index[-1])
         for date in financial_data[column_name].index[::-1]:
             date_datetime = np.datetime64(date)
@@ -184,33 +190,58 @@ if __name__ == '__main__':
     logging.debug('Initial last_known: %s', last_known)
 
     """ All source DataFrames are indexed by dates. To walk through our data, we initialize a
-        datetime object and incrementing one day at a time. 
+        cursor datetime object and incrementing one day at a time.
     """
-    simulation_duration_days = 90
-    current_datetime = np.datetime64(stock_data.index[0])
-    last_datetime = np.datetime64(stock_data.index[-1]) - np.timedelta64(simulation_duration_days, 'D')
-    while current_datetime <= last_datetime:
-        if current_datetime < earliest_common_datetime:
-            current_datetime += np.timedelta64(1, 'D')
-            continue
+    cursor_datetime = copy.deepcopy(earliest_common_datetime)
 
-        current_date = np.datetime_as_string(current_datetime, unit='D')
-        is_trading_day = current_date in stock_data.index
+    """ We add 90 days to the earliest_common_datetime because we aggregate data over the past
+        90 days. We subtract the same duration from the last available date because we need as
+        many days of data to run our simulation.
+    """
+    simulation_duration_days = np.timedelta64(90, 'D')
+    composite_data_earliest_datetime = earliest_common_datetime + simulation_duration_days
+    last_cursor_datetime = np.datetime64(stock_data.index[-1]) - simulation_duration_days
+
+    while cursor_datetime <= last_cursor_datetime:
+        cursor_date = np.datetime_as_string(cursor_datetime, unit='D')
+        cursor_date_is_trading_day = cursor_date in stock_data.index
+
         for column_name in composite_data_dict.keys():
             if column_name in financial_data:
-                if current_date in financial_data[column_name].index:
-                    last_known[column_name][DATE] = current_datetime
-                    last_known[column_name]['Value'] = float(financial_data[column_name].loc[current_date][column_name])
-                if is_trading_day:
+                if cursor_date in financial_data[column_name].index:
+                    """ Update last_known as information changes and document the date that the
+                        changes occurred on.
+                    """
+                    last_known[column_name][DATE] = cursor_datetime
+                    last_known[column_name]['Value'] = float(financial_data[column_name].loc[cursor_date][column_name])
+                if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
                     composite_data_dict[column_name].append(last_known[column_name]['Value'])
-                    composite_data_dict[column_name + AGE].append(current_datetime - last_known[column_name][DATE])
-        if is_trading_day:
-            composite_data_dict[DATE].append(current_date)
+                    composite_data_dict[column_name + AGE].append((cursor_datetime - last_known[column_name][DATE]) / np.timedelta64(1, 'D'))
+
+        if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
+            composite_data_dict[DATE].append(cursor_date)
+
+            cursor_date_stock_data = stock_data.loc[cursor_date]
+            composite_data_dict[hindsight.CLOSE].append(cursor_date_stock_data[hindsight.CLOSE])
+
+            """ To extract aggregated data, we create a reverse cursor for each cursor_datetime
+                and walk back simulation_duration_days.
+            """
+            reverse_cursor_datetime = copy.deepcopy(cursor_datetime)
+            last_reverse_cursor_datetime = reverse_cursor_datetime - simulation_duration_days
+
+            while reverse_cursor_datetime >= last_reverse_cursor_datetime:
+                reverse_cursor_date = np.datetime_as_string(reverse_cursor_datetime, unit='D')
+                #logging.info(reverse_cursor_date)
+                if reverse_cursor_date in stock_data.index:
+                    reverse_cursor_date_stock_data = stock_data.loc[reverse_cursor_date]
+
+                reverse_cursor_datetime -= np.timedelta64(1, 'D')
 
             # Run hindsight simulation and use the outcome as label values for training.
 
-            simulation_end_datetime = (current_datetime + np.timedelta64(simulation_duration_days, 'D'))
-            lots, profits, stats = hindsight.run_simulation(stock_data, current_date, np.datetime_as_string(simulation_end_datetime, unit='D'))
+            simulation_end_datetime = (cursor_datetime + simulation_duration_days)
+            lots, profits, stats = hindsight.run_simulation(stock_data, cursor_date, np.datetime_as_string(simulation_end_datetime, unit='D'))
 
             should_trade = 1
             if sum(profits) < MIN_PROFITS_PER_QUARTER:
@@ -221,27 +252,17 @@ if __name__ == '__main__':
                 should_trade = 0
             composite_data_dict[SHOULD_TRADE].append(should_trade)
 
-        current_datetime += np.timedelta64(1, 'D')
+        cursor_datetime += np.timedelta64(1, 'D')
 
     composite_data = pd.DataFrame(composite_data_dict)
     composite_data = composite_data.set_index(DATE)
     pd.set_option('display.max_rows', None)
-    logging.info('Generated composite DataFrame:\n%s', composite_data)
+    logging.debug('Generated composite DataFrame:\n%s', composite_data)
 
-    """ To make the data ready for training, we just need to drop the date index and remove
-        any duplicate entries.
+    """ To make the data ready for training, we just need to drop the date index, remove
+        any duplicate entries, and shuffle.
     """
     composite_data.reset_index(drop=True, inplace=True)
     composite_data = composite_data.drop_duplicates()
     logging.info('Training ready DataFrame:\n%s', composite_data)
-
-
-
-
-
-
-
-
-
-
 
