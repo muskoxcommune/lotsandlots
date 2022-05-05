@@ -11,6 +11,7 @@ import hindsight
 
 # Requires data exported using Yahoo Finance Plus.
 
+SIMULATION_DURATION = 90 # Days
 MAX_LOTS_OBSERVED = 15
 MAX_DAYS_WITH_10_OR_MORE_LOTS = 20
 MIN_PROFITS_PER_QUARTER = 300
@@ -21,7 +22,10 @@ COST_OF_REVENUE = 'CostOfRevenue'
 DATE = 'Date'
 EBITDA = 'EBITDA'
 ENTERPRISE_VALUE = 'EnterpriseValue'
+HIGHEST_HIGH = str(SIMULATION_DURATION) + 'DayHighestHigh'
+LOWEST_LOW = str(SIMULATION_DURATION) + 'DayLowestLow'
 MARKET_CAP = 'MarketCap'
+OFFSET_CLOSE = str(SIMULATION_DURATION) + 'DayOffsetClose'
 OPERATING_CASH_FLOW = 'OperatingCashFlow'
 SHOULD_TRADE = 'ShouldTrade'
 TOTAL_ASSETS = 'TotalAssets'
@@ -141,7 +145,10 @@ if __name__ == '__main__':
     composite_data_dict = {
         DATE: [],
         SHOULD_TRADE: [],
-        hindsight.CLOSE: []
+        hindsight.CLOSE: [],
+        HIGHEST_HIGH: [],
+        LOWEST_LOW: [],
+        OFFSET_CLOSE: [],
     }
 
     # Mapping of column to source data DataFrame for convenience when looking up data.
@@ -198,7 +205,7 @@ if __name__ == '__main__':
         90 days. We subtract the same duration from the last available date because we need as
         many days of data to run our simulation.
     """
-    simulation_duration_days = np.timedelta64(90, 'D')
+    simulation_duration_days = np.timedelta64(SIMULATION_DURATION, 'D')
     composite_data_earliest_datetime = earliest_common_datetime + simulation_duration_days
     last_cursor_datetime = np.datetime64(stock_data.index[-1]) - simulation_duration_days
 
@@ -230,13 +237,24 @@ if __name__ == '__main__':
             reverse_cursor_datetime = copy.deepcopy(cursor_datetime)
             last_reverse_cursor_datetime = reverse_cursor_datetime - simulation_duration_days
 
+            offset_close_price = None
+            highest_observed_price = None
+            lowest_observed_price = None
             while reverse_cursor_datetime >= last_reverse_cursor_datetime:
                 reverse_cursor_date = np.datetime_as_string(reverse_cursor_datetime, unit='D')
-                #logging.info(reverse_cursor_date)
                 if reverse_cursor_date in stock_data.index:
                     reverse_cursor_date_stock_data = stock_data.loc[reverse_cursor_date]
+                    offset_close_price = reverse_cursor_date_stock_data[hindsight.CLOSE]
+                    if not highest_observed_price or highest_observed_price < reverse_cursor_date_stock_data[hindsight.HIGH]:
+                        highest_observed_price = reverse_cursor_date_stock_data[hindsight.HIGH]
+                    if not lowest_observed_price or lowest_observed_price > reverse_cursor_date_stock_data[hindsight.LOW]:
+                        lowest_observed_price = reverse_cursor_date_stock_data[hindsight.LOW]
 
                 reverse_cursor_datetime -= np.timedelta64(1, 'D')
+
+            composite_data_dict[HIGHEST_HIGH].append(highest_observed_price)
+            composite_data_dict[LOWEST_LOW].append(lowest_observed_price)
+            composite_data_dict[OFFSET_CLOSE].append(offset_close_price)
 
             # Run hindsight simulation and use the outcome as label values for training.
 
@@ -257,12 +275,14 @@ if __name__ == '__main__':
     composite_data = pd.DataFrame(composite_data_dict)
     composite_data = composite_data.set_index(DATE)
     pd.set_option('display.max_rows', None)
-    logging.debug('Generated composite DataFrame:\n%s', composite_data)
 
     """ To make the data ready for training, we just need to drop the date index, remove
         any duplicate entries, and shuffle.
     """
-    composite_data.reset_index(drop=True, inplace=True)
-    composite_data = composite_data.drop_duplicates()
-    logging.info('Training ready DataFrame:\n%s', composite_data)
+    #composite_data.reset_index(drop=True, inplace=True)
+    #composite_data = composite_data.drop_duplicates()
+    if args.debug:
+        logging.debug('Training ready DataFrame:\n%s', composite_data)
+    else:
+        logging.info('Training ready DataFrame:\n%s', composite_data.head())
 
