@@ -12,9 +12,9 @@ import hindsight
 # Requires data exported using Yahoo Finance Plus.
 
 SIMULATION_DURATION = 90 # Days
-MAX_LOTS_OBSERVED = 15
-MAX_DAYS_WITH_10_OR_MORE_LOTS = 20
-MIN_PROFITS_PER_QUARTER = 300
+MAX_LOTS_OBSERVED = 20
+MAX_DAYS_WITH_10_OR_MORE_LOTS = 10
+MAX_DAYS_WITH_15_OR_MORE_LOTS = 5
 
 AGE = '_Age'
 CAPITAL_EXPENDITURE = 'CapitalExpenditure'
@@ -54,7 +54,7 @@ def load_financial_data_from_csv(csv_file):
     logging.info('Finished reading %s after %s seconds:\n%s', csv_file, time.time() - data_read_start_time, data)
     return data
 
-def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
+def load_highest_granularity_financial_data_from_csv(symbol, input_dir, filename_suffix):
     data = None
     annual_csv_file = input_dir + '/' + symbol + '_annual_' + filename_suffix + '.csv'
     monthly_csv_file = input_dir + '/' + symbol + '_monthly_' + filename_suffix + '.csv'
@@ -67,11 +67,23 @@ def load_highest_granularity_financial_data_from_csv(symbol, filename_suffix):
         data = load_financial_data_from_csv(annual_csv_file)
     return data
 
+def load_fred_data_from_csv(series_name, input_dir, translation):
+    csv_file = input_dir + '/' + series_name + '.csv'
+    data_read_start_time = time.time()
+    data = pd.read_csv(csv_file)
+    column_remap = {'DATE': 'Date', series_name: translation}
+    data.rename(columns=column_remap, inplace=True)
+    data = data.set_index('Date')
+    logging.info('Finished reading %s after %s seconds:\n%s',
+        csv_file, time.time() - data_read_start_time, data)
+    return data
+
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--debug', action='store_true', default=False, help='Enable debug logs')
 
-    argparser.add_argument('-i', '--input-dir', required=True, help='path to input directory')
+    argparser.add_argument('-f', '--financial-data-input-dir', required=True, help='path to input directory for financial data')
+    argparser.add_argument('-m', '--macro-data-input-dir', required=True, help='path to input directory for macro-economic data')
     argparser.add_argument('-o', '--output-dir', required=True, help='path to output directoryfile')
     argparser.add_argument('-s', '--symbol', required=True, help='stock symbol')
 
@@ -81,37 +93,128 @@ if __name__ == '__main__':
         format="%(levelname).1s:%(message)s",
         level=(logging.DEBUG if args.debug else logging.INFO))
 
-    input_dir = args.input_dir.rstrip('/')
+    financial_data_input_dir = args.financial_data_input_dir.rstrip('/')
+    macro_data_input_dir = args.macro_data_input_dir.rstrip('/')
+    output_dir = args.output_dir.rstrip('/')
     symbol = args.symbol.upper()
 
-    assert os.path.isdir(input_dir), input_dir + ' is not a directory'
+    assert os.path.isdir(financial_data_input_dir), financial_data_input_dir + ' is not a directory'
+    assert os.path.isdir(macro_data_input_dir), macro_data_input_dir + ' is not a directory'
+    assert os.path.isdir(output_dir), output_dir + ' is not a directory'
+
+    # Load macro-economic data
+
+    # https://fred.stlouisfed.org/series/RSXFS
+    advance_retail_sales_data = None
+    advance_retail_sales_data = load_fred_data_from_csv('RSXFS', macro_data_input_dir, 'AdvanceRetailSales')
+
+    # https://fred.stlouisfed.org/series/MICH
+    consumer_inflation_expectation_data = None
+    consumer_inflation_expectation_data = load_fred_data_from_csv('MICH', macro_data_input_dir, 'ConsumerInflationExpectation')
+
+    # https://fred.stlouisfed.org/series/DGORDER
+    durable_goods_orders_data = None
+    durable_goods_orders_data = load_fred_data_from_csv('DGORDER', macro_data_input_dir, 'DurableGoodsOrders')
+
+    # https://fred.stlouisfed.org/series/DFF
+    federal_funds_rate_data = None
+    federal_funds_rate_data = load_fred_data_from_csv('DFF', macro_data_input_dir, 'FederalFundsRate')
+
+    # https://fred.stlouisfed.org/series/CFNAI
+    national_activity_data = None
+    national_activity_data = load_fred_data_from_csv('CFNAI', macro_data_input_dir, 'NationalActivityIndex')
+
+    # https://fred.stlouisfed.org/series/NFCI
+    national_financial_conditions_data = None
+    national_financial_conditions_data = load_fred_data_from_csv('NFCI', macro_data_input_dir, 'NationalFinancialConditionsIndex')
+
+    # https://fred.stlouisfed.org/series/MEDCPIM158SFRBCLE
+    median_consumer_price_index_data = None
+    median_consumer_price_index_data = load_fred_data_from_csv('MEDCPIM158SFRBCLE', macro_data_input_dir, 'MedianConsumerPriceIndex')
+
+    # https://fred.stlouisfed.org/series/PAYEMS
+    nonfarm_payroll_data = None
+    nonfarm_payroll_data = load_fred_data_from_csv('PAYEMS', macro_data_input_dir, 'TotalNonfarmPayroll')
+
+    # https://fred.stlouisfed.org/series/DGS3MO
+    treasury_yield_3mo_data = None
+    treasury_yield_3mo_data = load_fred_data_from_csv('DGS3MO', macro_data_input_dir, 'TreasuryYield3Mo')
+
+    # https://fred.stlouisfed.org/series/DGS6MO
+    treasury_yield_6mo_data = None
+    treasury_yield_6mo_data = load_fred_data_from_csv('DGS6MO', macro_data_input_dir, 'TreasuryYield6Mo')
+
+    # https://fred.stlouisfed.org/series/DGS2
+    treasury_yield_2yr_data = None
+    treasury_yield_2yr_data = load_fred_data_from_csv('DGS2', macro_data_input_dir, 'TreasuryYield2Yr')
+
+    # https://fred.stlouisfed.org/series/DGS3
+    treasury_yield_3yr_data = None
+    treasury_yield_3yr_data = load_fred_data_from_csv('DGS3', macro_data_input_dir, 'TreasuryYield3Yr')
+
+    # https://fred.stlouisfed.org/series/DGS5
+    treasury_yield_5yr_data = None
+    treasury_yield_5yr_data = load_fred_data_from_csv('DGS5', macro_data_input_dir, 'TreasuryYield5Yr')
+
+    # https://fred.stlouisfed.org/series/DGS7
+    treasury_yield_7yr_data = None
+    treasury_yield_7yr_data = load_fred_data_from_csv('DGS7', macro_data_input_dir, 'TreasuryYield7Yr')
+
+    # https://fred.stlouisfed.org/series/DGS10
+    treasury_yield_10yr_data = None
+    treasury_yield_10yr_data = load_fred_data_from_csv('DGS10', macro_data_input_dir, 'TreasuryYield10Yr')
+
+    # https://fred.stlouisfed.org/series/DGS20
+    treasury_yield_20yr_data = None
+    treasury_yield_20yr_data = load_fred_data_from_csv('DGS20', macro_data_input_dir, 'TreasuryYield20Yr')
+
+    # https://fred.stlouisfed.org/series/DGS30
+    treasury_yield_30yr_data = None
+    treasury_yield_30yr_data = load_fred_data_from_csv('DGS30', macro_data_input_dir, 'TreasuryYield30Yr')
+
+    # https://fred.stlouisfed.org/series/UNRATE
+    unemployment_rate_data = None
+    unemployment_rate_data = load_fred_data_from_csv('UNRATE', macro_data_input_dir, 'UnemploymentRate')
+
+    # https://fred.stlouisfed.org/series/U4RATE
+    unemployment_rate_u4_data = None
+    unemployment_rate_u4_data = load_fred_data_from_csv('U4RATE', macro_data_input_dir, 'UnemploymentRateU4')
+
+    # https://fred.stlouisfed.org/series/U5RATE
+    unemployment_rate_u5_data = None
+    unemployment_rate_u5_data = load_fred_data_from_csv('U5RATE', macro_data_input_dir, 'UnemploymentRateU5')
+
+    # https://fred.stlouisfed.org/series/U6RATE
+    unemployment_rate_u6_data = None
+    unemployment_rate_u6_data = load_fred_data_from_csv('U6RATE', macro_data_input_dir, 'UnemploymentRateU6')
 
     # Load financial data
+
     """ We currently load the highest granularity data. In the future, we may not want to
         default to that. Not all information is available at the same granularity.
     """
 
     balance_sheet_data = None
-    balance_sheet_data = load_highest_granularity_financial_data_from_csv(symbol, 'balance-sheet')
+    balance_sheet_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'balance-sheet')
     assert balance_sheet_data is not None
     earliest_common_datetime = np.datetime64(balance_sheet_data.index[-1]) # Initial value
 
     cash_flow_data = None
-    cash_flow_data = load_highest_granularity_financial_data_from_csv(symbol, 'cash-flow')
+    cash_flow_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'cash-flow')
     assert cash_flow_data is not None
     earliest_cash_flow_date = np.datetime64(cash_flow_data.index[-1])
     if earliest_cash_flow_date > earliest_common_datetime:
         earliest_common_datetime = earliest_cash_flow_date
 
     income_statement_data = None
-    income_statement_data = load_highest_granularity_financial_data_from_csv(symbol, 'financials')
+    income_statement_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'financials')
     assert income_statement_data is not None
     earliest_income_statement_date = np.datetime64(income_statement_data.index[-1])
     if earliest_income_statement_date > earliest_common_datetime:
         earliest_common_datetime = earliest_income_statement_date
 
     valuation_data = None
-    valuation_data = load_highest_granularity_financial_data_from_csv(symbol, 'valuation_measures')
+    valuation_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'valuation_measures')
     assert valuation_data is not None
     earliest_valuation_date = np.datetime64(valuation_data.index[-1])
     if earliest_valuation_date > earliest_common_datetime:
@@ -119,7 +222,7 @@ if __name__ == '__main__':
 
     # Load stock data
 
-    stock_data_csv_file = input_dir + '/' + symbol + '.csv'
+    stock_data_csv_file = financial_data_input_dir + '/' + symbol + '.csv'
     assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
     stock_data = hindsight.load_stock_data_from_csv(stock_data_csv_file)
     earliest_stock_date = np.datetime64(stock_data.index[0])
@@ -127,12 +230,12 @@ if __name__ == '__main__':
         earliest_common_datetime = earliest_stock_date
 
     stock_dividends_data = None
-    stock_dividends_data_csv_file = input_dir + '/' + symbol + '_dividends.csv'
+    stock_dividends_data_csv_file = financial_data_input_dir + '/' + symbol + '_dividends.csv'
     if os.path.exists(stock_dividends_data_csv_file):
         stock_dividends_data = hindsight.load_stock_data_from_csv(stock_dividends_data_csv_file)
 
     stock_split_data = None
-    stock_split_data_csv_file = input_dir + '/' + symbol + '_splits.csv'
+    stock_split_data_csv_file = financial_data_input_dir + '/' + symbol + '_splits.csv'
     if os.path.exists(stock_split_data_csv_file):
         stock_split_data = hindsight.load_stock_data_from_csv(stock_split_data_csv_file)
 
@@ -262,11 +365,11 @@ if __name__ == '__main__':
             lots, profits, stats = hindsight.run_simulation(stock_data, cursor_date, np.datetime_as_string(simulation_end_datetime, unit='D'))
 
             should_trade = 1
-            if sum(profits) < MIN_PROFITS_PER_QUARTER:
-                should_trade = 0
             if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
                 should_trade = 0
             if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
+                should_trade = 0
+            if stats['num_lots_counters'][15] > MAX_DAYS_WITH_15_OR_MORE_LOTS:
                 should_trade = 0
             composite_data_dict[SHOULD_TRADE].append(should_trade)
 
@@ -281,8 +384,6 @@ if __name__ == '__main__':
     """
     #composite_data.reset_index(drop=True, inplace=True)
     #composite_data = composite_data.drop_duplicates()
-    if args.debug:
-        logging.debug('Training ready DataFrame:\n%s', composite_data)
-    else:
-        logging.info('Training ready DataFrame:\n%s', composite_data.head())
+    logging.info('Training ready DataFrame:\n%s', composite_data.head())
+    composite_data.to_csv('%s/%s.csv' % (args.output_dir, symbol))
 
