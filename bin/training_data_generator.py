@@ -13,25 +13,51 @@ import hindsight
 
 SIMULATION_DURATION = 90 # Days
 MAX_LOTS_OBSERVED = 20
+MAX_DAYS_WITH_5_OR_MORE_LOTS = 60
 MAX_DAYS_WITH_10_OR_MORE_LOTS = 10
 MAX_DAYS_WITH_15_OR_MORE_LOTS = 5
 
 AGE = '_Age'
+ADVANCE_RETAIL_SALES = 'AdvanceRetailSales'
+ADVANCE_AUTO_SALES = 'AdvanceAutoSales'
+ADVANCE_CLOTHING_SALES = 'AdvanceClothingAndAccessorySales'
+ADVANCE_FOOD_AND_DRINK_SALES = 'AdvanceFoodAndDrinkSales'
+ADVANCE_FURNITURE_SALES = 'AdvanceFurnitureSales'
+ADVANCE_GAS_STATION_SALES = 'AdvanceGasStationSales'
 CAPITAL_EXPENDITURE = 'CapitalExpenditure'
+CONSUMER_INFLATION_EXPECTATION = 'ConsumerInflationExpectation'
 COST_OF_REVENUE = 'CostOfRevenue'
 DATE = 'Date'
+DURABLE_GOODS_ORDERS = 'DurableGoodsOrders'
 EBITDA = 'EBITDA'
 ENTERPRISE_VALUE = 'EnterpriseValue'
+FEDERAL_FUNDS_RATE = 'FederalFundsRate'
 HIGHEST_HIGH = str(SIMULATION_DURATION) + 'DayHighestHigh'
 LOWEST_LOW = str(SIMULATION_DURATION) + 'DayLowestLow'
 MARKET_CAP = 'MarketCap'
-OFFSET_CLOSE = str(SIMULATION_DURATION) + 'DayOffsetClose'
+MEDIAN_CONSUMER_PRICE_INDEX = 'MedianConsumerPriceIndex'
+NATIONAL_ACTIVITY_INDEX = 'NationalActivityIndex'
+NATIONAL_FINANCIAL_CONDITIONS_INDEX = 'NationalFinancialConditionsIndex'
+NONFARM_PAYROLL = 'TotalNonfarmPayroll'
 OPERATING_CASH_FLOW = 'OperatingCashFlow'
 SHOULD_TRADE = 'ShouldTrade'
 TOTAL_ASSETS = 'TotalAssets'
 TOTAL_EQUITY = 'TotalEquityGrossMinorityInterest'
 TOTAL_LIABILITIES = 'TotalLiabilitiesNetMinorityInterest'
 TOTAL_REVENUE = 'TotalRevenue'
+TREASURY_YIELD_3MO = 'TreasuryYield3Mo'
+TREASURY_YIELD_6MO = 'TreasuryYield6Mo'
+TREASURY_YIELD_2YR = 'TreasuryYield2Yr'
+TREASURY_YIELD_3YR = 'TreasuryYield3Yr'
+TREASURY_YIELD_5YR = 'TreasuryYield5Yr'
+TREASURY_YIELD_7YR = 'TreasuryYield7Yr'
+TREASURY_YIELD_10YR = 'TreasuryYield10Yr'
+TREASURY_YIELD_20YR = 'TreasuryYield20Yr'
+TREASURY_YIELD_30YR = 'TreasuryYield30Yr'
+UNEMPLOYMENT_RATE = 'UnemploymentRate'
+UNEMPLOYMENT_RATE_U4 = 'UnemploymentRateU4'
+UNEMPLOYMENT_RATE_U5 = 'UnemploymentRateU5'
+UNEMPLOYMENT_RATE_U6 = 'UnemploymentRateU6'
 
 def load_financial_data_from_csv(csv_file):
     data_read_start_time = time.time()
@@ -73,11 +99,13 @@ def load_highest_granularity_financial_data_from_csv(symbol, input_dir, filename
         data = load_financial_data_from_csv(annual_csv_file)
     return data
 
-def load_fred_data_from_csv(series_name, input_dir, translation):
+def load_fred_data_from_csv(series_name, input_dir, series_name_translation):
     csv_file = input_dir + '/' + series_name + '.csv'
     data_read_start_time = time.time()
     data = pd.read_csv(csv_file)
-    col_translations = {'DATE': DATE, series_name: translation}
+    # Data for some dates can be a ".". The FRED website renders these dates as missing.
+    data.drop(data[data[series_name] == '.'].index, inplace=True)
+    col_translations = {'DATE': DATE, series_name: series_name_translation}
     data.rename(columns=col_translations, inplace=True)
     data = data.set_index(DATE)
     logging.info('Finished reading %s after %s seconds:\n%s',
@@ -112,87 +140,107 @@ if __name__ == '__main__':
 
     # https://fred.stlouisfed.org/series/RSXFS
     advance_retail_sales_data = None
-    advance_retail_sales_data = load_fred_data_from_csv('RSXFS', macro_data_input_dir, 'AdvanceRetailSales')
+    advance_retail_sales_data = load_fred_data_from_csv('RSXFS', macro_data_input_dir, ADVANCE_RETAIL_SALES)
+
+    # https://fred.stlouisfed.org/series/RSAOMV
+    advance_auto_sales_data = None
+    advance_auto_sales_data = load_fred_data_from_csv('RSAOMV', macro_data_input_dir, ADVANCE_AUTO_SALES)
+
+    # https://fred.stlouisfed.org/series/RSCCAS
+    advance_clothing_and_accessory_sales_data = None
+    advance_clothing_and_accessory_sales_data = load_fred_data_from_csv('RSCCAS', macro_data_input_dir, ADVANCE_CLOTHING_SALES)
+
+    # https://fred.stlouisfed.org/series/RSFSDP
+    advance_food_and_drink_sales_data = None
+    advance_food_and_drink_sales_data = load_fred_data_from_csv('RSFSDP', macro_data_input_dir, ADVANCE_FOOD_AND_DRINK_SALES)
+
+    # https://fred.stlouisfed.org/series/RSFHFS
+    advance_furniture_sales_data = None
+    advance_furniture_sales_data = load_fred_data_from_csv('RSFHFS', macro_data_input_dir, ADVANCE_FURNITURE_SALES)
+
+    # https://fred.stlouisfed.org/series/RSGASS
+    advance_gas_station_sales_data = None
+    advance_gas_station_sales_data = load_fred_data_from_csv('RSGASS', macro_data_input_dir, ADVANCE_GAS_STATION_SALES)
 
     # https://fred.stlouisfed.org/series/MICH
     consumer_inflation_expectation_data = None
-    consumer_inflation_expectation_data = load_fred_data_from_csv('MICH', macro_data_input_dir, 'ConsumerInflationExpectation')
+    consumer_inflation_expectation_data = load_fred_data_from_csv('MICH', macro_data_input_dir, CONSUMER_INFLATION_EXPECTATION)
 
     # https://fred.stlouisfed.org/series/DGORDER
     durable_goods_orders_data = None
-    durable_goods_orders_data = load_fred_data_from_csv('DGORDER', macro_data_input_dir, 'DurableGoodsOrders')
+    durable_goods_orders_data = load_fred_data_from_csv('DGORDER', macro_data_input_dir, DURABLE_GOODS_ORDERS)
 
     # https://fred.stlouisfed.org/series/DFF
     federal_funds_rate_data = None
-    federal_funds_rate_data = load_fred_data_from_csv('DFF', macro_data_input_dir, 'FederalFundsRate')
-
-    # https://fred.stlouisfed.org/series/CFNAI
-    national_activity_data = None
-    national_activity_data = load_fred_data_from_csv('CFNAI', macro_data_input_dir, 'NationalActivityIndex')
-
-    # https://fred.stlouisfed.org/series/NFCI
-    national_financial_conditions_data = None
-    national_financial_conditions_data = load_fred_data_from_csv('NFCI', macro_data_input_dir, 'NationalFinancialConditionsIndex')
+    federal_funds_rate_data = load_fred_data_from_csv('DFF', macro_data_input_dir, FEDERAL_FUNDS_RATE)
 
     # https://fred.stlouisfed.org/series/MEDCPIM158SFRBCLE
     median_consumer_price_index_data = None
-    median_consumer_price_index_data = load_fred_data_from_csv('MEDCPIM158SFRBCLE', macro_data_input_dir, 'MedianConsumerPriceIndex')
+    median_consumer_price_index_data = load_fred_data_from_csv('MEDCPIM158SFRBCLE', macro_data_input_dir, MEDIAN_CONSUMER_PRICE_INDEX)
+
+    # https://fred.stlouisfed.org/series/CFNAI
+    national_activity_data = None
+    national_activity_data = load_fred_data_from_csv('CFNAI', macro_data_input_dir, NATIONAL_ACTIVITY_INDEX)
+
+    # https://fred.stlouisfed.org/series/NFCI
+    national_financial_conditions_data = None
+    national_financial_conditions_data = load_fred_data_from_csv('NFCI', macro_data_input_dir, NATIONAL_FINANCIAL_CONDITIONS_INDEX)
 
     # https://fred.stlouisfed.org/series/PAYEMS
     nonfarm_payroll_data = None
-    nonfarm_payroll_data = load_fred_data_from_csv('PAYEMS', macro_data_input_dir, 'TotalNonfarmPayroll')
+    nonfarm_payroll_data = load_fred_data_from_csv('PAYEMS', macro_data_input_dir, NONFARM_PAYROLL)
 
     # https://fred.stlouisfed.org/series/DGS3MO
     treasury_yield_3mo_data = None
-    treasury_yield_3mo_data = load_fred_data_from_csv('DGS3MO', macro_data_input_dir, 'TreasuryYield3Mo')
+    treasury_yield_3mo_data = load_fred_data_from_csv('DGS3MO', macro_data_input_dir, TREASURY_YIELD_3MO)
 
     # https://fred.stlouisfed.org/series/DGS6MO
     treasury_yield_6mo_data = None
-    treasury_yield_6mo_data = load_fred_data_from_csv('DGS6MO', macro_data_input_dir, 'TreasuryYield6Mo')
+    treasury_yield_6mo_data = load_fred_data_from_csv('DGS6MO', macro_data_input_dir, TREASURY_YIELD_6MO)
 
     # https://fred.stlouisfed.org/series/DGS2
     treasury_yield_2yr_data = None
-    treasury_yield_2yr_data = load_fred_data_from_csv('DGS2', macro_data_input_dir, 'TreasuryYield2Yr')
+    treasury_yield_2yr_data = load_fred_data_from_csv('DGS2', macro_data_input_dir, TREASURY_YIELD_2YR)
 
     # https://fred.stlouisfed.org/series/DGS3
     treasury_yield_3yr_data = None
-    treasury_yield_3yr_data = load_fred_data_from_csv('DGS3', macro_data_input_dir, 'TreasuryYield3Yr')
+    treasury_yield_3yr_data = load_fred_data_from_csv('DGS3', macro_data_input_dir, TREASURY_YIELD_3YR)
 
     # https://fred.stlouisfed.org/series/DGS5
     treasury_yield_5yr_data = None
-    treasury_yield_5yr_data = load_fred_data_from_csv('DGS5', macro_data_input_dir, 'TreasuryYield5Yr')
+    treasury_yield_5yr_data = load_fred_data_from_csv('DGS5', macro_data_input_dir, TREASURY_YIELD_5YR)
 
     # https://fred.stlouisfed.org/series/DGS7
     treasury_yield_7yr_data = None
-    treasury_yield_7yr_data = load_fred_data_from_csv('DGS7', macro_data_input_dir, 'TreasuryYield7Yr')
+    treasury_yield_7yr_data = load_fred_data_from_csv('DGS7', macro_data_input_dir, TREASURY_YIELD_7YR)
 
     # https://fred.stlouisfed.org/series/DGS10
     treasury_yield_10yr_data = None
-    treasury_yield_10yr_data = load_fred_data_from_csv('DGS10', macro_data_input_dir, 'TreasuryYield10Yr')
+    treasury_yield_10yr_data = load_fred_data_from_csv('DGS10', macro_data_input_dir, TREASURY_YIELD_10YR)
 
     # https://fred.stlouisfed.org/series/DGS20
     treasury_yield_20yr_data = None
-    treasury_yield_20yr_data = load_fred_data_from_csv('DGS20', macro_data_input_dir, 'TreasuryYield20Yr')
+    treasury_yield_20yr_data = load_fred_data_from_csv('DGS20', macro_data_input_dir, TREASURY_YIELD_20YR)
 
     # https://fred.stlouisfed.org/series/DGS30
     treasury_yield_30yr_data = None
-    treasury_yield_30yr_data = load_fred_data_from_csv('DGS30', macro_data_input_dir, 'TreasuryYield30Yr')
+    treasury_yield_30yr_data = load_fred_data_from_csv('DGS30', macro_data_input_dir, TREASURY_YIELD_30YR)
 
     # https://fred.stlouisfed.org/series/UNRATE
     unemployment_rate_data = None
-    unemployment_rate_data = load_fred_data_from_csv('UNRATE', macro_data_input_dir, 'UnemploymentRate')
+    unemployment_rate_data = load_fred_data_from_csv('UNRATE', macro_data_input_dir, UNEMPLOYMENT_RATE)
 
     # https://fred.stlouisfed.org/series/U4RATE
     unemployment_rate_u4_data = None
-    unemployment_rate_u4_data = load_fred_data_from_csv('U4RATE', macro_data_input_dir, 'UnemploymentRateU4')
+    unemployment_rate_u4_data = load_fred_data_from_csv('U4RATE', macro_data_input_dir, UNEMPLOYMENT_RATE_U4)
 
     # https://fred.stlouisfed.org/series/U5RATE
     unemployment_rate_u5_data = None
-    unemployment_rate_u5_data = load_fred_data_from_csv('U5RATE', macro_data_input_dir, 'UnemploymentRateU5')
+    unemployment_rate_u5_data = load_fred_data_from_csv('U5RATE', macro_data_input_dir, UNEMPLOYMENT_RATE_U5)
 
     # https://fred.stlouisfed.org/series/U6RATE
     unemployment_rate_u6_data = None
-    unemployment_rate_u6_data = load_fred_data_from_csv('U6RATE', macro_data_input_dir, 'UnemploymentRateU6')
+    unemployment_rate_u6_data = load_fred_data_from_csv('U6RATE', macro_data_input_dir, UNEMPLOYMENT_RATE_U6)
 
     # Load financial data
 
@@ -244,7 +292,6 @@ if __name__ == '__main__':
         hindsight.CLOSE: [],
         HIGHEST_HIGH: [],
         LOWEST_LOW: [],
-        OFFSET_CLOSE: [],
     }
 
     # Mapping of column to source data DataFrame for convenience when looking up data.
@@ -259,6 +306,33 @@ if __name__ == '__main__':
         TOTAL_EQUITY: balance_sheet_data,
         TOTAL_LIABILITIES: balance_sheet_data,
         TOTAL_REVENUE: income_statement_data,
+
+        ADVANCE_AUTO_SALES: advance_auto_sales_data,
+        ADVANCE_CLOTHING_SALES: advance_clothing_and_accessory_sales_data,
+        ADVANCE_FOOD_AND_DRINK_SALES: advance_food_and_drink_sales_data,
+        ADVANCE_FURNITURE_SALES: advance_furniture_sales_data,
+        ADVANCE_GAS_STATION_SALES: advance_gas_station_sales_data,
+        ADVANCE_RETAIL_SALES: advance_retail_sales_data,
+        CONSUMER_INFLATION_EXPECTATION: consumer_inflation_expectation_data,
+        DURABLE_GOODS_ORDERS: durable_goods_orders_data,
+        FEDERAL_FUNDS_RATE: federal_funds_rate_data,
+        MEDIAN_CONSUMER_PRICE_INDEX: median_consumer_price_index_data,
+        NATIONAL_ACTIVITY_INDEX: national_activity_data,
+        NATIONAL_FINANCIAL_CONDITIONS_INDEX: national_financial_conditions_data,
+        NONFARM_PAYROLL: nonfarm_payroll_data,
+        TREASURY_YIELD_10YR: treasury_yield_10yr_data,
+        TREASURY_YIELD_20YR: treasury_yield_20yr_data,
+        TREASURY_YIELD_2YR: treasury_yield_2yr_data,
+        TREASURY_YIELD_30YR: treasury_yield_30yr_data,
+        TREASURY_YIELD_3MO: treasury_yield_3mo_data,
+        TREASURY_YIELD_3YR: treasury_yield_3yr_data,
+        TREASURY_YIELD_5YR: treasury_yield_5yr_data,
+        TREASURY_YIELD_6MO: treasury_yield_6mo_data,
+        TREASURY_YIELD_7YR: treasury_yield_7yr_data,
+        UNEMPLOYMENT_RATE: unemployment_rate_data,
+        UNEMPLOYMENT_RATE_U4: unemployment_rate_u4_data,
+        UNEMPLOYMENT_RATE_U5: unemployment_rate_u5_data,
+        UNEMPLOYMENT_RATE_U6: unemployment_rate_u6_data,
     }
 
     """ We have mixed inputs with varying starting dates so the earliest common date is an
@@ -276,10 +350,9 @@ if __name__ == '__main__':
         intervals. Others are available at monthly, quarterly, or daily intervals. We want
         to try to use whatever we have at hand. To do this, we will maintain a mapping of last
         known values and the dates when those values became public. This mapping will be used
-        with any data where the granularity is greater than one day. This attempts to normalize
-        mixed interval data using age. To initialize our map of last known values, we will walk
-        from the earliest available date and stop at earliest_common_datetime for each of our
-        input data sources.
+        with any data where the granularity is greater than one day. To initialize our map of
+        last known values, we will walk from the earliest available date and stop at
+        earliest_common_datetime for each of our input data sources.
     """
     last_known = {}
     for col in low_granularity_data.keys():
@@ -297,7 +370,7 @@ if __name__ == '__main__':
         }
         # Initialize composite columns
         composite_data_dict[col] = []
-        composite_data_dict[col + AGE] = []
+        #composite_data_dict[col + AGE] = []
     logging.debug('Initial last_known: %s', last_known)
 
     """ All source DataFrames are indexed by dates. To walk through our data, we initialize a
@@ -327,7 +400,7 @@ if __name__ == '__main__':
                     last_known[col]['Value'] = float(low_granularity_data[col].loc[cursor_date][col])
                 if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
                     composite_data_dict[col].append(last_known[col]['Value'])
-                    composite_data_dict[col + AGE].append((cursor_datetime - last_known[col][DATE]) / np.timedelta64(1, 'D'))
+                    #composite_data_dict[col + AGE].append((cursor_datetime - last_known[col][DATE]) / np.timedelta64(1, 'D'))
 
         if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
             composite_data_dict[DATE].append(cursor_date)
@@ -358,7 +431,6 @@ if __name__ == '__main__':
 
             composite_data_dict[HIGHEST_HIGH].append(highest_observed_price)
             composite_data_dict[LOWEST_LOW].append(lowest_observed_price)
-            composite_data_dict[OFFSET_CLOSE].append(offset_close_price)
 
             # Run hindsight simulation and use the outcome as label values for training.
 
@@ -367,6 +439,8 @@ if __name__ == '__main__':
 
             should_trade = 1
             if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
+                should_trade = 0
+            if stats['num_lots_counters'][5] > MAX_DAYS_WITH_5_OR_MORE_LOTS:
                 should_trade = 0
             if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
                 should_trade = 0
