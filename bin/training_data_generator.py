@@ -46,16 +46,17 @@ def load_financial_data_from_csv(csv_file):
     data['name'] = data['name'].apply(lambda n: n.strip()) # Metric names can have white spaces
     data = data.fillna(0) # Replace NaN with 0
     data = data.replace(',', '', regex=True) # Numbers in CSV are serialized as strings with commas
-    column_remap = {}
+    col_translations = {}
     for c in data.columns:
         if c == 'name':
-            column_remap[c] = DATE
+            col_translations[c] = DATE
         else:
             month, date, year = c.strip().split('/')
-            column_remap[c] = '%s-%s-%s' % (year, month, date) # Conform to stock data Date format
+            col_translations[c] = '%s-%s-%s' % (year, month, date) # Conform to stock data Date format
             data[c] = data[c].apply(lambda s: float(s)) # Convert strings to floats
-    data.rename(columns=column_remap, inplace=True)
-    data = data.set_index(DATE).T[::-1]
+    data.rename(columns=col_translations, inplace=True)
+    data = data.set_index(DATE).T
+    data = data.reindex(index=data.index[::-1])
     logging.info('Finished reading %s after %s seconds:\n%s', csv_file, time.time() - data_read_start_time, data)
     return data
 
@@ -76,8 +77,8 @@ def load_fred_data_from_csv(series_name, input_dir, translation):
     csv_file = input_dir + '/' + series_name + '.csv'
     data_read_start_time = time.time()
     data = pd.read_csv(csv_file)
-    column_remap = {'DATE': DATE, series_name: translation}
-    data.rename(columns=column_remap, inplace=True)
+    col_translations = {'DATE': DATE, series_name: translation}
+    data.rename(columns=col_translations, inplace=True)
     data = data.set_index(DATE)
     logging.info('Finished reading %s after %s seconds:\n%s',
         csv_file, time.time() - data_read_start_time, data)
@@ -203,41 +204,23 @@ if __name__ == '__main__':
     balance_sheet_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'balance-sheet')
     assert balance_sheet_data is not None
 
-    """ We have mixed inputs with varying starting dates so the earliest common date is an
-        important value. From this point in time, all data is available. This will be our
-        starting point for compiling training and evaluation data.
-    """
-    earliest_common_datetime = np.datetime64(balance_sheet_data.index[-1]) # Initial value
-
     cash_flow_data = None
     cash_flow_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'cash-flow')
     assert cash_flow_data is not None
-    earliest_cash_flow_date = np.datetime64(cash_flow_data.index[-1])
-    if earliest_cash_flow_date > earliest_common_datetime:
-        earliest_common_datetime = earliest_cash_flow_date
 
     income_statement_data = None
     income_statement_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'financials')
     assert income_statement_data is not None
-    earliest_income_statement_date = np.datetime64(income_statement_data.index[-1])
-    if earliest_income_statement_date > earliest_common_datetime:
-        earliest_common_datetime = earliest_income_statement_date
 
     valuation_data = None
     valuation_data = load_highest_granularity_financial_data_from_csv(symbol, financial_data_input_dir, 'valuation_measures')
     assert valuation_data is not None
-    earliest_valuation_date = np.datetime64(valuation_data.index[-1])
-    if earliest_valuation_date > earliest_common_datetime:
-        earliest_common_datetime = earliest_valuation_date
 
     # Load stock data
 
     stock_data_csv_file = financial_data_input_dir + '/' + symbol + '.csv'
     assert os.path.exists(stock_data_csv_file), 'could not find ' + stock_data_csv_file
     stock_data = hindsight.load_stock_data_from_csv(stock_data_csv_file)
-    earliest_stock_date = np.datetime64(stock_data.index[0])
-    if earliest_stock_date > earliest_common_datetime:
-        earliest_common_datetime = earliest_stock_date
 
     stock_dividends_data = None
     stock_dividends_data_csv_file = financial_data_input_dir + '/' + symbol + '_dividends.csv'
@@ -278,6 +261,17 @@ if __name__ == '__main__':
         TOTAL_REVENUE: income_statement_data,
     }
 
+    """ We have mixed inputs with varying starting dates so the earliest common date is an
+        important value. From this point in time, all data is available. This will be our
+        starting point for compiling training and evaluation data.
+    """
+    earliest_common_datetime = None
+    for col in low_granularity_data.keys():
+        earliest_col_date = np.datetime64(low_granularity_data[col].index[0])
+        if not earliest_common_datetime or earliest_col_date > earliest_common_datetime:
+            earliest_common_datetime = earliest_col_date
+    logging.debug('Final earliest_common_datetime: %s', earliest_common_datetime)
+
     """ We have to deal with inputs at varying intervals. Some data is available at annual
         intervals. Others are available at monthly, quarterly, or daily intervals. We want
         to try to use whatever we have at hand. To do this, we will maintain a mapping of last
@@ -288,22 +282,22 @@ if __name__ == '__main__':
         input data sources.
     """
     last_known = {}
-    for column_name in low_granularity_data.keys():
-        earliest_date_datetime = np.datetime64(low_granularity_data[column_name].index[0])
-        for date in low_granularity_data[column_name].index:
+    for col in low_granularity_data.keys():
+        earliest_date_datetime = np.datetime64(low_granularity_data[col].index[0])
+        for date in low_granularity_data[col].index:
             date_datetime = np.datetime64(date)
             if date_datetime <= earliest_common_datetime:
                 earliest_date_datetime = date_datetime
             else:
                 break
         earliest_date = np.datetime_as_string(earliest_date_datetime, unit='D'),
-        last_known[column_name] = {
+        last_known[col] = {
             DATE: earliest_date,
-            'Value': float(low_granularity_data[column_name].loc[earliest_date][column_name]),
+            'Value': float(low_granularity_data[col].loc[earliest_date][col]),
         }
         # Initialize composite columns
-        composite_data_dict[column_name] = []
-        composite_data_dict[column_name + AGE] = []
+        composite_data_dict[col] = []
+        composite_data_dict[col + AGE] = []
     logging.debug('Initial last_known: %s', last_known)
 
     """ All source DataFrames are indexed by dates. To walk through our data, we initialize a
@@ -323,17 +317,17 @@ if __name__ == '__main__':
         cursor_date = np.datetime_as_string(cursor_datetime, unit='D')
         cursor_date_is_trading_day = cursor_date in stock_data.index
 
-        for column_name in composite_data_dict.keys():
-            if column_name in low_granularity_data:
-                if cursor_date in low_granularity_data[column_name].index:
+        for col in composite_data_dict.keys():
+            if col in low_granularity_data:
+                if cursor_date in low_granularity_data[col].index:
                     """ Update last_known as information changes and document the date that the
                         changes occurred on.
                     """
-                    last_known[column_name][DATE] = cursor_datetime
-                    last_known[column_name]['Value'] = float(low_granularity_data[column_name].loc[cursor_date][column_name])
+                    last_known[col][DATE] = cursor_datetime
+                    last_known[col]['Value'] = float(low_granularity_data[col].loc[cursor_date][col])
                 if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
-                    composite_data_dict[column_name].append(last_known[column_name]['Value'])
-                    composite_data_dict[column_name + AGE].append((cursor_datetime - last_known[column_name][DATE]) / np.timedelta64(1, 'D'))
+                    composite_data_dict[col].append(last_known[col]['Value'])
+                    composite_data_dict[col + AGE].append((cursor_datetime - last_known[col][DATE]) / np.timedelta64(1, 'D'))
 
         if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
             composite_data_dict[DATE].append(cursor_date)
