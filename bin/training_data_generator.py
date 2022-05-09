@@ -18,33 +18,38 @@ MAX_DAYS_WITH_10_OR_MORE_LOTS = 10
 MAX_DAYS_WITH_15_OR_MORE_LOTS = 5
 
 AGE = '_Age'
-ADVANCE_RETAIL_SALES = 'AdvanceRetailSales'
-ADVANCE_AUTO_SALES = 'AdvanceAutoSales'
+DATE = 'Date'
+
+SHOULD_TRADE = 'ShouldTrade' # Label for training
+
+HIGH_P25 = str(SIMULATION_DURATION) + 'DayHighP25'
+HIGH_P75 = str(SIMULATION_DURATION) + 'DayHighP75'
+HIGHEST_HIGH = str(SIMULATION_DURATION) + 'DayHighestHigh'
+LOW_P25 = str(SIMULATION_DURATION) + 'DayLowP25'
+LOW_P75 = str(SIMULATION_DURATION) + 'DayLowP75'
+LOWEST_LOW = str(SIMULATION_DURATION) + 'DayLowestLow'
+VOLUME = 'Volume'
+VOLUME_P25 = str(SIMULATION_DURATION) + 'DayVolumeP25'
+VOLUME_P50 = str(SIMULATION_DURATION) + 'DayVolumeP50'
+VOLUME_P75 = str(SIMULATION_DURATION) + 'DayVolumeP75'
+
+ADVANCE_ALL_RETAIL_SALES = 'AdvanceAllRetailSales'
+ADVANCE_BUILDING_MATERIALS_SALES = 'AdvanceBuildingMaterialsSales'
 ADVANCE_CLOTHING_SALES = 'AdvanceClothingAndAccessorySales'
 ADVANCE_FOOD_AND_DRINK_SALES = 'AdvanceFoodAndDrinkSales'
 ADVANCE_FURNITURE_SALES = 'AdvanceFurnitureSales'
 ADVANCE_GAS_STATION_SALES = 'AdvanceGasStationSales'
-CAPITAL_EXPENDITURE = 'CapitalExpenditure'
+ADVANCE_GROCERY_SALES = 'AdvanceGrocerySales'
+ADVANCE_HOBBY_SALES = 'AdvanceHobbySales'
+ADVANCE_NONSTORE_SALES = 'AdvanceNonstoreSales'
+ADVANCE_VEHICLE_AND_PARTS_SALES = 'AdvanceVehicleAndPartsSales'
 CONSUMER_INFLATION_EXPECTATION = 'ConsumerInflationExpectation'
-COST_OF_REVENUE = 'CostOfRevenue'
-DATE = 'Date'
 DURABLE_GOODS_ORDERS = 'DurableGoodsOrders'
-EBITDA = 'EBITDA'
-ENTERPRISE_VALUE = 'EnterpriseValue'
 FEDERAL_FUNDS_RATE = 'FederalFundsRate'
-HIGHEST_HIGH = str(SIMULATION_DURATION) + 'DayHighestHigh'
-LOWEST_LOW = str(SIMULATION_DURATION) + 'DayLowestLow'
-MARKET_CAP = 'MarketCap'
 MEDIAN_CONSUMER_PRICE_INDEX = 'MedianConsumerPriceIndex'
 NATIONAL_ACTIVITY_INDEX = 'NationalActivityIndex'
 NATIONAL_FINANCIAL_CONDITIONS_INDEX = 'NationalFinancialConditionsIndex'
 NONFARM_PAYROLL = 'TotalNonfarmPayroll'
-OPERATING_CASH_FLOW = 'OperatingCashFlow'
-SHOULD_TRADE = 'ShouldTrade'
-TOTAL_ASSETS = 'TotalAssets'
-TOTAL_EQUITY = 'TotalEquityGrossMinorityInterest'
-TOTAL_LIABILITIES = 'TotalLiabilitiesNetMinorityInterest'
-TOTAL_REVENUE = 'TotalRevenue'
 TREASURY_YIELD_3MO = 'TreasuryYield3Mo'
 TREASURY_YIELD_6MO = 'TreasuryYield6Mo'
 TREASURY_YIELD_2YR = 'TreasuryYield2Yr'
@@ -58,6 +63,17 @@ UNEMPLOYMENT_RATE = 'UnemploymentRate'
 UNEMPLOYMENT_RATE_U4 = 'UnemploymentRateU4'
 UNEMPLOYMENT_RATE_U5 = 'UnemploymentRateU5'
 UNEMPLOYMENT_RATE_U6 = 'UnemploymentRateU6'
+
+CAPITAL_EXPENDITURE = 'CapitalExpenditure'
+COST_OF_REVENUE = 'CostOfRevenue'
+EBITDA = 'EBITDA'
+ENTERPRISE_VALUE = 'EnterpriseValue'
+MARKET_CAP = 'MarketCap'
+OPERATING_CASH_FLOW = 'OperatingCashFlow'
+TOTAL_ASSETS = 'TotalAssets'
+TOTAL_EQUITY = 'TotalEquityGrossMinorityInterest'
+TOTAL_LIABILITIES = 'TotalLiabilitiesNetMinorityInterest'
+TOTAL_REVENUE = 'TotalRevenue'
 
 def load_financial_data_from_csv(csv_file):
     data_read_start_time = time.time()
@@ -139,16 +155,16 @@ if __name__ == '__main__':
     # Load macro-economic data
 
     # https://fred.stlouisfed.org/series/RSXFS
-    advance_retail_sales_data = None
-    advance_retail_sales_data = load_fred_data_from_csv('RSXFS', macro_data_input_dir, ADVANCE_RETAIL_SALES)
+    advance_all_retail_sales_data = None
+    advance_all_retail_sales_data = load_fred_data_from_csv('RSXFS', macro_data_input_dir, ADVANCE_ALL_RETAIL_SALES)
 
-    # https://fred.stlouisfed.org/series/RSAOMV
-    advance_auto_sales_data = None
-    advance_auto_sales_data = load_fred_data_from_csv('RSAOMV', macro_data_input_dir, ADVANCE_AUTO_SALES)
+    # https://fred.stlouisfed.org/series/RSBMGESD
+    advance_building_materials_sales_data = None
+    advance_building_materials_sales_data = load_fred_data_from_csv('RSBMGESD', macro_data_input_dir, ADVANCE_BUILDING_MATERIALS_SALES)
 
     # https://fred.stlouisfed.org/series/RSCCAS
-    advance_clothing_and_accessory_sales_data = None
-    advance_clothing_and_accessory_sales_data = load_fred_data_from_csv('RSCCAS', macro_data_input_dir, ADVANCE_CLOTHING_SALES)
+    advance_clothing_sales_data = None
+    advance_clothing_sales_data = load_fred_data_from_csv('RSCCAS', macro_data_input_dir, ADVANCE_CLOTHING_SALES)
 
     # https://fred.stlouisfed.org/series/RSFSDP
     advance_food_and_drink_sales_data = None
@@ -161,6 +177,22 @@ if __name__ == '__main__':
     # https://fred.stlouisfed.org/series/RSGASS
     advance_gas_station_sales_data = None
     advance_gas_station_sales_data = load_fred_data_from_csv('RSGASS', macro_data_input_dir, ADVANCE_GAS_STATION_SALES)
+
+    # https://fred.stlouisfed.org/series/RSGCS
+    advance_grocery_sales_data = None
+    advance_grocery_sales_data = load_fred_data_from_csv('RSGCS', macro_data_input_dir, ADVANCE_GROCERY_SALES)
+
+    # https://fred.stlouisfed.org/series/RSSGHBMS
+    advance_hobby_sales_data = None
+    advance_hobby_sales_data = load_fred_data_from_csv('RSSGHBMS', macro_data_input_dir, ADVANCE_HOBBY_SALES)
+
+    # https://fred.stlouisfed.org/series/RSNSR
+    advance_nonstore_sales_data = None
+    advance_nonstore_sales_data = load_fred_data_from_csv('RSNSR', macro_data_input_dir, ADVANCE_NONSTORE_SALES)
+
+    # https://fred.stlouisfed.org/series/RSMVPD
+    advance_vehicle_and_parts_sales_data = None
+    advance_vehicle_and_parts_sales_data = load_fred_data_from_csv('RSMVPD', macro_data_input_dir, ADVANCE_VEHICLE_AND_PARTS_SALES)
 
     # https://fred.stlouisfed.org/series/MICH
     consumer_inflation_expectation_data = None
@@ -185,6 +217,8 @@ if __name__ == '__main__':
     # https://fred.stlouisfed.org/series/NFCI
     national_financial_conditions_data = None
     national_financial_conditions_data = load_fred_data_from_csv('NFCI', macro_data_input_dir, NATIONAL_FINANCIAL_CONDITIONS_INDEX)
+
+    # TODO: Might be good to have more granular payroll data.
 
     # https://fred.stlouisfed.org/series/PAYEMS
     nonfarm_payroll_data = None
@@ -289,50 +323,65 @@ if __name__ == '__main__':
     composite_data_dict = {
         DATE: [],
         SHOULD_TRADE: [],
-        hindsight.CLOSE: [],
-        HIGHEST_HIGH: [],
-        LOWEST_LOW: [],
+        #hindsight.CLOSE: [],
+        #HIGH_P25: [],
+        #HIGH_P75: [],
+        #HIGHEST_HIGH: [],
+        #LOW_P25: [],
+        #LOW_P75: [],
+        #LOWEST_LOW: [],
+        #VOLUME_P25: [],
+        #VOLUME_P50: [],
+        #VOLUME_P75: [],
     }
 
     # Mapping of column to source data DataFrame for convenience when looking up data.
     low_granularity_data = {
-        CAPITAL_EXPENDITURE: cash_flow_data,
-        COST_OF_REVENUE: income_statement_data,
-        EBITDA: income_statement_data,
-        ENTERPRISE_VALUE: valuation_data,
-        MARKET_CAP: valuation_data,
-        OPERATING_CASH_FLOW: cash_flow_data,
-        TOTAL_ASSETS: balance_sheet_data,
-        TOTAL_EQUITY: balance_sheet_data,
-        TOTAL_LIABILITIES: balance_sheet_data,
-        TOTAL_REVENUE: income_statement_data,
+        #ADVANCE_ALL_RETAIL_SALES: advance_all_retail_sales_data,
+        #ADVANCE_BUILDING_MATERIALS_SALES: advance_building_materials_sales_data,
+        #ADVANCE_CLOTHING_SALES: advance_clothing_sales_data,
+        #ADVANCE_FOOD_AND_DRINK_SALES: advance_food_and_drink_sales_data,
+        #ADVANCE_FURNITURE_SALES: advance_furniture_sales_data,
+        #ADVANCE_GAS_STATION_SALES: advance_gas_station_sales_data,
+        #ADVANCE_GROCERY_SALES: advance_grocery_sales_data,
+        #ADVANCE_HOBBY_SALES: advance_hobby_sales_data,
+        #ADVANCE_NONSTORE_SALES: advance_nonstore_sales_data,
+        #ADVANCE_VEHICLE_AND_PARTS_SALES: advance_vehicle_and_parts_sales_data,
+        #DURABLE_GOODS_ORDERS: durable_goods_orders_data,
 
-        ADVANCE_AUTO_SALES: advance_auto_sales_data,
-        ADVANCE_CLOTHING_SALES: advance_clothing_and_accessory_sales_data,
-        ADVANCE_FOOD_AND_DRINK_SALES: advance_food_and_drink_sales_data,
-        ADVANCE_FURNITURE_SALES: advance_furniture_sales_data,
-        ADVANCE_GAS_STATION_SALES: advance_gas_station_sales_data,
-        ADVANCE_RETAIL_SALES: advance_retail_sales_data,
         CONSUMER_INFLATION_EXPECTATION: consumer_inflation_expectation_data,
-        DURABLE_GOODS_ORDERS: durable_goods_orders_data,
         FEDERAL_FUNDS_RATE: federal_funds_rate_data,
         MEDIAN_CONSUMER_PRICE_INDEX: median_consumer_price_index_data,
+
         NATIONAL_ACTIVITY_INDEX: national_activity_data,
         NATIONAL_FINANCIAL_CONDITIONS_INDEX: national_financial_conditions_data,
-        NONFARM_PAYROLL: nonfarm_payroll_data,
-        TREASURY_YIELD_10YR: treasury_yield_10yr_data,
-        TREASURY_YIELD_20YR: treasury_yield_20yr_data,
-        TREASURY_YIELD_2YR: treasury_yield_2yr_data,
-        TREASURY_YIELD_30YR: treasury_yield_30yr_data,
-        TREASURY_YIELD_3MO: treasury_yield_3mo_data,
-        TREASURY_YIELD_3YR: treasury_yield_3yr_data,
+        #NONFARM_PAYROLL: nonfarm_payroll_data,
+
+        #TREASURY_YIELD_3MO: treasury_yield_3mo_data,
+        #TREASURY_YIELD_6MO: treasury_yield_6mo_data,
+        #TREASURY_YIELD_2YR: treasury_yield_2yr_data,
+        #TREASURY_YIELD_3YR: treasury_yield_3yr_data,
         TREASURY_YIELD_5YR: treasury_yield_5yr_data,
-        TREASURY_YIELD_6MO: treasury_yield_6mo_data,
-        TREASURY_YIELD_7YR: treasury_yield_7yr_data,
+        #TREASURY_YIELD_7YR: treasury_yield_7yr_data,
+        #TREASURY_YIELD_10YR: treasury_yield_10yr_data,
+        #TREASURY_YIELD_20YR: treasury_yield_20yr_data,
+        #TREASURY_YIELD_30YR: treasury_yield_30yr_data,
+
         UNEMPLOYMENT_RATE: unemployment_rate_data,
-        UNEMPLOYMENT_RATE_U4: unemployment_rate_u4_data,
+        #UNEMPLOYMENT_RATE_U4: unemployment_rate_u4_data,
         UNEMPLOYMENT_RATE_U5: unemployment_rate_u5_data,
-        UNEMPLOYMENT_RATE_U6: unemployment_rate_u6_data,
+        #UNEMPLOYMENT_RATE_U6: unemployment_rate_u6_data,
+
+        CAPITAL_EXPENDITURE: cash_flow_data,
+        #COST_OF_REVENUE: income_statement_data,
+        #EBITDA: income_statement_data,
+        #ENTERPRISE_VALUE: valuation_data,
+        #MARKET_CAP: valuation_data,
+        OPERATING_CASH_FLOW: cash_flow_data,
+        #TOTAL_ASSETS: balance_sheet_data,
+        #TOTAL_EQUITY: balance_sheet_data,
+        #TOTAL_LIABILITIES: balance_sheet_data,
+        #TOTAL_REVENUE: income_statement_data,
     }
 
     """ We have mixed inputs with varying starting dates so the earliest common date is an
@@ -344,6 +393,8 @@ if __name__ == '__main__':
         earliest_col_date = np.datetime64(low_granularity_data[col].index[0])
         if not earliest_common_datetime or earliest_col_date > earliest_common_datetime:
             earliest_common_datetime = earliest_col_date
+    if not earliest_common_datetime:
+        earliest_common_datetime = np.datetime64(stock_data.index[0])
     logging.debug('Final earliest_common_datetime: %s', earliest_common_datetime)
 
     """ We have to deal with inputs at varying intervals. Some data is available at annual
@@ -383,7 +434,7 @@ if __name__ == '__main__':
         many days of data to run our simulation.
     """
     simulation_duration_days = np.timedelta64(SIMULATION_DURATION, 'D')
-    composite_data_earliest_datetime = earliest_common_datetime + simulation_duration_days
+    composite_data_earliest_datetime = cursor_datetime + simulation_duration_days
     last_cursor_datetime = np.datetime64(stock_data.index[-1]) - simulation_duration_days
 
     while cursor_datetime <= last_cursor_datetime:
@@ -404,9 +455,7 @@ if __name__ == '__main__':
 
         if cursor_datetime >= composite_data_earliest_datetime and cursor_date_is_trading_day:
             composite_data_dict[DATE].append(cursor_date)
-
             cursor_date_stock_data = stock_data.loc[cursor_date]
-            composite_data_dict[hindsight.CLOSE].append(cursor_date_stock_data[hindsight.CLOSE])
 
             """ To extract aggregated data, we create a reverse cursor for each cursor_datetime
                 and walk back simulation_duration_days.
@@ -414,23 +463,29 @@ if __name__ == '__main__':
             reverse_cursor_datetime = copy.deepcopy(cursor_datetime)
             last_reverse_cursor_datetime = reverse_cursor_datetime - simulation_duration_days
 
-            offset_close_price = None
-            highest_observed_price = None
-            lowest_observed_price = None
+            observed_highs = []
+            observed_lows = []
+            observed_volumes = []
             while reverse_cursor_datetime >= last_reverse_cursor_datetime:
                 reverse_cursor_date = np.datetime_as_string(reverse_cursor_datetime, unit='D')
                 if reverse_cursor_date in stock_data.index:
                     reverse_cursor_date_stock_data = stock_data.loc[reverse_cursor_date]
-                    offset_close_price = reverse_cursor_date_stock_data[hindsight.CLOSE]
-                    if not highest_observed_price or highest_observed_price < reverse_cursor_date_stock_data[hindsight.HIGH]:
-                        highest_observed_price = reverse_cursor_date_stock_data[hindsight.HIGH]
-                    if not lowest_observed_price or lowest_observed_price > reverse_cursor_date_stock_data[hindsight.LOW]:
-                        lowest_observed_price = reverse_cursor_date_stock_data[hindsight.LOW]
+                    observed_highs.append(reverse_cursor_date_stock_data[hindsight.HIGH])
+                    observed_lows.append(reverse_cursor_date_stock_data[hindsight.LOW])
+                    observed_volumes.append(reverse_cursor_date_stock_data[VOLUME])
 
                 reverse_cursor_datetime -= np.timedelta64(1, 'D')
 
-            composite_data_dict[HIGHEST_HIGH].append(highest_observed_price)
-            composite_data_dict[LOWEST_LOW].append(lowest_observed_price)
+            #composite_data_dict[hindsight.CLOSE].append(cursor_date_stock_data[hindsight.CLOSE])
+            #composite_data_dict[HIGH_P25].append(np.percentile(observed_highs, 25))
+            #composite_data_dict[HIGH_P75].append(np.percentile(observed_highs, 75))
+            #composite_data_dict[HIGHEST_HIGH].append(np.amax(observed_highs))
+            #composite_data_dict[LOW_P25].append(np.percentile(observed_lows, 25))
+            #composite_data_dict[LOW_P75].append(np.percentile(observed_lows, 75))
+            #composite_data_dict[LOWEST_LOW].append(np.amin(observed_lows))
+            #composite_data_dict[VOLUME_P25].append(np.percentile(observed_volumes, 25))
+            #composite_data_dict[VOLUME_P50].append(np.percentile(observed_volumes, 50))
+            #composite_data_dict[VOLUME_P75].append(np.percentile(observed_volumes, 75))
 
             # Run hindsight simulation and use the outcome as label values for training.
 
@@ -454,11 +509,9 @@ if __name__ == '__main__':
     composite_data = composite_data.set_index(DATE)
     pd.set_option('display.max_rows', None)
 
-    """ To make the data ready for training, we just need to drop the date index, remove
-        any duplicate entries, and shuffle.
+    """ To make the data ready for training, we just need to load the csv file, drop the date
+        column, and remove any duplicate entries.
     """
-    #composite_data.reset_index(drop=True, inplace=True)
-    #composite_data = composite_data.drop_duplicates()
     logging.info('Training ready DataFrame:\n%s', composite_data.head())
     composite_data.to_csv('%s/%s.csv' % (args.output_dir, symbol))
 
