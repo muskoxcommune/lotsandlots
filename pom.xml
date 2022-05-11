@@ -274,7 +274,7 @@
                         <contextPath>/</contextPath>
                     </webAppConfig>
                     <httpConnector>
-                        <port>5000</port>
+                        <port>8080</port>
                     </httpConnector>
                     <supportedPackagings>jar</supportedPackagings>
                     <useProvidedScope>true</useProvidedScope>

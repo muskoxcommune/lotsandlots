@@ -43,10 +43,10 @@ public class LifecycleListener implements ServletContextListener {
                 // Until EtradeRestTemplateFactory is initialized, we won't be able to send requests to E*Trade.
                 EtradeRestTemplateFactory.init();
                 LOG.info("Initialized EtradeRestTemplateFactory");
-                LOG.info("Go to http://localhost:5000/etrade/authorize if a browser window doesn't open automatically");
+                LOG.info("Go to http://localhost:8080/etrade/authorize if a browser window doesn't open automatically");
                 if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                     // Send to authorize URL to begin auth flow.
-                    Desktop.getDesktop().browse(new URI("http://localhost:5000/etrade/authorize"));
+                    Desktop.getDesktop().browse(new URI("http://localhost:8080/etrade/authorize"));
                 }
             } catch (Exception e) {
                 LOG.error("Failed to initialize EtradeRestTemplateFactory");
