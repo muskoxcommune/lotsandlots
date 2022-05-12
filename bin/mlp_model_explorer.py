@@ -16,32 +16,50 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
-def concat_dataframes(csv_list, ones_df=None, zeros_df=None):
+def concat_dataframes(csv_list):
+    train_df = None
+    eval_df = None
     for csv in csv_list:
         input_df = pd.read_csv(csv)
-        input_df.pop('Date') # Not a training feature
         input_df = input_df.drop_duplicates()
+        input_df_size = len(input_df)
+        split_idx = int(input_df_size * 0.8)
 
-        new_ones_df = input_df.loc[input_df['ShouldTrade'] == 1]
-        new_ones_df_size = len(new_ones_df)
-        new_zeros_df = input_df.loc[input_df['ShouldTrade'] == 0]
-        new_zeros_df_size = len(new_zeros_df)
+        # Training DataFrame
+
+        raw_train_df = input_df.iloc[:split_idx,:]
+        logging.debug('%s train_df:\n%s', csv, raw_train_df)
+
+        train_ones_df = raw_train_df.loc[raw_train_df['ShouldTrade'] == 1]
+        logging.debug('%s train_ones_df:\n%s', csv, train_ones_df)
+        ones_df_size = len(train_ones_df)
+
+        train_zeros_df = raw_train_df.loc[raw_train_df['ShouldTrade'] == 0]
+        logging.debug('%s train_zeros_df:\n%s', csv, train_zeros_df)
+        zeros_df_size = len(train_zeros_df)
 
         """ We don't want to have unbalanced training data so we resize our DataFrames based on
-            the lesser of the two. Since rows are sorted in ascending order by date, to resize the
-            larger frame, we tail a smaller frame number of rows from the larger frame. In an
-            earlier implementation, we tried to randomly sample rows from the larger frame but
-            accuracy is better if we use more recent data.
+            the lesser of the two.
+
+            TODO: Instead of trimming the lesser DataFrame, we could also try oversampling by
+                  duplicating random 0s.
         """
-        if new_ones_df_size > new_zeros_df_size:
-            new_ones_df = new_ones_df.tail(new_zeros_df_size)
-        elif new_zeros_df_size > new_ones_df_size:
-            new_zeros_df = new_zeros_df.tail(new_ones_df_size)
+        if ones_df_size > zeros_df_size:
+            train_ones_df = train_ones_df.sample(n=zeros_df_size, random_state=random_seed())
+        elif zeros_df_size > ones_df_size:
+            train_zeros_df = train_zeros_df.sample(n=ones_df_size, random_state=random_seed())
+        new_train_df = pd.concat([train_ones_df, train_zeros_df])
+        train_df = new_train_df if train_df is None else pd.concat([train_df, new_train_df])
+        train_df.pop('Date') # Date is not a training feature
 
-        ones_df = new_ones_df if ones_df is None else pd.concat([ones_df, new_ones_df])
-        zeros_df = new_zeros_df if zeros_df is None else pd.concat([zeros_df, new_zeros_df])
+        # Evaluation DataFrame
 
-    return ones_df, zeros_df
+        new_eval_df = input_df.iloc[split_idx:,:]
+        logging.debug('%s eval_df:\n%s', csv, new_eval_df)
+        eval_df = new_eval_df if eval_df is None else pd.concat([eval_df, new_eval_df])
+        eval_df.pop('Date')
+
+    return train_df, eval_df
 
 def explore_hyperparameters(X_train_scaled, y_train, X_test_scaled, y_test,
                             input_architecture, min_neurons_per_layer, max_neurons_per_layer, max_depth, training_epochs,
@@ -133,6 +151,10 @@ def init_model(architecture):
     )
     return model
 
+def random_seed():
+    #return int(time.time())
+    return 42
+
 def test_model(model, X_test_scaled, y_test):
     predictions = model.predict(X_test_scaled)
     prediction_classes = [1 if prob > 0.5 else 0 for prob in np.ravel(predictions)]
@@ -170,13 +192,13 @@ if __name__ == '__main__':
 
     argparser.add_argument('-L', '--max-hidden-layers', type=int, default=1, help='maximum number of hidden layers')
     argparser.add_argument('-M', '--max-neurons-per-layer', type=int, default=1, help='maximum number of neurons in hidden layers')
+    argparser.add_argument('-c', '--checkpoint_dir', help='checkpoints directory')
     argparser.add_argument('-d', '--csv-dir', action='append', default=[], help='path to directory containing csv files')
     argparser.add_argument('-e', '--training-epochs', type=int, default=100, help='number of epochs to train models')
     argparser.add_argument('-f', '--csv-file', action='append', default=[], help='path to csv file')
     argparser.add_argument('-m', '--min-neurons-per-layer', type=int, default=1, help='minimum number of neurons in hidden layers')
     argparser.add_argument('-r', '--repetitions', type=int, default=1, help='number of times to repeat experiment')
     argparser.add_argument('--show-plots', action='store_true', default=False, help='enable plots')
-    argparser.add_argument('checkpoint_dir', metavar='CHECKPOINT_DIR', help='checkpoints directory')
 
     args = argparser.parse_args()
 
@@ -185,20 +207,24 @@ if __name__ == '__main__':
         level=(logging.DEBUG if args.debug else logging.INFO))
 
     assert args.csv_dir or args.csv_file
+    assert args.max_neurons_per_layer >= args.min_neurons_per_layer
 
-    ones_df, zeros_df = concat_dataframes(args.csv_file)
+    merged_train_df, merged_eval_df = concat_dataframes(args.csv_file)
     for dir_name in args.csv_dir:
         for file_name in os.listdir(dir_name):
             if file_name.endswith('.csv'):
-                ones_df, zeros_df = concat_dataframes([dir_name + '/' + file_name], ones_df, zeros_df)
-    logging.debug('initial ones_df:\n%s\ninitial zeros_df:\n%s', ones_df, zeros_df)
+                new_train_df, new_eval_df = concat_dataframes([dir_name + '/' + file_name])
+                merged_train_df = new_train_df if merged_train_df is None else pd.concat([merged_train_df, new_train_df])
+                merged_eval_df = new_eval_df if merged_eval_df is None else pd.concat([merged_eval_df, new_eval_df])
+    logging.info('merged_train_df: %s', merged_train_df)
+    logging.info('0 labels in merged_train_df: %s', len(merged_train_df.loc[merged_train_df['ShouldTrade'] == 0]))
+    logging.info('merged_eval_df: %s', merged_eval_df)
+    logging.info('0 labels in merged_eval_df: %s', len(merged_eval_df.loc[merged_eval_df['ShouldTrade'] == 0]))
 
-    merged_df = pd.concat([ones_df, zeros_df])
-    x = merged_df.drop('ShouldTrade', axis=1) # Features
-    y = merged_df['ShouldTrade'] # Labels
-    logging.debug('x:\n%s\ny:\n%s', x, y)
-
-    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=int(time.time()))
+    X_train = merged_train_df.drop('ShouldTrade', axis=1) # Features
+    y_train = merged_train_df['ShouldTrade'] # Labels
+    X_test = merged_eval_df.drop('ShouldTrade', axis=1)
+    y_test = merged_eval_df['ShouldTrade']
     logging.info('X_train: %s, X_test: %s', X_train.shape, X_test.shape)
 
     scaler = StandardScaler()
@@ -206,7 +232,7 @@ if __name__ == '__main__':
     X_test_scaled = scaler.transform(X_test)
     logging.debug('X_train_scaled:\n%s\nX_test_scaled:\n%s', X_train_scaled, X_test_scaled)
     
-    tf.random.set_seed(int(time.time()))
+    tf.random.set_seed(random_seed())
 
     results_df = None
     for _ in range(args.repetitions):
@@ -219,7 +245,7 @@ if __name__ == '__main__':
 
     results_df = results_df.sort_values('accuracy', ascending=False)
     results_df.reset_index(drop=True, inplace=True)
-    logging.info("features: %s", ','.join(sorted(x.columns)))
+    logging.info("features: %s", ','.join(sorted(X_train.columns)))
     logging.info("results:\n%s", results_df)
     logging.info("avg.accuracy: %s, avg.precision: %s, avg.recall: %s",
         np.average(results_df['accuracy']), np.average(results_df['precision']), np.average(results_df['recall']))
@@ -227,14 +253,15 @@ if __name__ == '__main__':
     top_sha = top_result['sha'].iloc[0]
     logging.info("top.sha: %s", top_sha)
 
-    with open(args.checkpoint_dir + '/' + top_sha + '/meta.json', 'w') as fd:
-        meta = {
-            'accuracy': top_result['accuracy'].iloc[0],
-            'architecture': top_result['architecture'].iloc[0],
-            'features': list(x.columns),
-            'precision': top_result['precision'].iloc[0],
-            'recall': top_result['recall'].iloc[0],
-            'sha': top_result['sha'].iloc[0],
-            'training_epochs': args.training_epochs
-        }
-        json.dump(meta, fd, indent=4)
+    if args.checkpoint_dir:
+        with open(args.checkpoint_dir + '/' + top_sha + '/meta.json', 'w') as fd:
+            meta = {
+                'accuracy': top_result['accuracy'].iloc[0],
+                'architecture': top_result['architecture'].iloc[0],
+                'features': list(X_train.columns),
+                'precision': top_result['precision'].iloc[0],
+                'recall': top_result['recall'].iloc[0],
+                'sha': top_result['sha'].iloc[0],
+                'training_epochs': args.training_epochs
+            }
+            json.dump(meta, fd, indent=4)
