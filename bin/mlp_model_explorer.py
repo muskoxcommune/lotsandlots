@@ -38,11 +38,8 @@ def concat_dataframes(csv_list):
         logging.debug('%s train_zeros_df:\n%s', csv, train_zeros_df)
         zeros_df_size = len(train_zeros_df)
 
-        """ We don't want to have unbalanced training data so we resize our DataFrames based on
-            the lesser of the two.
-
-            TODO: Instead of trimming the lesser DataFrame, we could also try oversampling by
-                  duplicating random 0s.
+        """ We don't want to have unbalanced training data so we use random undersampling to resize
+            our DataFrames based on the minority.
         """
         if ones_df_size > zeros_df_size:
             train_ones_df = train_ones_df.sample(n=zeros_df_size, random_state=random_seed())
@@ -152,8 +149,8 @@ def init_model(architecture):
     return model
 
 def random_seed():
-    #return int(time.time())
-    return 42
+    #return 42
+    return int(time.time())
 
 def test_model(model, X_test_scaled, y_test):
     predictions = model.predict(X_test_scaled)

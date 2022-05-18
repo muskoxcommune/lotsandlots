@@ -11,7 +11,7 @@ import hindsight
 
 # Requires data exported using Yahoo Finance Plus.
 
-SIMULATION_DURATION = 90 # Days
+SIM_DURATION = 90 # Days
 MAX_LOTS_OBSERVED = 20
 MAX_DAYS_WITH_5_OR_MORE_LOTS = 60
 MAX_DAYS_WITH_10_OR_MORE_LOTS = 10
@@ -22,16 +22,16 @@ DATE = 'Date'
 
 SHOULD_TRADE = 'ShouldTrade' # Label for training
 
-HIGH_P25 = str(SIMULATION_DURATION) + 'DayHighP25'
-HIGH_P75 = str(SIMULATION_DURATION) + 'DayHighP75'
-HIGHEST_HIGH = str(SIMULATION_DURATION) + 'DayHighestHigh'
-LOW_P25 = str(SIMULATION_DURATION) + 'DayLowP25'
-LOW_P75 = str(SIMULATION_DURATION) + 'DayLowP75'
-LOWEST_LOW = str(SIMULATION_DURATION) + 'DayLowestLow'
+HIGH_P25 = str(SIM_DURATION) + 'DayHighP25'
+HIGH_P75 = str(SIM_DURATION) + 'DayHighP75'
+HIGHEST_HIGH = str(SIM_DURATION) + 'DayHighestHigh'
+LOW_P25 = str(SIM_DURATION) + 'DayLowP25'
+LOW_P75 = str(SIM_DURATION) + 'DayLowP75'
+LOWEST_LOW = str(SIM_DURATION) + 'DayLowestLow'
 VOLUME = 'Volume'
-VOLUME_P25 = str(SIMULATION_DURATION) + 'DayVolumeP25'
-VOLUME_P50 = str(SIMULATION_DURATION) + 'DayVolumeP50'
-VOLUME_P75 = str(SIMULATION_DURATION) + 'DayVolumeP75'
+VOLUME_P25 = str(SIM_DURATION) + 'DayVolumeP25'
+VOLUME_P50 = str(SIM_DURATION) + 'DayVolumeP50'
+VOLUME_P75 = str(SIM_DURATION) + 'DayVolumeP75'
 
 ADVANCE_ALL_RETAIL_SALES = 'AdvanceAllRetailSales'
 ADVANCE_BUILDING_MATERIALS_SALES = 'AdvanceBuildingMaterialsSales'
@@ -136,6 +136,7 @@ if __name__ == '__main__':
     argparser.add_argument('-m', '--macro-data-input-dir', required=True, help='path to input directory for macro-economic data')
     argparser.add_argument('-o', '--output-dir', required=True, help='path to output directoryfile')
     argparser.add_argument('-s', '--symbol', required=True, help='stock symbol')
+    argparser.add_argument('--no-label', action='store_true', default=False, help='generate data without a label column')
 
     args = argparser.parse_args()
 
@@ -322,7 +323,6 @@ if __name__ == '__main__':
     """
     composite_data_dict = {
         DATE: [],
-        SHOULD_TRADE: [],
         #hindsight.CLOSE: [],
         #HIGH_P25: [],
         #HIGH_P75: [],
@@ -334,6 +334,8 @@ if __name__ == '__main__':
         #VOLUME_P50: [],
         #VOLUME_P75: [],
     }
+    if not args.no_label:
+        composite_data_dict[SHOULD_TRADE] = []
 
     # Mapping of column to source data DataFrame for convenience when looking up data.
     low_granularity_data = {
@@ -433,9 +435,9 @@ if __name__ == '__main__':
         90 days. We subtract the same duration from the last available date because we need as
         many days of data to run our simulation.
     """
-    simulation_duration_days = np.timedelta64(SIMULATION_DURATION, 'D')
-    composite_data_earliest_datetime = cursor_datetime + simulation_duration_days
-    last_cursor_datetime = np.datetime64(stock_data.index[-1]) - simulation_duration_days
+    sim_duration_days = np.timedelta64(SIM_DURATION, 'D')
+    composite_data_earliest_datetime = cursor_datetime + sim_duration_days
+    last_cursor_datetime = np.datetime64(stock_data.index[-1]) if args.no_label else np.datetime64(stock_data.index[-1]) - sim_duration_days
 
     while cursor_datetime <= last_cursor_datetime:
         cursor_date = np.datetime_as_string(cursor_datetime, unit='D')
@@ -458,10 +460,10 @@ if __name__ == '__main__':
             cursor_date_stock_data = stock_data.loc[cursor_date]
 
             """ To extract aggregated data, we create a reverse cursor for each cursor_datetime
-                and walk back simulation_duration_days.
+                and walk back sim_duration_days.
             """
             reverse_cursor_datetime = copy.deepcopy(cursor_datetime)
-            last_reverse_cursor_datetime = reverse_cursor_datetime - simulation_duration_days
+            last_reverse_cursor_datetime = reverse_cursor_datetime - sim_duration_days
 
             observed_highs = []
             observed_lows = []
@@ -489,19 +491,20 @@ if __name__ == '__main__':
 
             # Run hindsight simulation and use the outcome as label values for training.
 
-            simulation_end_datetime = (cursor_datetime + simulation_duration_days)
-            lots, profits, stats = hindsight.run_simulation(stock_data, cursor_date, np.datetime_as_string(simulation_end_datetime, unit='D'))
+            if not args.no_label:
+                sim_end_datetime = (cursor_datetime + sim_duration_days)
+                lots, profits, stats = hindsight.run_simulation(stock_data, cursor_date, np.datetime_as_string(sim_end_datetime, unit='D'))
 
-            should_trade = 1
-            if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
-                should_trade = 0
-            if stats['num_lots_counters'][5] > MAX_DAYS_WITH_5_OR_MORE_LOTS:
-                should_trade = 0
-            if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
-                should_trade = 0
-            if stats['num_lots_counters'][15] > MAX_DAYS_WITH_15_OR_MORE_LOTS:
-                should_trade = 0
-            composite_data_dict[SHOULD_TRADE].append(should_trade)
+                should_trade = 1
+                if stats['max_lots_observed'] > MAX_LOTS_OBSERVED:
+                    should_trade = 0
+                if stats['num_lots_counters'][5] > MAX_DAYS_WITH_5_OR_MORE_LOTS:
+                    should_trade = 0
+                if stats['num_lots_counters'][10] > MAX_DAYS_WITH_10_OR_MORE_LOTS:
+                    should_trade = 0
+                if stats['num_lots_counters'][15] > MAX_DAYS_WITH_15_OR_MORE_LOTS:
+                    should_trade = 0
+                composite_data_dict[SHOULD_TRADE].append(should_trade)
 
         cursor_datetime += np.timedelta64(1, 'D')
 

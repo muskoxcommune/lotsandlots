@@ -17,8 +17,7 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--debug', action='store_true', default=False, help='Enable debug logs')
 
-    argparser.add_argument('-d', '--csv-dir', action='append', default=[], help='path to directory containing csv files')
-    argparser.add_argument('-f', '--csv-file', action='append', default=[], help='path to csv file')
+    argparser.add_argument('-f', '--csv-file', default=[], help='path to csv file')
     argparser.add_argument('checkpoint_dir', metavar='CHECKPOINT_DIR', help='checkpoints directory')
 
     args = argparser.parse_args()
@@ -28,14 +27,11 @@ if __name__ == '__main__':
         level=(logging.DEBUG if args.debug else logging.INFO))
 
     assert os.path.isdir(args.checkpoint_dir)
-    assert args.csv_dir or args.csv_file
+    assert args.csv_file
 
-    ones_df, zeros_df = mlp_model_explorer.concat_dataframes(args.csv_file)
-    for dir_name in args.csv_dir:
-        for file_name in os.listdir(dir_name):
-            if file_name.endswith('.csv'):
-                ones_df, zeros_df = mlp_model_explorer.concat_dataframes([dir_name + '/' + file_name], ones_df, zeros_df)
-    logging.debug('initial ones_df:\n%s\ninitial zeros_df:\n%s', ones_df, zeros_df)
+    input_df = pd.read_csv(args.csv_file)
+    logging.info(input_df.tail(1))
+    exit()
 
     merged_df = pd.concat([ones_df, zeros_df])
     x = merged_df.drop('ShouldTrade', axis=1) # Features
