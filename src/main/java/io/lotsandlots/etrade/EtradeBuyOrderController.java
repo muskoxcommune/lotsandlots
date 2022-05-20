@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +39,11 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
     private EtradePortfolioDataFetcher portfolioDataFetcher;
     private EtradeOrdersDataFetcher ordersDataFetcher;
     private ExecutorService executor;
+    private int firstBuyOrderCreationHour = 13;
+    private int firstBuyOrderCreationMinute = 30;
     private long haltBuyOrderCashBalance = 0L;
     private float idealLotSize = 1000F;
+    private int lastBuyOrderCreationHour = 20;
     private long maxBuyOrdersPerSymbolPerDay = 3L;
     private float minLotSize = 900F;
 
@@ -55,11 +60,20 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 enableNewSymbol(symbol);
             }
         }
+        if (CONFIG.hasPath("etrade.firstBuyOrderCreationHour")) {
+            firstBuyOrderCreationHour = CONFIG.getInt("etrade.firstBuyOrderCreationHour");
+        }
+        if (CONFIG.hasPath("etrade.firstBuyOrderCreationMinute")) {
+            firstBuyOrderCreationMinute = CONFIG.getInt("etrade.firstBuyOrderCreationMinute");
+        }
         if (CONFIG.hasPath("etrade.haltBuyOrderCashBalance")) {
             haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
         }
         if (CONFIG.hasPath("etrade.idealLotSize")) {
             idealLotSize = (float) CONFIG.getLong("etrade.idealLotSize");
+        }
+        if (CONFIG.hasPath("etrade.lastBuyOrderCreationHour")) {
+            lastBuyOrderCreationHour = CONFIG.getInt("etrade.lastBuyOrderCreationHour");
         }
         if (CONFIG.hasPath("etrade.maxBuyOrdersPerSymbolPerDay")) {
             maxBuyOrdersPerSymbolPerDay = CONFIG.getLong("etrade.maxBuyOrdersPerSymbolPerDay");
@@ -238,6 +252,20 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         }
 
         public boolean canProceedWithBuyOrderCreation() {
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            int currentHour = this.currentHour(now);
+            int currentMinute = this.currentMinute(now);
+            if (currentHour < firstBuyOrderCreationHour
+                    || (currentHour == firstBuyOrderCreationHour && currentMinute < firstBuyOrderCreationMinute)
+                    || currentHour >= lastBuyOrderCreationHour) {
+                LOG.debug( "Skipping buy order creation, currentHour={} currentMinute={} "
+                                + "firstBuyOrderCreationHour={} firstBuyOrderCreationMinute={} lastBuyOrderCreationHour={}",
+                        currentHour, currentMinute,
+                        firstBuyOrderCreationHour, firstBuyOrderCreationMinute, lastBuyOrderCreationHour
+                );
+                return false;
+            }
+
             Long lastSuccessfulFetchTimeMillis = ordersDataFetcher.getLastSuccessfulFetchTimeMillis();
             if (lastSuccessfulFetchTimeMillis == null) {
                 LOG.debug("Skipping buy order creation, orders data fetch has not occurred, symbol={}", symbol);
@@ -268,6 +296,14 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 return false;
             }
             return true;
+        }
+
+        int currentHour(OffsetDateTime now) {
+            return now.getHour();
+        }
+
+        int currentMinute(OffsetDateTime now) {
+            return now.getMinute();
         }
 
         @Override

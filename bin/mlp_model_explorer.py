@@ -63,25 +63,29 @@ def explore_hyperparameters(X_train_scaled, y_train, X_test_scaled, y_test,
                             checkpoint_dir=None, results=None):
     for neurons in range(min_neurons_per_layer, max_neurons_per_layer + 1)[::-1]:
         new_architecture = input_architecture + [neurons]
-        _, accuracy, precision, recall, sha = init_and_train_model(
+        _, accuracy, ones_accuracy, zeros_accuracy, precision, recall, sha = init_and_train_model(
             X_train_scaled, y_train, X_test_scaled, y_test,
             architecture=new_architecture, checkpoint_dir=checkpoint_dir, training_epochs=training_epochs)
         if results is None:
             results = {'sha': [],
                        'accuracy': [],
+                       'onesAccuracy': [],
+                       'zerosAccuracy': [],
                        'precision': [],
                        'recall': [],
                        'architecture': [],
                        'training_epochs': []}
         results['sha'].append(sha),
         results['accuracy'].append(accuracy),
+        results['onesAccuracy'].append(ones_accuracy),
+        results['zerosAccuracy'].append(zeros_accuracy),
         results['precision'].append(precision),
         results['recall'].append(recall),
         results['architecture'].append('/'.join([str(i) for i in new_architecture])),
         results['training_epochs'].append(training_epochs),
         if len(new_architecture) < max_depth:
-            results = explore_hyperparameters(new_architecture,
-                                              min_neurons_per_layer, max_neurons_per_layer, max_depth, training_epochs,
+            results = explore_hyperparameters(X_train_scaled, y_train, X_test_scaled, y_test,
+                                              new_architecture, min_neurons_per_layer, max_neurons_per_layer, max_depth, training_epochs,
                                               checkpoint_dir=checkpoint_dir, results=results)
     return results
 
@@ -129,9 +133,9 @@ def init_and_train_model(X_train_scaled, y_train, X_test_scaled, y_test,
         plt.legend();
         plt.show()
 
-    accuracy, precision, recall = test_model(model, X_test_scaled, y_test)
+    accuracy, ones_accuracy, zeros_accuracy, precision, recall = test_model(model, X_test_scaled, y_test)
 
-    return model, accuracy, precision, recall, sha
+    return model, accuracy, ones_accuracy, zeros_accuracy, precision, recall, sha
 
 def init_model(architecture):
     layers = [tf.keras.layers.Dense(n, activation='relu') for n in architecture]
@@ -149,8 +153,8 @@ def init_model(architecture):
     return model
 
 def random_seed():
-    #return 42
-    return int(time.time())
+    return 42
+    #return int(time.time())
 
 def test_model(model, X_test_scaled, y_test):
     predictions = model.predict(X_test_scaled)
@@ -179,9 +183,33 @@ def test_model(model, X_test_scaled, y_test):
         samples detected.
     """
     accuracy = accuracy_score(y_test, prediction_classes)
+
+    ones_cnt = 0
+    ones_correct_cnt = 0
+    zeros_cnt = 0
+    zeros_correct_cnt = 0
+    for i in range(len(y_test)):
+        label = y_test.iloc[i]
+        prediction = prediction_classes[i]
+        if label == 1:
+            ones_cnt += 1
+            if prediction == label:
+                ones_correct_cnt += 1
+        else:
+            zeros_cnt += 1
+            if prediction == label:
+                zeros_correct_cnt += 1
+    logging.debug('ones_cnt=%s ones_correct_cnt=%s zeros_cnt=%s zeros_correct_cnt=%s',
+                  ones_cnt, ones_correct_cnt, zeros_cnt, zeros_correct_cnt)
+
     precision = precision_score(y_test, prediction_classes)
     recall = recall_score(y_test, prediction_classes)
-    return accuracy, precision, recall
+
+    return (accuracy,
+            ones_correct_cnt/ones_cnt,
+            zeros_correct_cnt/zeros_cnt,
+            precision,
+            recall)
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
@@ -240,7 +268,7 @@ if __name__ == '__main__':
         )
         results_df = pd.DataFrame(new_results) if results_df is None else pd.concat([results_df, pd.DataFrame(new_results)])
 
-    results_df = results_df.sort_values('accuracy', ascending=False)
+    results_df = results_df.sort_values('zerosAccuracy', ascending=False)
     results_df.reset_index(drop=True, inplace=True)
     logging.info("features: %s", ','.join(sorted(X_train.columns)))
     logging.info("results:\n%s", results_df)

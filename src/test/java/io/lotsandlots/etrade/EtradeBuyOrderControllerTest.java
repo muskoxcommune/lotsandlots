@@ -45,6 +45,18 @@ public class EtradeBuyOrderControllerTest {
         PortfolioResponse.Totals totals;
 
         ////
+        // If after lastBuyOrderCreationHour, call should return false.
+        ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_AFTER_LAST_BUY_ORDER_CREATION_HOUR", null));
+        Mockito.doReturn(20).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
+        // It should return false before we check last successful fetch time.
+        Mockito.verify(ordersDataFetcher, Mockito.times(0)).getLastSuccessfulFetchTimeMillis();
+
+        ////
         // If orders data fetching has not been completed yet, call should return false.
         ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(null).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
@@ -91,6 +103,8 @@ public class EtradeBuyOrderControllerTest {
 
         totals = Mockito.mock(PortfolioResponse.Totals.class);
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WITH_ORDER_EXISTING", totals));
+        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
         // It should check our spiedSymbolToBuyOrdersIndex.
         Mockito.verify(spiedSymbolToBuyOrdersIndex).containsKey(Mockito.anyString());
@@ -114,6 +128,8 @@ public class EtradeBuyOrderControllerTest {
         totals = new PortfolioResponse.Totals();
         totals.setCashBalance(-100.00F);
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WHILE_OVER_LIMIT", totals));
+        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
         // It should check our spiedSymbolToBuyOrdersIndex.
         Mockito.verify(spiedSymbolToBuyOrdersIndex).containsKey(Mockito.anyString());
@@ -132,6 +148,8 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(180L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_AFTER_TOO_MANY_BUYS", totals));
+        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
         Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
 
         Order order1 = new Order();
@@ -240,6 +258,8 @@ public class EtradeBuyOrderControllerTest {
             Mockito.doReturn(mockQuoteRestTemplate).when(mockRestTemplateFactory).newCustomRestTemplate();
 
             runnable.setRestTemplateFactory(mockRestTemplateFactory);
+            Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+            Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
             runnable.run();
             Mockito.verify(mockEmailHelper).sendMessage(Mockito.anyString(), Mockito.anyString());
             Mockito.verify(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
@@ -275,6 +295,8 @@ public class EtradeBuyOrderControllerTest {
             EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
                     .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
             runnable.setRestTemplateFactory(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT);
+            Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+            Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
             runnable.run();
             Mockito.verify(mockEmailHelper).sendMessage(Mockito.anyString(), Mockito.anyString());
             Mockito.verify(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
