@@ -161,6 +161,34 @@ public class EtradeBuyOrderControllerTest {
         order2.setOrderId(2L);
         orderController.cachePlacedBuyOrder("BUYING_CHECK_AFTER_TOO_MANY_BUYS", order2);
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
+
+        ////
+        //
+        ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        // To pass data staleness check
+        Mockito.doReturn(10L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
+        Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
+        orderController.enableNewSymbol("BUYING_CHECK_WITH_PRICE_CONSTRAINTS");
+
+        totals = new PortfolioResponse.Totals();
+        // To pass cash balance check
+        totals.setCashBalance(100.00F);
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WITH_PRICE_CONSTRAINTS", totals));
+        // To pass trading window check
+        Mockito.doReturn(14).when(runnable).currentHour(Mockito.any()); // 13:30 UTC market opens
+        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
+
+        Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
+        // Based on maxPrice of 10 in test application.conf
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation(11F));
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation(10.01F));
+        Assert.assertTrue(runnable.canProceedWithBuyOrderCreation(10F));
+        // Based on minPrice of 8 in test application.conf
+        Assert.assertTrue(runnable.canProceedWithBuyOrderCreation(8F));
+        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation(7.99F));
     }
 
     public void testHandlePortfolioDataFetchCompletion() {

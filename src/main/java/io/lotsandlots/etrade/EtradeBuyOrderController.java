@@ -251,6 +251,35 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             this.totals = totals;
         }
 
+        public boolean canProceedWithBuyOrderCreation(Float lastPrice) {
+            if (!canProceedWithBuyOrderCreation()) {
+                return false;
+            }
+            String constraintsConfigKey = "etrade.buyOrderCreationConstraints." + symbol;
+            if (CONFIG.hasPath(constraintsConfigKey)) {
+                String maxPriceConfigKey = constraintsConfigKey + ".maxPrice";
+                if (CONFIG.hasPath(maxPriceConfigKey)) {
+                    float maxPrice = (float) CONFIG.getDouble(maxPriceConfigKey);
+                    if (lastPrice > maxPrice) {
+                        LOG.debug("Skipping buy order creation, lastPrice above maxPrice, symbol={}, lastPrice={}, maxPrice={}",
+                                symbol, lastPrice, maxPrice);
+                        return false;
+                    }
+                }
+                String minPriceConfigKey = constraintsConfigKey + ".minPrice";
+                float minPrice = 1F;
+                if (CONFIG.hasPath(minPriceConfigKey)) {
+                    minPrice = (float) CONFIG.getDouble(minPriceConfigKey);
+                }
+                if (lastPrice < minPrice) {
+                    LOG.debug("Skipping buy order creation, lastPrice below minPrice, symbol={}, lastPrice={}, minPrice={}",
+                            symbol, lastPrice, minPrice);
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public boolean canProceedWithBuyOrderCreation() {
             OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
             int currentHour = this.currentHour(now);
@@ -324,23 +353,30 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
                 return;
             }
-            if (canProceedWithBuyOrderCreation()) {
-                try {
-                    Message quoteMessage = new Message();
-                    quoteMessage.setRequiresOauth(true);
-                    quoteMessage.setHttpMethod("GET");
-                    quoteMessage.setUrl(getApiConfig().getQuoteUrl() + symbol);
-                    setOAuthHeader(securityContext, quoteMessage);
 
-                    ResponseEntity<QuoteResponse> quoteResponseEntity =
-                            getRestTemplateFactory()
-                                    .newCustomRestTemplate().doGet(quoteMessage, QuoteResponse.class);
-                    QuoteResponse quoteResponse = quoteResponseEntity.getBody();
-                    if (quoteResponse == null) {
-                        throw new RuntimeException("Empty response");
-                    }
-                    float lastTradedPrice = quoteResponse.getQuoteDataList().get(0).getAllQuoteDetails().getLastTrade();
-                    LOG.debug("Fetched quote, symbol={}, lastTradedPrice={}", symbol, lastTradedPrice);
+            float lastTradedPrice;
+            try {
+                Message quoteMessage = new Message();
+                quoteMessage.setRequiresOauth(true);
+                quoteMessage.setHttpMethod("GET");
+                quoteMessage.setUrl(getApiConfig().getQuoteUrl() + symbol);
+                setOAuthHeader(securityContext, quoteMessage);
+
+                ResponseEntity<QuoteResponse> quoteResponseEntity =
+                        getRestTemplateFactory()
+                                .newCustomRestTemplate().doGet(quoteMessage, QuoteResponse.class);
+                QuoteResponse quoteResponse = quoteResponseEntity.getBody();
+                if (quoteResponse == null) {
+                    throw new RuntimeException("Empty response");
+                }
+                lastTradedPrice = quoteResponse.getQuoteDataList().get(0).getAllQuoteDetails().getLastTrade();
+                LOG.debug("Fetched quote, symbol={}, lastTradedPrice={}", symbol, lastTradedPrice);
+            } catch (Exception e) {
+                LOG.debug("Skipping buy order creation due to failure to fetch quote, symbol={}", symbol, e);
+                return;
+            }
+            if (canProceedWithBuyOrderCreation(lastTradedPrice)) {
+                try {
                     // Send notification
                     emailHelper.sendMessage(
                             "Did not find any lots",
@@ -396,7 +432,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 if (lastPrice < lowestPricedLot.getFollowPrice()) {
                     LOG.debug("Lowest {} lot is {}, lastPrice={} followPrice={}",
                             symbol, lowestPricedLot.getPrice(), lastPrice, lowestPricedLot.getFollowPrice());
-                    if (canProceedWithBuyOrderCreation()) {
+                    if (canProceedWithBuyOrderCreation(lastPrice)) {
                         try {
                             // Send notification
                             emailHelper.sendMessage(
