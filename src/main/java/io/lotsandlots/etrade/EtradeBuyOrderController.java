@@ -146,6 +146,9 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             if (!symbolToLotsIndex.containsKey(symbol)) {
                 LOG.info("Did not find any lots, symbol={}", symbol);
                 executor.submit(new InitialBuyOrderRunnable(symbol, totals));
+            } else {
+                LOG.debug("Skipping buy order creation, found {} lots, symbol={}",
+                        symbolToLotsIndex.get(symbol).size(), symbol);
             }
         }
     }
@@ -429,9 +432,9 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             }
             if (lowestPricedLot != null) {
                 float lastPrice = lowestPricedLot.getMarketValue() / lowestPricedLot.getRemainingQty();
+                LOG.debug("Lowest {} lot is {}, lastPrice={} followPrice={}",
+                        symbol, lowestPricedLot.getPrice(), lastPrice, lowestPricedLot.getFollowPrice());
                 if (lastPrice < lowestPricedLot.getFollowPrice()) {
-                    LOG.debug("Lowest {} lot is {}, lastPrice={} followPrice={}",
-                            symbol, lowestPricedLot.getPrice(), lastPrice, lowestPricedLot.getFollowPrice());
                     if (canProceedWithBuyOrderCreation(lastPrice)) {
                         try {
                             // Send notification
