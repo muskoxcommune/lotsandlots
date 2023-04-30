@@ -93,8 +93,10 @@ public class EtradeOrdersDataFetcherTest {
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("FETCH_ORDERS_RESPONSE_2");
         instrument1.setOrderAction("BUY");
+        instrument1.setOrderedQuantity(10L);
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
+        orderDetail1.setLimitPrice(100F);
         orderDetail1.setInstrumentList(instrumentList1);
         orderDetail1.setPlacedTime(testTimeMillis);
         orderDetail1.setStatus("OPEN");
@@ -125,9 +127,11 @@ public class EtradeOrdersDataFetcherTest {
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("FETCH_ORDERS_RESPONSE_3");
         instrument1.setOrderAction("BUY");
+        instrument1.setOrderedQuantity(10L);
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
         orderDetail1.setInstrumentList(instrumentList1);
+        orderDetail1.setLimitPrice(100F);
         orderDetail1.setPlacedTime(testTimeMillis);
         orderDetail1.setStatus("PARTIAL");
         orderDetailList1.add(orderDetail1);
@@ -252,8 +256,10 @@ public class EtradeOrdersDataFetcherTest {
         Long testTimeMillis = System.currentTimeMillis();
         product1.setSymbol("FETCH_ORDERS_RESPONSE_7");
         instrument1.setOrderAction("BUY");
+        instrument1.setOrderedQuantity(10L);
         instrument1.setProduct(product1);
         instrumentList1.add(instrument1);
+        orderDetail1.setLimitPrice(100F);
         orderDetail1.setInstrumentList(instrumentList1);
         orderDetail1.setPlacedTime(testTimeMillis);
         orderDetail1.setStatus("OPEN");

@@ -48,7 +48,8 @@ public class EtradeOrdersServlet extends HttpServlet implements EtradeApiServlet
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         long timeStartedMillis = System.currentTimeMillis();
         doEtradeGet(request, response);
-        LOG.info("Completed request in {}ms", System.currentTimeMillis() - timeStartedMillis);    }
+        LOG.info("Completed request in {}ms", System.currentTimeMillis() - timeStartedMillis);
+    }
 
     @Override
     public void handleException(HttpServletResponse response, Exception e) throws IOException {

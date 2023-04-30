@@ -202,5 +202,16 @@ public class PositionLotsResponse {
         public void setTotalPositionCost(Float totalPositionCost) {
             this.totalPositionCost = totalPositionCost;
         }
+
+        @Override
+        public String toString() {
+            return "PositionLot{"
+                    + "acquiredDate: " + acquiredDate + ", "
+                    + "followPrice: " + followPrice + ", "
+                    + "positionLotId: " + positionLotId + ", "
+                    + "targetPrice: " + targetPrice + ", "
+                    + "symbol: " + symbol
+                    + "}";
+        }
     }
 }

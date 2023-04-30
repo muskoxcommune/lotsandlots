@@ -156,13 +156,14 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                             stmt.setFloat(2, orderDetail.getLimitPrice());
                             stmt.setString(3, instrument.getOrderAction());
                             stmt.setInt(4, instrument.getOrderedQuantity().intValue());
-                            stmt.setInt(5, orderDetail.getPlacedTime().intValue());
+                            stmt.setInt(5, (int) (orderDetail.getPlacedTime() / 1000L));
                             stmt.setString(6, orderDetail.getStatus());
                             stmt.setString(7, instrument.getProduct().getSymbol());
-                            stmt.setInt(8, (int) (System.currentTimeMillis() / 1000));
+                            stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
                             stmt.executeUpdate();
+                            LOG.debug("Executed: {}", stmt);
                         } catch (SQLException e) {
-                            LOG.error("Failed to insert 'order'", e);
+                            LOG.error("Failed to insert or replace into 'etrade_order': {}", ordersResponseOrder, e);
                         }
                     }
                 } else {

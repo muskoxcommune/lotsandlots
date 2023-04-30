@@ -42,6 +42,8 @@ public class LifecycleListener implements ServletContextListener {
         Config etradeConfig = CONFIG.getConfig("etrade");
         if (etradeConfig != null) {
             try {
+                // Initialize SQLite DB
+                new SqliteDatabase(CONFIG.getString("data.url"));
                 // Until EtradeRestTemplateFactory is initialized, we won't be able to send requests to E*Trade.
                 EtradeRestTemplateFactory.init();
                 LOG.info("Initialized EtradeRestTemplateFactory");

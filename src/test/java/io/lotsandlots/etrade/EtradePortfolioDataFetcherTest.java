@@ -44,6 +44,8 @@ public class EtradePortfolioDataFetcherTest {
         List<PortfolioResponse.Position> positionList = new LinkedList<>();
         PortfolioResponse.Position position1 = new PortfolioResponse.Position();
         position1.setSymbolDescription(ticker);
+        position1.setPositionId(1L);
+        position1.setTotalCost(1000F);
 
         positionList.add(position1);
         accountPortfolio.setPositionList(positionList);
@@ -76,9 +78,13 @@ public class EtradePortfolioDataFetcherTest {
         List<PositionLotsResponse.PositionLot> positionLots = new LinkedList<>();
         PositionLotsResponse.PositionLot lot1 = new PositionLotsResponse.PositionLot();
         lot1.setPrice(100.00F);
+        lot1.setPositionLotId(1L);
+        lot1.setAcquiredDate(0L);
         positionLots.add(lot1);
         PositionLotsResponse.PositionLot lot2 = new PositionLotsResponse.PositionLot();
         lot2.setPrice(100.00F);
+        lot2.setPositionLotId(2L);
+        lot2.setAcquiredDate(0L);
         positionLots.add(lot2);
         PositionLotsResponse positionLotsResponse = new PositionLotsResponse();
         positionLotsResponse.setPositionLots(positionLots);
