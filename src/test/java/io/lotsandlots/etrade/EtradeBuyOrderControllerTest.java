@@ -45,18 +45,6 @@ public class EtradeBuyOrderControllerTest {
         PortfolioResponse.Totals totals;
 
         ////
-        // If after lastBuyOrderCreationHour, call should return false.
-        ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
-        orderController = Mockito.spy(
-                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
-        runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_AFTER_LAST_BUY_ORDER_CREATION_HOUR", null));
-        Mockito.doReturn(20).when(runnable).currentHour(Mockito.any());
-        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
-        Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
-        // It should return false before we check last successful fetch time.
-        Mockito.verify(ordersDataFetcher, Mockito.times(0)).getLastSuccessfulFetchTimeMillis();
-
-        ////
         // If orders data fetching has not been completed yet, call should return false.
         ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
         Mockito.doReturn(null).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
@@ -103,8 +91,7 @@ public class EtradeBuyOrderControllerTest {
 
         totals = Mockito.mock(PortfolioResponse.Totals.class);
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WITH_ORDER_EXISTING", totals));
-        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
-        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+        Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
         // It should check our spiedSymbolToBuyOrdersIndex.
         Mockito.verify(spiedSymbolToBuyOrdersIndex).containsKey(Mockito.anyString());
@@ -128,8 +115,7 @@ public class EtradeBuyOrderControllerTest {
         totals = new PortfolioResponse.Totals();
         totals.setCashBalance(-100.00F);
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WHILE_OVER_LIMIT", totals));
-        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
-        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+        Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation());
         // It should check our spiedSymbolToBuyOrdersIndex.
         Mockito.verify(spiedSymbolToBuyOrdersIndex).containsKey(Mockito.anyString());
@@ -148,8 +134,7 @@ public class EtradeBuyOrderControllerTest {
         Mockito.doReturn(System.currentTimeMillis()).when(ordersDataFetcher).getLastSuccessfulFetchTimeMillis();
         Mockito.doReturn(180L).when(ordersDataFetcher).getOrdersDataExpirationSeconds();
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_AFTER_TOO_MANY_BUYS", totals));
-        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
-        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+        Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
         Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
 
         Order order1 = new Order();
@@ -178,8 +163,7 @@ public class EtradeBuyOrderControllerTest {
 
         runnable = Mockito.spy(orderController.newBuyOrderRunnable("BUYING_CHECK_WITH_PRICE_CONSTRAINTS", totals));
         // To pass trading window check
-        Mockito.doReturn(14).when(runnable).currentHour(Mockito.any()); // 13:30 UTC market opens
-        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
+        Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
 
         Assert.assertTrue(runnable.canProceedWithBuyOrderCreation());
         // Based on maxPrice of 10 in test application.conf
@@ -286,8 +270,7 @@ public class EtradeBuyOrderControllerTest {
             Mockito.doReturn(mockQuoteRestTemplate).when(mockRestTemplateFactory).newCustomRestTemplate();
 
             runnable.setRestTemplateFactory(mockRestTemplateFactory);
-            Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
-            Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+            Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
             runnable.run();
             Mockito.verify(mockEmailHelper).sendMessage(Mockito.anyString(), Mockito.anyString());
             Mockito.verify(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
@@ -323,8 +306,7 @@ public class EtradeBuyOrderControllerTest {
             EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable runnable = Mockito.spy(invocation
                     .getArgument(0, EtradeBuyOrderController.SymbolToLotsIndexPutEventRunnable.class));
             runnable.setRestTemplateFactory(MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT);
-            Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
-            Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+            Mockito.doReturn(false).when(runnable).isEmbargoedTimeWindow();
             runnable.run();
             Mockito.verify(mockEmailHelper).sendMessage(Mockito.anyString(), Mockito.anyString());
             Mockito.verify(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
@@ -408,6 +390,48 @@ public class EtradeBuyOrderControllerTest {
                 Mockito.mock(EtradePortfolioDataFetcher.class), Mockito.mock(EtradeOrdersDataFetcher.class));
         orderController.enableNewSymbol("IS_BUY_ENABLED_CHECK");
         Assert.assertTrue(orderController.isBuyOrderCreationEnabled("IS_BUY_ENABLED_CHECK"));
+    }
+
+    public void testIsEmbargoedTimeWindow() {
+        EtradeBuyOrderController orderController;
+        EtradeOrdersDataFetcher ordersDataFetcher;
+        EtradeBuyOrderController.BuyOrderRunnable runnable;
+
+        ordersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
+        orderController = Mockito.spy(
+                new EtradeBuyOrderController(Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher));
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_0", null));
+        Mockito.doReturn(0).when(runnable).currentDayOfWeek(Mockito.any());
+        Assert.assertTrue(runnable.isEmbargoedTimeWindow());
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_1_13_0", null));
+        Mockito.doReturn(1).when(runnable).currentDayOfWeek(Mockito.any());
+        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
+        Assert.assertTrue(runnable.isEmbargoedTimeWindow());
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_1_13_30", null));
+        Mockito.doReturn(1).when(runnable).currentDayOfWeek(Mockito.any());
+        Mockito.doReturn(13).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(30).when(runnable).currentMinute(Mockito.any());
+        Assert.assertFalse(runnable.isEmbargoedTimeWindow());
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_5_19_59", null));
+        Mockito.doReturn(5).when(runnable).currentDayOfWeek(Mockito.any());
+        Mockito.doReturn(19).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(59).when(runnable).currentMinute(Mockito.any());
+        Assert.assertFalse(runnable.isEmbargoedTimeWindow());
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_5_20_0", null));
+        Mockito.doReturn(5).when(runnable).currentDayOfWeek(Mockito.any());
+        Mockito.doReturn(20).when(runnable).currentHour(Mockito.any());
+        Mockito.doReturn(0).when(runnable).currentMinute(Mockito.any());
+        Assert.assertTrue(runnable.isEmbargoedTimeWindow());
+
+        runnable = Mockito.spy(orderController.newBuyOrderRunnable("CHECK_EMBARGOED_TIME_WINDOW_DAY_6", null));
+        Mockito.doReturn(6).when(runnable).currentDayOfWeek(Mockito.any());
+        Assert.assertTrue(runnable.isEmbargoedTimeWindow());
     }
 
     public void testQuantityFromLastPrice() {

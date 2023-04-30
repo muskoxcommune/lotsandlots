@@ -39,11 +39,13 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
     private EtradePortfolioDataFetcher portfolioDataFetcher;
     private EtradeOrdersDataFetcher ordersDataFetcher;
     private ExecutorService executor;
-    private int firstBuyOrderCreationHour = 13;
-    private int firstBuyOrderCreationMinute = 30;
+    private int buyOrderCreationStartDayOfWeek = 1;
+    private int buyOrderCreationStartHour = 13;
+    private int buyOrderCreationStartMinute = 30;
+    private int buyOrderCreationStopDayOfWeek = 6;
+    private int buyOrderCreationStopHour = 20;
     private long haltBuyOrderCashBalance = 0L;
     private float idealLotSize = 1000F;
-    private int lastBuyOrderCreationHour = 20;
     private long maxBuyOrdersPerSymbolPerDay = 3L;
     private float minLotSize = 900F;
 
@@ -60,20 +62,26 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                 enableNewSymbol(symbol);
             }
         }
-        if (CONFIG.hasPath("etrade.firstBuyOrderCreationHour")) {
-            firstBuyOrderCreationHour = CONFIG.getInt("etrade.firstBuyOrderCreationHour");
+        if (CONFIG.hasPath("etrade.buyOrderCreationStartDayOfWeek")) {
+            buyOrderCreationStartDayOfWeek = CONFIG.getInt("etrade.buyOrderCreationStartDayOfWeek");
         }
-        if (CONFIG.hasPath("etrade.firstBuyOrderCreationMinute")) {
-            firstBuyOrderCreationMinute = CONFIG.getInt("etrade.firstBuyOrderCreationMinute");
+        if (CONFIG.hasPath("etrade.buyOrderCreationStartHour")) {
+            buyOrderCreationStartHour = CONFIG.getInt("etrade.buyOrderCreationStartHour");
+        }
+        if (CONFIG.hasPath("etrade.buyOrderCreationStartMinute")) {
+            buyOrderCreationStartMinute = CONFIG.getInt("etrade.buyOrderCreationStartMinute");
+        }
+        if (CONFIG.hasPath("etrade.buyOrderCreationStopDayOfWeek")) {
+            buyOrderCreationStopDayOfWeek = CONFIG.getInt("etrade.buyOrderCreationStopDayOfWeek");
+        }
+        if (CONFIG.hasPath("etrade.buyOrderCreationStopHour")) {
+            buyOrderCreationStopHour = CONFIG.getInt("etrade.buyOrderCreationStopHour");
         }
         if (CONFIG.hasPath("etrade.haltBuyOrderCashBalance")) {
             haltBuyOrderCashBalance = CONFIG.getLong("etrade.haltBuyOrderCashBalance");
         }
         if (CONFIG.hasPath("etrade.idealLotSize")) {
             idealLotSize = (float) CONFIG.getLong("etrade.idealLotSize");
-        }
-        if (CONFIG.hasPath("etrade.lastBuyOrderCreationHour")) {
-            lastBuyOrderCreationHour = CONFIG.getInt("etrade.lastBuyOrderCreationHour");
         }
         if (CONFIG.hasPath("etrade.maxBuyOrdersPerSymbolPerDay")) {
             maxBuyOrdersPerSymbolPerDay = CONFIG.getLong("etrade.maxBuyOrdersPerSymbolPerDay");
@@ -284,17 +292,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
         }
 
         public boolean canProceedWithBuyOrderCreation() {
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            int currentHour = this.currentHour(now);
-            int currentMinute = this.currentMinute(now);
-            if (currentHour < firstBuyOrderCreationHour
-                    || (currentHour == firstBuyOrderCreationHour && currentMinute < firstBuyOrderCreationMinute)
-                    || currentHour >= lastBuyOrderCreationHour) {
-                LOG.debug( "Skipping buy order creation, currentHour={} currentMinute={} "
-                                + "firstBuyOrderCreationHour={} firstBuyOrderCreationMinute={} lastBuyOrderCreationHour={}",
-                        currentHour, currentMinute,
-                        firstBuyOrderCreationHour, firstBuyOrderCreationMinute, lastBuyOrderCreationHour
-                );
+            if (isEmbargoedTimeWindow()) {
                 return false;
             }
 
@@ -330,12 +328,42 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             return true;
         }
 
+        int currentDayOfWeek(OffsetDateTime now) {
+            return now.getDayOfWeek().getValue();
+        }
+
         int currentHour(OffsetDateTime now) {
             return now.getHour();
         }
 
         int currentMinute(OffsetDateTime now) {
             return now.getMinute();
+        }
+
+        public boolean isEmbargoedTimeWindow() {
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            int currentDayOfWeek = this.currentDayOfWeek(now);
+            if (currentDayOfWeek < buyOrderCreationStartDayOfWeek
+                    || currentDayOfWeek >= buyOrderCreationStopDayOfWeek) {
+                LOG.debug( "Skipping buy order creation, currentDayOfWeek={}, "
+                                + "buyOrderCreationStartDayOfWeek={}, buyOrderCreationStopDayOfWeek={}",
+                        currentDayOfWeek, buyOrderCreationStartDayOfWeek, buyOrderCreationStopDayOfWeek
+                );
+                return true;
+            }
+            int currentHour = this.currentHour(now);
+            int currentMinute = this.currentMinute(now);
+            if (currentHour < buyOrderCreationStartHour
+                    || (currentHour == buyOrderCreationStartHour && currentMinute < buyOrderCreationStartMinute)
+                    || currentHour >= buyOrderCreationStopHour) {
+                LOG.debug( "Skipping buy order creation, currentHour={} currentMinute={} "
+                                + "buyOrderCreationStartHour={} buyOrderCreationStartMinute={} buyOrderCreationStopHour={}",
+                        currentHour, currentMinute,
+                        buyOrderCreationStartHour, buyOrderCreationStartMinute, buyOrderCreationStopHour
+                );
+                return true;
+            }
+            return false;
         }
 
         @Override
