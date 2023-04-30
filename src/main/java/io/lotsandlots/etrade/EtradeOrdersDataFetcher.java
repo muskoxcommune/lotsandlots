@@ -58,9 +58,9 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS etrade_order ("
-                            + "order_id integer PRIMARY KEY,"
                             + "limit_price real,"
                             + "order_action text,"
+                            + "order_id text PRIMARY KEY,"
                             + "ordered_quantity integer,"
                             + "placed_time integer,"
                             + "status text,"
@@ -142,9 +142,9 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
                         String sql =
                                 "INSERT OR REPLACE INTO etrade_order ("
-                                        + "order_id,"
                                         + "limit_price,"
                                         + "order_action,"
+                                        + "order_id,"
                                         + "ordered_quantity,"
                                         + "placed_time,"
                                         + "status,"
@@ -152,16 +152,16 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                                         + "updated_time"
                                     + ") VALUES(?,?,?,?,?,?,?,?);";
                         try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                            stmt.setInt(1, ordersResponseOrder.getOrderId().intValue());
-                            stmt.setFloat(2, orderDetail.getLimitPrice());
-                            stmt.setString(3, instrument.getOrderAction());
+                            stmt.setFloat(1, orderDetail.getLimitPrice());
+                            stmt.setString(2, instrument.getOrderAction());
+                            stmt.setString(3, ordersResponseOrder.getOrderId().toString());
                             stmt.setInt(4, instrument.getOrderedQuantity().intValue());
                             stmt.setInt(5, (int) (orderDetail.getPlacedTime() / 1000L));
                             stmt.setString(6, orderDetail.getStatus());
                             stmt.setString(7, instrument.getProduct().getSymbol());
                             stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
                             stmt.executeUpdate();
-                            LOG.debug("Executed: {}", stmt);
+                            LOG.trace("Executed: {}", stmt);
                         } catch (SQLException e) {
                             LOG.error("Failed to insert or replace into 'etrade_order': {}", ordersResponseOrder, e);
                         }

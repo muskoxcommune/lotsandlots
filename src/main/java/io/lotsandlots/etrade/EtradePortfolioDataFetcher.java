@@ -59,22 +59,12 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
         try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS etrade_position ("
-                            + "position_id integer PRIMARY KEY,"
-                            + "symbol text,"
-                            + "total_cost real,"
-                            + "updated_time integer"
-                            + ");"
-            );
-        } catch (SQLException e) {
-            LOG.error("Failed to create 'etrade_position' table", e);
-        }
-        try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.execute(
                     "CREATE TABLE IF NOT EXISTS etrade_lot ("
                             + "acquired_date integer,"
                             + "follow_price real,"
-                            + "lot_id integer PRIMARY KEY,"
+                            + "is_buy_enabled integer,"
+                            + "last_price real,"
+                            + "lot_id text PRIMARY KEY,"
                             + "target_price real,"
                             + "symbol text,"
                             + "updated_time integer"
@@ -149,23 +139,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 String symbol = freshPositionData.getSymbolDescription();
                 fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
                 positionCache.put(symbol, freshPositionData);
-
-                String sql =
-                        "INSERT OR REPLACE INTO etrade_position ("
-                                + "position_id,"
-                                + "symbol,"
-                                + "total_cost,"
-                                + "updated_time"
-                                + ") VALUES(?,?,?,?);";
-                try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    stmt.setInt(1, freshPositionData.getPositionId().intValue());
-                    stmt.setString(3, freshPositionData.getSymbolDescription());
-                    stmt.setFloat(2, freshPositionData.getTotalCost());
-                    stmt.setInt(4, (int) (System.currentTimeMillis() / 1000L));
-                    stmt.executeUpdate();
-                } catch (SQLException e) {
-                    LOG.error("Failed to insert or replace into 'etrade_position': {}", freshPositionData, e);
-                }
             }
             if (accountPortfolio.hasNextPageNo()) {
                 fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
@@ -189,6 +162,8 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
+            List<String> buyOrderEnabledSymbols = CONFIG.getStringList("etrade.enableBuyOrderCreation");
+
             Double orderCreationThreshold = defaultOrderCreationThreshold;
             String overrideOrderCreationThresholdPath = "etrade.overrideOrderCreationThresholds." + symbol;
             if (CONFIG.hasPath(overrideOrderCreationThresholdPath)) {
@@ -208,19 +183,24 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                         "INSERT OR REPLACE INTO etrade_lot ("
                                 + "acquired_date,"
                                 + "follow_price,"
+                                + "is_buy_enabled,"
+                                + "last_price,"
                                 + "lot_id,"
                                 + "target_price,"
                                 + "symbol,"
                                 + "updated_time"
-                                + ") VALUES(?,?,?,?,?,?);";
+                                + ") VALUES(?,?,?,?,?,?,?,?);";
                 try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setInt(1, (int) (lot.getAcquiredDate() / 1000L));
                     stmt.setFloat(2, lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
-                    stmt.setInt(3, lot.getPositionLotId().intValue());
-                    stmt.setFloat(4, lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
-                    stmt.setString(5, lot.getSymbol());
-                    stmt.setInt(6, (int) (System.currentTimeMillis() / 1000L));
+                    stmt.setInt(3, buyOrderEnabledSymbols.contains(lot.getSymbol()) ? 1 : 0);
+                    stmt.setFloat(4, lot.getMarketValue() / lot.getRemainingQty());
+                    stmt.setString(5, lot.getPositionLotId().toString());
+                    stmt.setFloat(6, lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
+                    stmt.setString(7, lot.getSymbol());
+                    stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
                     stmt.executeUpdate();
+                    LOG.trace("Executed: {}", stmt);
                 } catch (SQLException e) {
                     LOG.error("Failed to insert or replace into 'etrade_lot': {}", lot, e);
                 }
