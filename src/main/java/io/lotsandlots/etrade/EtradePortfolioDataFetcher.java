@@ -4,6 +4,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.typesafe.config.Config;
+import io.lotsandlots.data.SqlDatabase;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
+    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
     private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();

@@ -1,7 +1,6 @@
-__pycache__/
 .idea
-*.iml
 logs
 target
-tmp/
-*venv/
+
+*.db
+*.iml

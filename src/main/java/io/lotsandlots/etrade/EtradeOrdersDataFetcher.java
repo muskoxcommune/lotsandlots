@@ -3,6 +3,8 @@ package io.lotsandlots.etrade;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.typesafe.config.Config;
+import io.lotsandlots.data.SqlDatabase;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
 import io.lotsandlots.etrade.model.Order;
@@ -17,6 +19,10 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -26,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
+    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
     private final Cache<Long, Order> orderCache;
@@ -47,6 +54,23 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 .newBuilder()
                 .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
                 .build();
+
+        try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS etrade_order ("
+                            + "order_id integer PRIMARY KEY,"
+                            + "limit_price real,"
+                            + "order_action text,"
+                            + "ordered_quantity integer,"
+                            + "placed_time integer,"
+                            + "status text,"
+                            + "symbol text,"
+                            + "updated_time integer"
+                            + ");"
+            );
+        } catch (SQLException e) {
+            LOG.error("Failed to create 'order' table", e);
+        }
 
         LOG.info("Initialized EtradeOrdersDataFetcher, ordersDataExpirationSeconds={} ordersDataFetchIntervalSeconds={}",
                 ordersDataExpirationSeconds, ordersDataFetchIntervalSeconds);
@@ -115,6 +139,31 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                         order.setStatus(orderDetail.getStatus());
                         order.setSymbol(instrument.getProduct().getSymbol());
                         orderCache.put(ordersResponseOrder.getOrderId(), order);
+
+                        String sql =
+                                "INSERT OR REPLACE INTO etrade_order ("
+                                        + "order_id,"
+                                        + "limit_price,"
+                                        + "order_action,"
+                                        + "ordered_quantity,"
+                                        + "placed_time,"
+                                        + "status,"
+                                        + "symbol,"
+                                        + "updated_time"
+                                    + ") VALUES(?,?,?,?,?,?,?,?);";
+                        try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                            stmt.setInt(1, ordersResponseOrder.getOrderId().intValue());
+                            stmt.setFloat(2, orderDetail.getLimitPrice());
+                            stmt.setString(3, instrument.getOrderAction());
+                            stmt.setInt(4, instrument.getOrderedQuantity().intValue());
+                            stmt.setInt(5, orderDetail.getPlacedTime().intValue());
+                            stmt.setString(6, orderDetail.getStatus());
+                            stmt.setString(7, instrument.getProduct().getSymbol());
+                            stmt.setInt(8, (int) (System.currentTimeMillis() / 1000));
+                            stmt.executeUpdate();
+                        } catch (SQLException e) {
+                            LOG.error("Failed to insert 'order'", e);
+                        }
                     }
                 } else {
                     LOG.warn("Expected OrderDetail to include one Instrument");
