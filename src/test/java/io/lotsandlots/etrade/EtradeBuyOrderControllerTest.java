@@ -1,5 +1,8 @@
 package io.lotsandlots.etrade;
 
+import com.typesafe.config.Config;
+import io.lotsandlots.data.SqlDatabase;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
 import io.lotsandlots.etrade.api.QuoteResponse;
@@ -8,6 +11,7 @@ import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
+import io.lotsandlots.util.ConfigWrapper;
 import io.lotsandlots.util.EmailHelper;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
@@ -17,6 +21,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.security.GeneralSecurityException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,6 +32,9 @@ import java.util.concurrent.ExecutorService;
 
 @Test(groups = {"unit"})
 public class EtradeBuyOrderControllerTest {
+
+    private static final Config CONFIG = ConfigWrapper.getConfig();
+    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
 
     private static EtradeRestTemplateFactory MOCK_TEMPLATE_FACTORY_WITH_INITIALIZED_SECURITY_CONTEXT =
             Mockito.mock(EtradeRestTemplateFactory.class);
@@ -175,7 +185,7 @@ public class EtradeBuyOrderControllerTest {
         Assert.assertFalse(runnable.canProceedWithBuyOrderCreation(7.99F));
     }
 
-    public void testHandlePortfolioDataFetchCompletion() {
+    public void testHandlePortfolioDataFetchCompletion() throws SQLException {
         ExecutorService mockExecutor;
         EtradeBuyOrderController orderController;
         EtradePortfolioDataFetcher portfolioDataFetcher;
@@ -204,12 +214,29 @@ public class EtradeBuyOrderControllerTest {
         ////
         // If a buy order already exists, we should not submit an InitialBuyOrderRunnable.
 
-        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
-        symbolToLotsIndex.put("FETCH_COMPLETION_WITH_EXISTING_ORDER", new LinkedList<>());
+        String sql =
+                "INSERT OR REPLACE INTO etrade_lot ("
+                        + "acquired_date,"
+                        + "follow_price,"
+                        + "last_price,"
+                        + "lot_id,"
+                        + "target_price,"
+                        + "symbol,"
+                        + "updated_time"
+                        + ") VALUES(?,?,?,?,?,?,?);";
+        try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, (int) (System.currentTimeMillis() / 1000L));
+            stmt.setFloat(2, 97F);
+            stmt.setFloat(3, 100F);
+            stmt.setString(4, "123");
+            stmt.setFloat(5, 103F);
+            stmt.setString(6, "FETCH_COMPLETION_WITH_EXISTING_ORDER");
+            stmt.setInt(7, (int) (System.currentTimeMillis() / 1000L));
+            stmt.executeUpdate();
+        }
 
         portfolioDataFetcher = Mockito.mock(EtradePortfolioDataFetcher.class);
-        Mockito.doReturn(2L).when(portfolioDataFetcher).getPortfolioDataExpirationSeconds();
-        Mockito.doReturn(symbolToLotsIndex).when(portfolioDataFetcher).getSymbolToLotsIndex();
+        Mockito.doReturn(120L).when(portfolioDataFetcher).getPortfolioDataExpirationSeconds();
 
         mockExecutor = Mockito.mock(ExecutorService.class);
         orderController = Mockito.spy(

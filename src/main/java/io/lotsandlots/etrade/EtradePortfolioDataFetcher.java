@@ -62,7 +62,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                     "CREATE TABLE IF NOT EXISTS etrade_lot ("
                             + "acquired_date integer,"
                             + "follow_price real,"
-                            + "is_buy_enabled integer,"
                             + "last_price real,"
                             + "lot_id text PRIMARY KEY,"
                             + "target_price real,"
@@ -183,22 +182,20 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                         "INSERT OR REPLACE INTO etrade_lot ("
                                 + "acquired_date,"
                                 + "follow_price,"
-                                + "is_buy_enabled,"
                                 + "last_price,"
                                 + "lot_id,"
                                 + "target_price,"
                                 + "symbol,"
                                 + "updated_time"
-                                + ") VALUES(?,?,?,?,?,?,?,?);";
+                                + ") VALUES(?,?,?,?,?,?,?);";
                 try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setInt(1, (int) (lot.getAcquiredDate() / 1000L));
                     stmt.setFloat(2, lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
-                    stmt.setInt(3, buyOrderEnabledSymbols.contains(lot.getSymbol()) ? 1 : 0);
-                    stmt.setFloat(4, lot.getMarketValue() / lot.getRemainingQty());
-                    stmt.setString(5, lot.getPositionLotId().toString());
-                    stmt.setFloat(6, lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
-                    stmt.setString(7, lot.getSymbol());
-                    stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
+                    stmt.setFloat(3, lot.getMarketValue() / lot.getRemainingQty());
+                    stmt.setString(4, lot.getPositionLotId().toString());
+                    stmt.setFloat(5, lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
+                    stmt.setString(6, lot.getSymbol());
+                    stmt.setInt(7, (int) (System.currentTimeMillis() / 1000L));
                     stmt.executeUpdate();
                     LOG.trace("Executed: {}", stmt);
                 } catch (SQLException e) {
