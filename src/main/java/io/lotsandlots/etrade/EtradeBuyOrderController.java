@@ -3,6 +3,8 @@ package io.lotsandlots.etrade;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.typesafe.config.Config;
+import io.lotsandlots.data.SqlDatabase;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
@@ -16,6 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -30,6 +35,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
                                                  EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
+    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(5);
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderController.class);
 
@@ -144,19 +150,30 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.Port
             return;
         }
         LOG.debug("Checking for buying enabled symbols with no lots");
-        Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = portfolioDataFetcher.getSymbolToLotsIndex();
+
+        String sql = "SELECT COUNT(*) FROM etrade_lot WHERE symbol == ? AND updated_time > ?";
         for (String symbol : placedBuyOrderCache.keySet()) {
             // TODO:
             // - How do we know if a cache miss is not due to data fetching or server side data quality problems?
             // - One option could be to build and maintain an internal representation of what the portfolio should
             //   look like. For example, if we haven't sold any lots, we should have the same number of lots after
             //   fetching data. If that is not the case, we should assume our data is not reliable.
-            if (!symbolToLotsIndex.containsKey(symbol)) {
-                LOG.info("Did not find any lots, symbol={}", symbol);
-                executor.submit(new InitialBuyOrderRunnable(symbol, totals));
-            } else {
-                LOG.debug("Skipping buy order creation, found {} lots, symbol={}",
-                        symbolToLotsIndex.get(symbol).size(), symbol);
+            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                int freshnessThreshold = (int) (
+                        (System.currentTimeMillis() / 1000L) - portfolioDataFetcher.getPortfolioDataExpirationSeconds()
+                );
+                stmt.setString(1, symbol);
+                stmt.setInt(2, freshnessThreshold);
+                int count;
+                if ((count = stmt.executeQuery().getInt(1)) == 0) {
+                    LOG.info("Did not find any lots, symbol={}", symbol);
+                    executor.submit(new InitialBuyOrderRunnable(symbol, totals));
+                } else {
+                    LOG.debug("Skipping buy order creation, found {} lots, symbol={}",
+                            count, symbol);
+                }
+            } catch (SQLException e) {
+                LOG.error("Failed to select from 'etrade_lot', symbol={}", symbol, e);
             }
         }
     }
