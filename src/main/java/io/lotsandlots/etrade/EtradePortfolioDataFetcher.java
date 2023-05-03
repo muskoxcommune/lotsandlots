@@ -1,10 +1,6 @@
 package io.lotsandlots.etrade;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
 import com.typesafe.config.Config;
-import io.lotsandlots.data.SqlDatabase;
 import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.PortfolioResponse;
 import io.lotsandlots.etrade.api.PositionLotsResponse;
@@ -18,29 +14,22 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
-    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
+    private static final SqliteDatabase DB = SqliteDatabase.getInstance();
     private static final Logger LOG = LoggerFactory.getLogger(EtradePortfolioDataFetcher.class);
 
-    private final List<PortfolioDataFetchCompletionHandler> portfolioDataFetchCompletionHandlers = new LinkedList<>();
-    private final List<SymbolToLotsIndexPutHandler> symbolToLotsIndexPutHandlers = new LinkedList<>();
+    private final List<OnPortfolioDataFetchCompletionHandler> onPortfolioDataFetchCompletionHandlers = new LinkedList<>();
+    private final List<OnPositionLotsUpdateHandler> onPositionLotsUpdateHandlers = new LinkedList<>();
     private Long portfolioDataExpirationSeconds = 120L;
     private Long portfolioDataFetchIntervalSeconds = 60L;
     private Double defaultOrderCreationThreshold = 0.03;
-    private Cache<String, PortfolioResponse.Position> positionCache;
-    private Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex = new HashMap<>();
     private PortfolioResponse.Totals totals = new PortfolioResponse.Totals();
 
     public EtradePortfolioDataFetcher() {
@@ -53,45 +42,34 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (CONFIG.hasPath("etrade.portfolioDataFetchInterval")) {
             portfolioDataFetchIntervalSeconds = CONFIG.getLong("etrade.portfolioDataFetchInterval");
         }
-
-        positionCache = newCacheFromCacheBuilder(
-                CacheBuilder.newBuilder(), portfolioDataExpirationSeconds);
-
-        try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.execute(
+        try {
+            DB.executeSql(
                     "CREATE TABLE IF NOT EXISTS etrade_lot ("
                             + "acquired_date integer,"
+                            + "acquired_price real,"
                             + "follow_price real,"
                             + "last_price real,"
                             + "lot_id text PRIMARY KEY,"
-                            + "target_price real,"
+                            + "remaining_qty real,"
                             + "symbol text,"
+                            + "target_price real,"
                             + "updated_time integer"
                             + ");"
             );
         } catch (SQLException e) {
             LOG.error("Failed to create 'etrade_lot' table", e);
         }
-
         LOG.info("Initialized EtradePortfolioDataFetcher, defaultOrderCreationThreshold={} "
                         + "portfolioDataExpirationSeconds={} portfolioDataFetchIntervalSeconds={}",
                 defaultOrderCreationThreshold, portfolioDataExpirationSeconds, portfolioDataFetchIntervalSeconds);
     }
 
-    public void addDataFetchCompletionHandler(PortfolioDataFetchCompletionHandler handler) {
-        portfolioDataFetchCompletionHandlers.add(handler);
+    public void addOnPortfolioDataFetchCompletionHandler(OnPortfolioDataFetchCompletionHandler handler) {
+        onPortfolioDataFetchCompletionHandlers.add(handler);
     }
 
-    public void addSymbolToLotsIndexPutHandler(SymbolToLotsIndexPutHandler handler) {
-        symbolToLotsIndexPutHandlers.add(handler);
-    }
-
-    public int aggregateLotCount() {
-        int lotCount = 0;
-        for (List<PositionLotsResponse.PositionLot> lots : symbolToLotsIndex.values()) {
-            lotCount += lots.size();
-        }
-        return lotCount;
+    public void addOnPositionLotsUpdateHandler(OnPositionLotsUpdateHandler handler) {
+        onPositionLotsUpdateHandlers.add(handler);
     }
 
     /**
@@ -137,7 +115,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             for (PortfolioResponse.Position freshPositionData : accountPortfolio.getPositionList()) {
                 String symbol = freshPositionData.getSymbolDescription();
                 fetchPositionLotsResponse(securityContext, symbol, freshPositionData);
-                positionCache.put(symbol, freshPositionData);
             }
             if (accountPortfolio.hasNextPageNo()) {
                 fetchPortfolioResponse(securityContext, accountPortfolio.getNextPageNo());
@@ -161,8 +138,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         if (positionLotsResponse == null) {
             throw new RuntimeException("Empty response");
         } else {
-            List<String> buyOrderEnabledSymbols = CONFIG.getStringList("etrade.enableBuyOrderCreation");
-
             Double orderCreationThreshold = defaultOrderCreationThreshold;
             String overrideOrderCreationThresholdPath = "etrade.overrideOrderCreationThresholds." + symbol;
             if (CONFIG.hasPath(overrideOrderCreationThresholdPath)) {
@@ -178,42 +153,30 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setFollowPrice(lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
                 lot.setTargetPrice(lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
 
-                String sql =
-                        "INSERT OR REPLACE INTO etrade_lot ("
-                                + "acquired_date,"
-                                + "follow_price,"
-                                + "last_price,"
-                                + "lot_id,"
-                                + "target_price,"
-                                + "symbol,"
-                                + "updated_time"
-                                + ") VALUES(?,?,?,?,?,?,?);";
-                try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    stmt.setInt(1, (int) (lot.getAcquiredDate() / 1000L));
-                    stmt.setFloat(2, lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
-                    stmt.setFloat(3, lot.getMarketValue() / lot.getRemainingQty());
-                    stmt.setString(4, lot.getPositionLotId().toString());
-                    stmt.setFloat(5, lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
-                    stmt.setString(6, lot.getSymbol());
-                    stmt.setInt(7, (int) (System.currentTimeMillis() / 1000L));
-                    stmt.executeUpdate();
-                    LOG.trace("Executed: {}", stmt);
+                PreparedLotInsertStatementCallback callback = new PreparedLotInsertStatementCallback(
+                        lot, orderCreationThreshold.floatValue());
+                try {
+                    DB.executePreparedUpdate(
+                            "INSERT OR REPLACE INTO etrade_lot ("
+                                    + "acquired_date,"
+                                    + "acquired_price,"
+                                    + "follow_price,"
+                                    + "last_price,"
+                                    + "lot_id,"
+                                    + "remaining_qty,"
+                                    + "symbol,"
+                                    + "target_price,"
+                                    + "updated_time"
+                                + ") VALUES(?,?,?,?,?,?,?,?,?);",
+                            callback);
                 } catch (SQLException e) {
-                    LOG.error("Failed to insert or replace into 'etrade_lot': {}", lot, e);
+                    LOG.error("Failed to execute: {}", callback.getStatement(), e);
                 }
             }
-            symbolToLotsIndex.put(symbol, positionLotsResponse.getPositionLots());
-            for (SymbolToLotsIndexPutHandler handler : symbolToLotsIndexPutHandlers) {
-                handler.handleSymbolToLotsIndexPut(symbol, positionLotsResponse.getPositionLots(), totals);
+            for (OnPositionLotsUpdateHandler handler : onPositionLotsUpdateHandlers) {
+                handler.handlePositionLotsUpdate(symbol, totals);
             }
         }
-    }
-
-    Cache<String, PortfolioResponse.Position> getPositionCache() {
-        return positionCache;
-    }
-    void setPositionCache(Cache<String, PortfolioResponse.Position> positionCache) {
-        this.positionCache = positionCache;
     }
 
     public Long getPortfolioDataExpirationSeconds() {
@@ -222,32 +185,6 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
 
     public Long getPortfolioDataFetchIntervalSeconds() {
         return portfolioDataFetchIntervalSeconds;
-    }
-
-    public Map<String, List<PositionLotsResponse.PositionLot>> getSymbolToLotsIndex() {
-        return symbolToLotsIndex;
-    }
-    void setSymbolToLotsIndex(Map<String, List<PositionLotsResponse.PositionLot>> symbolToLotsIndex) {
-        this.symbolToLotsIndex = symbolToLotsIndex;
-    }
-
-    Cache<String, PortfolioResponse.Position> newCacheFromCacheBuilder(CacheBuilder<Object, Object> cacheBuilder,
-                                                                       Long expirationSeconds) {
-        return cacheBuilder
-                .expireAfterWrite(expirationSeconds, TimeUnit.SECONDS)
-                .removalListener((RemovalListener<String, PortfolioResponse.Position>) notification -> {
-                    if (notification.wasEvicted()) {
-                        LOG.info("Removing lots for evicted position '{}', cause={}",
-                                notification.getKey(), notification.getCause());
-                        String symbol = notification.getKey();
-                        if (symbolToLotsIndex.containsKey(symbol)) {
-                            symbolToLotsIndex.remove(notification.getKey());
-                        } else {
-                            LOG.error("Expected lots for symbol={}, but cache missed", symbol);
-                        }
-                    }
-                })
-                .build();
     }
 
     @Override
@@ -265,14 +202,10 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchPortfolioResponse(securityContext, null);
-            // Expired entries are not guaranteed to be cleaned up immediately, so we do it here explicitly.
-            // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
-            positionCache.cleanUp();
             long timeStoppedMillis = System.currentTimeMillis();
-            LOG.info("Fetched portfolio and lots data, duration={}ms, positions={} lots={}",
-                    timeStoppedMillis - timeStartedMillis, positionCache.size(), aggregateLotCount());
             setLastSuccessfulFetchTimeMillis(timeStoppedMillis);
-            for (PortfolioDataFetchCompletionHandler handler : portfolioDataFetchCompletionHandlers) {
+            LOG.info("Fetched portfolio and lots data, duration={}ms", timeStoppedMillis - timeStartedMillis);
+            for (OnPortfolioDataFetchCompletionHandler handler : onPortfolioDataFetchCompletionHandlers) {
                 try {
                     handler.handlePortfolioDataFetchCompletion(timeStartedMillis, timeStoppedMillis, totals);
                 } catch (Exception e) {
@@ -286,12 +219,42 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    public interface SymbolToLotsIndexPutHandler {
+    static class PreparedLotInsertStatementCallback implements SqliteDatabase.PreparedStatementCallback {
 
-        void handleSymbolToLotsIndexPut(String symbol, List<PositionLotsResponse.PositionLot> lots, PortfolioResponse.Totals totals);
+        private final PositionLotsResponse.PositionLot lot;
+        private final float orderCreationThreshold;
+        private PreparedStatement statement;
+
+        PreparedLotInsertStatementCallback(PositionLotsResponse.PositionLot lot, float orderCreationThreshold) {
+            this.lot = lot;
+            this.orderCreationThreshold = orderCreationThreshold;
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            this.statement = stmt;
+            stmt.setInt(1, (int) (lot.getAcquiredDate() / 1000L));
+            stmt.setFloat(2, lot.getPrice());
+            stmt.setFloat(3, lot.getPrice() * (1F - orderCreationThreshold));
+            stmt.setFloat(4, lot.getMarketValue() / lot.getRemainingQty());
+            stmt.setString(5, lot.getPositionLotId().toString());
+            stmt.setFloat(6, lot.getRemainingQty());
+            stmt.setString(7, lot.getSymbol());
+            stmt.setFloat(8, lot.getPrice() * (1F + orderCreationThreshold));
+            stmt.setInt(9, (int) (System.currentTimeMillis() / 1000L));
+        }
+
+        public PreparedStatement getStatement() {
+            return statement;
+        }
     }
 
-    public interface PortfolioDataFetchCompletionHandler {
+    public interface OnPositionLotsUpdateHandler {
+
+        void handlePositionLotsUpdate(String symbol, PortfolioResponse.Totals totals);
+    }
+
+    public interface OnPortfolioDataFetchCompletionHandler {
 
         void handlePortfolioDataFetchCompletion(
                 long timeFetchStarted, long timeFetchStopped, PortfolioResponse.Totals totals);

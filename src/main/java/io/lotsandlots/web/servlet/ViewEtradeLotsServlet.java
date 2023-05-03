@@ -42,33 +42,33 @@ public class ViewEtradeLotsServlet extends HttpServlet {
         String showAllLots = request.getParameter("showAllLots");
         String symbol = request.getParameter("symbol");
 
-        List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
-        EtradePortfolioDataFetcher portfolioDataFetcher = lifecycleListener.getEtradePortfolioDataFetcher();
-        if (portfolioDataFetcher != null) {
-            for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
-                    portfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
-                List<PositionLotsResponse.PositionLot> lots = entry.getValue();
-                if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
-                    continue;
-                }
-                if (showAllLots != null && showAllLots.equals("true")) {
-                    includedLots.addAll(lots);
-                } else {
-                    PositionLotsResponse.PositionLot lowestPricedLot = null;
-                    for (PositionLotsResponse.PositionLot lot : lots) {
-                        if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
-                            lowestPricedLot = lot;
-                        }
-                    }
-                    includedLots.add(lowestPricedLot);
-                }
-            }
-        }
-        Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
-        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
-        if (ordersDataFetcher != null) {
-            symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
-        }
+        //List<PositionLotsResponse.PositionLot> includedLots = new LinkedList<>();
+        //EtradePortfolioDataFetcher portfolioDataFetcher = lifecycleListener.getEtradePortfolioDataFetcher();
+        //if (portfolioDataFetcher != null) {
+        //    for (Map.Entry<String, List<PositionLotsResponse.PositionLot>> entry :
+        //            portfolioDataFetcher.getSymbolToLotsIndex().entrySet()) {
+        //        List<PositionLotsResponse.PositionLot> lots = entry.getValue();
+        //        if (!StringUtils.isBlank(symbol) && !entry.getKey().equals(symbol.toUpperCase())) {
+        //            continue;
+        //        }
+        //        if (showAllLots != null && showAllLots.equals("true")) {
+        //            includedLots.addAll(lots);
+        //        } else {
+        //            PositionLotsResponse.PositionLot lowestPricedLot = null;
+        //            for (PositionLotsResponse.PositionLot lot : lots) {
+        //                if (lowestPricedLot == null || lot.getPrice() < lowestPricedLot.getPrice()) {
+        //                    lowestPricedLot = lot;
+        //                }
+        //            }
+        //            includedLots.add(lowestPricedLot);
+        //        }
+        //    }
+        //}
+        //Map<String, List<Order>> symbolToOrdersIndex = new HashMap<>();
+        //EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
+        //if (ordersDataFetcher != null) {
+        //    symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
+        //}
 
         StringBuilder htmlBuilder = new StringBuilder();
         htmlBuilder.append("<html>");
@@ -93,49 +93,49 @@ public class ViewEtradeLotsServlet extends HttpServlet {
                 "dateAcquired"
         );
         htmlBuilder.append("<tbody>");
-        for (PositionLotsResponse.PositionLot lot : includedLots) {
-            htmlBuilder.append("<tr");
-            if (lot.getTotalCostForGainPct() > 0) {
-                if (lot.getTotalCostForGainPct() > 3) {
-                    htmlBuilder.append(" style=\"background-color: MediumSeaGreen\"");
-                } else {
-                    htmlBuilder.append(" style=\"background-color: PaleGreen\"");
-                }
-            } else {
-                if (lot.getTotalCostForGainPct() < -3) {
-                    htmlBuilder.append(" style=\"background-color: LightCoral\"");
-                } else {
-                    htmlBuilder.append(" style=\"background-color: Pink\"");
-                }
-            }
-            htmlBuilder.append(">");
+        //for (PositionLotsResponse.PositionLot lot : includedLots) {
+        //    htmlBuilder.append("<tr");
+        //    if (lot.getTotalCostForGainPct() > 0) {
+        //        if (lot.getTotalCostForGainPct() > 3) {
+        //            htmlBuilder.append(" style=\"background-color: MediumSeaGreen\"");
+        //        } else {
+        //            htmlBuilder.append(" style=\"background-color: PaleGreen\"");
+        //        }
+        //    } else {
+        //        if (lot.getTotalCostForGainPct() < -3) {
+        //            htmlBuilder.append(" style=\"background-color: LightCoral\"");
+        //        } else {
+        //            htmlBuilder.append(" style=\"background-color: Pink\"");
+        //        }
+        //    }
+        //    htmlBuilder.append(">");
 
-            htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getTotalCostForGainPct())).append("%</td>");
-            if (!symbolToOrdersIndex.containsKey(lot.getSymbol())) {
-                htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISSING</b></p>").append("</td>");
-            } else {
-                List<Order> orders = symbolToOrdersIndex.get(lot.getSymbol());
-                if (orders.size() == lot.getTotalLotCount()) {
-                    htmlBuilder.append("<td>").append("OK").append("</td>");
-                } else {
-                    htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISMATCH</b></p>").append("</td>");
-                }
-            }
-            htmlBuilder.append("<td>").append(lot.getSymbol()).append("</td>");
-            htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getPositionPctOfPortfolio())).append("%</td>");
-            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getTotalPositionCost())).append("</td>");
-            htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getMarketValue())).append("</td>");
-            if (lot.getAcquiredDate() != null) {
-                htmlBuilder.append("<td>")
-                        .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
-                        .append("</td>");
-            } else {
-                htmlBuilder.append("<td>")
-                        .append("null")
-                        .append("</td>");
-            }
-            htmlBuilder.append("</tr>");
-        }
+        //    htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getTotalCostForGainPct())).append("%</td>");
+        //    if (!symbolToOrdersIndex.containsKey(lot.getSymbol())) {
+        //        htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISSING</b></p>").append("</td>");
+        //    } else {
+        //        List<Order> orders = symbolToOrdersIndex.get(lot.getSymbol());
+        //        if (orders.size() == lot.getTotalLotCount()) {
+        //            htmlBuilder.append("<td>").append("OK").append("</td>");
+        //        } else {
+        //            htmlBuilder.append("<td>").append("<p style=\"color:Red\"><b>MISMATCH</b></p>").append("</td>");
+        //        }
+        //    }
+        //    htmlBuilder.append("<td>").append(lot.getSymbol()).append("</td>");
+        //    htmlBuilder.append("<td>").append(DECIMAL_FORMAT.format(lot.getPositionPctOfPortfolio())).append("%</td>");
+        //    htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getTotalPositionCost())).append("</td>");
+        //    htmlBuilder.append("<td>$").append(DECIMAL_FORMAT.format(lot.getMarketValue())).append("</td>");
+        //    if (lot.getAcquiredDate() != null) {
+        //        htmlBuilder.append("<td>")
+        //                .append(DateFormatter.epochSecondsToDateString(lot.getAcquiredDate() / 1000L))
+        //                .append("</td>");
+        //    } else {
+        //        htmlBuilder.append("<td>")
+        //                .append("null")
+        //                .append("</td>");
+        //    }
+        //    htmlBuilder.append("</tr>");
+        //}
         htmlBuilder.append("</tbody>");
         htmlBuilder.append("</table");
 

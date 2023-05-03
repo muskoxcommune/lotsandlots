@@ -1,7 +1,6 @@
 package io.lotsandlots.web.listener;
 
 import com.typesafe.config.Config;
-import io.lotsandlots.data.SqlDatabase;
 import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.EtradeBuyOrderController;
 import io.lotsandlots.etrade.EtradeOrdersDataFetcher;
@@ -43,7 +42,7 @@ public class LifecycleListener implements ServletContextListener {
         if (etradeConfig != null) {
             try {
                 // Initialize SQLite DB
-                new SqliteDatabase(CONFIG.getString("data.url"));
+                SqliteDatabase.getInstance();
                 // Until EtradeRestTemplateFactory is initialized, we won't be able to send requests to E*Trade.
                 EtradeRestTemplateFactory.init();
                 LOG.info("Initialized EtradeRestTemplateFactory");

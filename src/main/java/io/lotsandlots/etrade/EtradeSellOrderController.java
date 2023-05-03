@@ -2,12 +2,11 @@ package io.lotsandlots.etrade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.CancelOrderRequest;
 import io.lotsandlots.etrade.api.CancelOrderResponse;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.PortfolioResponse;
-import io.lotsandlots.etrade.api.PositionLotsResponse;
-import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
 import io.lotsandlots.util.ConfigWrapper;
@@ -20,6 +19,10 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.GeneralSecurityException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,9 +31,10 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class EtradeSellOrderController implements EtradePortfolioDataFetcher.SymbolToLotsIndexPutHandler {
+public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnPositionLotsUpdateHandler {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
+    private static final SqliteDatabase DB = SqliteDatabase.getInstance();
     private static final ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(5);
     private static final Logger LOG = LoggerFactory.getLogger(EtradeSellOrderController.class);
 
@@ -59,7 +63,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
         this.ordersDataFetcher = ordersDataFetcher;
         this.portfolioDataFetcher = portfolioDataFetcher;
 
-        portfolioDataFetcher.addSymbolToLotsIndexPutHandler(this);
+        portfolioDataFetcher.addOnPositionLotsUpdateHandler(this);
 
         LOG.info("Initialized EtradeSellOrderCreator, cancelAllOrdersOnLotsOrdersMismatch={} sellOrderDisabledSymbols={}",
                 cancelAllOrdersOnLotsOrdersMismatch, sellOrderDisabledSymbols
@@ -67,9 +71,8 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
     }
 
     @Override
-    public void handleSymbolToLotsIndexPut(String symbol,
-                                           List<PositionLotsResponse.PositionLot> lots,
-                                           PortfolioResponse.Totals totals) {
+    public void handlePositionLotsUpdate(String symbol,
+                                         PortfolioResponse.Totals totals) {
         if (isSellOrderCreationDisabled(symbol)) {
             LOG.debug("Skipping disabled sell order creation feature, symbol={}", symbol);
         } else {
@@ -86,7 +89,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                                 + "lastSuccessfulFetchTimeMillis={} deltaMillis={} thresholdMillis={} symbol={}",
                         lastSuccessfulFetchTimeMillis, deltaMillis, thresholdMillis, symbol);
             } else {
-                executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol, lots));
+                executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol));
             }
         }
     }
@@ -95,19 +98,15 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
         return sellOrderDisabledSymbols.contains(symbol);
     }
 
-    SymbolToLotsIndexPutEventRunnable newSymbolToLotsIndexPutEventRunnable(
-            String symbol, List<PositionLotsResponse.PositionLot> lotList) {
-        return new SymbolToLotsIndexPutEventRunnable(symbol, lotList);
+    SymbolToLotsIndexPutEventRunnable newSymbolToLotsIndexPutEventRunnable(String symbol) {
+        return new SymbolToLotsIndexPutEventRunnable(symbol);
     }
 
     class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
 
-        private List<PositionLotsResponse.PositionLot> lotList;
         private final String symbol;
 
-        SymbolToLotsIndexPutEventRunnable(String symbol,
-                                          List<PositionLotsResponse.PositionLot> lotList) {
-            this.lotList = lotList;
+        SymbolToLotsIndexPutEventRunnable(String symbol) {
             this.symbol = symbol;
         }
 
@@ -139,8 +138,13 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
             } else if (LOG.isDebugEnabled()) {
                 LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
             }
-            ordersDataFetcher.getOrderCache().invalidate(orderId);
-            ordersDataFetcher.indexOrdersBySymbol();
+            String sql = "DELETE FROM etrade_order WHERE order_id == ?;";
+            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, orderId.toString());
+                stmt.executeUpdate();
+            } catch (SQLException e) {
+                LOG.error("Failed to select from 'etrade_order', symbol={}", symbol, e);
+            }
         }
 
         @Override
@@ -154,48 +158,81 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                 LOG.warn("Please configure etrade.accountIdKey");
                 return;
             }
-            int lotListSize = lotList.size();
-            Map<String, List<Order>> symbolToOrdersIndex = ordersDataFetcher.getSymbolToSellOrdersIndex();
-            if (symbolToOrdersIndex.containsKey(symbol)) {
-                List<Order> orderList = symbolToOrdersIndex.get(symbol);
-                int orderListSize = orderList.size();
-                LOG.debug("Found {} sell orders for {} lots, symbol={}", orderListSize, lotListSize, symbol);
-                if (orderListSize == lotListSize) {
-                    return;
+            int freshnessThreshold = (int) (
+                    (System.currentTimeMillis() / 1000L) - portfolioDataFetcher.getPortfolioDataExpirationSeconds()
+            );
+            String sql;
+
+            List<String> sellOrderIdList = new LinkedList<>();
+            sql = "SELECT order_id FROM etrade_order WHERE symbol == ? AND order_action == \"SELL\" AND updated_time > ?;";
+            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, symbol);
+                stmt.setInt(2, freshnessThreshold);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    sellOrderIdList.add(rs.getString("order_id"));
                 }
-                if (!cancelAllOrdersOnLotsOrdersMismatch) {
-                    return;
-                }
-                LOG.info("Canceling {} existing sell orders, symbol={}", orderListSize, symbol);
+            } catch (SQLException e) {
+                LOG.error("Failed to select from 'etrade_order', symbol={}", symbol, e);
+                return;
+            }
+            // TODO: Check for orders fetch completion.
+            int lotCount;
+            sql = "SELECT COUNT(*) FROM etrade_lot WHERE symbol == ? AND updated_time > ?;";
+            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, symbol);
+                stmt.setInt(2, freshnessThreshold);
+                lotCount = stmt.executeQuery().getInt(1);
+            } catch (SQLException e) {
+                LOG.error("Failed to select from 'etrade_lot', symbol={}", symbol, e);
+                return;
+            }
+            LOG.debug("Found {} sell orders for {} lots, symbol={}", sellOrderIdList.size(), lotCount, symbol);
+            if (sellOrderIdList.size() == lotCount) {
+                return;
+            }
+            if (!cancelAllOrdersOnLotsOrdersMismatch) {
+                LOG.warn("Skipping sell order creation, unable to proceed with mismatch, "
+                        + "cancelAllOrdersOnLotsOrdersMismatch=false");
+                return;
+            }
+            if (sellOrderIdList.size() > 0) {
+                LOG.info("Canceling {} existing sell orders, symbol={}", sellOrderIdList.size(), symbol);
                 try {
-                    for (Order order : orderList) {
-                        cancelOrder(securityContext, order.getOrderId());
+                    for (String orderId : sellOrderIdList) {
+                        cancelOrder(securityContext, Long.parseLong(orderId));
                     }
                 } catch (Exception e) {
                     LOG.debug("Failed to cancel all sell orders, symbol={}", symbol, e);
                     return;
                 }
-            } else {
-                LOG.debug("Found 0 sell orders for {} lots, symbol={}", lotListSize, symbol);
             }
-            // Create orders, then update local caches immediately
-            LOG.info("Creating sell orders for {} lots, symbol={}", lotListSize, symbol);
-            try {
-                for (PositionLotsResponse.PositionLot positionLot : lotList) {
+            //
+            LOG.info("Creating sell orders for {} lots, symbol={}", lotCount, symbol);
+            sql = "SELECT lot_id,remaining_qty,target_price FROM etrade_lot WHERE symbol == ? AND updated_time > ?;";
+            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, symbol);
+                stmt.setInt(2, freshnessThreshold);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    Float remainingQty = rs.getFloat("remaining_qty");
+
                     String clientOrderId = UUID.randomUUID().toString().substring(0, 8);
 
                     OrderDetail.Product product = new OrderDetail.Product();
                     product.setSecurityType("EQ");
-                    product.setSymbol(positionLot.getSymbol());
+                    product.setSymbol(symbol);
 
                     OrderDetail.Lots instrumentLots = new OrderDetail.Lots();
-                    instrumentLots.newLotList(positionLot.getPositionLotId(), positionLot.getRemainingQty().longValue());
+                    instrumentLots.newLotList(
+                            Long.parseLong(rs.getString("lot_id")),
+                            remainingQty.longValue());
 
                     OrderDetail.Instrument instrument = new OrderDetail.Instrument();
                     instrument.setLots(instrumentLots);
                     instrument.setOrderAction("SELL");
                     instrument.setProduct(product);
-                    instrument.setQuantity(positionLot.getRemainingQty().longValue());
+                    instrument.setQuantity(remainingQty.longValue());
                     instrument.setQuantityType("QUANTITY");
 
                     OrderDetail orderDetail = new OrderDetail();
@@ -205,7 +242,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.Sym
                     orderDetail.setMarketSession("REGULAR");
                     orderDetail.setPriceType("LIMIT");
                     orderDetail.setLimitPrice(
-                            BigDecimal.valueOf(positionLot.getTargetPrice())
+                            BigDecimal.valueOf(rs.getFloat("target_price"))
                                     .setScale(2, RoundingMode.HALF_UP)
                                     .floatValue());
                     placeOrder(securityContext, clientOrderId, orderDetail);

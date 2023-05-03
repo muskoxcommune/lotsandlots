@@ -3,7 +3,6 @@ package io.lotsandlots.etrade;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.typesafe.config.Config;
-import io.lotsandlots.data.SqlDatabase;
 import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.OrdersResponse;
@@ -19,10 +18,8 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
     private static final Config CONFIG = ConfigWrapper.getConfig();
-    private static final SqlDatabase DB = new SqliteDatabase(CONFIG.getString("data.url"));
+    private static final SqliteDatabase DB = SqliteDatabase.getInstance();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
     private final Cache<Long, Order> orderCache;
@@ -55,8 +52,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
                 .build();
 
-        try (Connection conn = DB.getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.execute(
+        try {
+            DB.executeSql(
                     "CREATE TABLE IF NOT EXISTS etrade_order ("
                             + "limit_price real,"
                             + "order_action text,"
@@ -71,7 +68,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         } catch (SQLException e) {
             LOG.error("Failed to create 'order' table", e);
         }
-
         LOG.info("Initialized EtradeOrdersDataFetcher, ordersDataExpirationSeconds={} ordersDataFetchIntervalSeconds={}",
                 ordersDataExpirationSeconds, ordersDataFetchIntervalSeconds);
     }
@@ -126,48 +122,23 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
                     continue;
                 }
-                List<OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
-                if (instruments.size() == 1) {
-                    OrderDetail.Instrument instrument = instruments.get(0);
-                    if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
-                        Order order = new Order();
-                        order.setOrderId(ordersResponseOrder.getOrderId());
-                        order.setLimitPrice(orderDetail.getLimitPrice());
-                        order.setOrderAction(instrument.getOrderAction());
-                        order.setOrderedQuantity(instrument.getOrderedQuantity());
-                        order.setPlacedTime(orderDetail.getPlacedTime());
-                        order.setStatus(orderDetail.getStatus());
-                        order.setSymbol(instrument.getProduct().getSymbol());
-                        orderCache.put(ordersResponseOrder.getOrderId(), order);
-
-                        String sql =
-                                "INSERT OR REPLACE INTO etrade_order ("
-                                        + "limit_price,"
-                                        + "order_action,"
-                                        + "order_id,"
-                                        + "ordered_quantity,"
-                                        + "placed_time,"
-                                        + "status,"
-                                        + "symbol,"
-                                        + "updated_time"
-                                    + ") VALUES(?,?,?,?,?,?,?,?);";
-                        try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                            stmt.setFloat(1, orderDetail.getLimitPrice());
-                            stmt.setString(2, instrument.getOrderAction());
-                            stmt.setString(3, ordersResponseOrder.getOrderId().toString());
-                            stmt.setInt(4, instrument.getOrderedQuantity().intValue());
-                            stmt.setInt(5, (int) (orderDetail.getPlacedTime() / 1000L));
-                            stmt.setString(6, orderDetail.getStatus());
-                            stmt.setString(7, instrument.getProduct().getSymbol());
-                            stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
-                            stmt.executeUpdate();
-                            LOG.trace("Executed: {}", stmt);
-                        } catch (SQLException e) {
-                            LOG.error("Failed to insert or replace into 'etrade_order': {}", ordersResponseOrder, e);
-                        }
-                    }
-                } else {
-                    LOG.warn("Expected OrderDetail to include one Instrument");
+                PreparedOrderInsertStatementCallback callback = new PreparedOrderInsertStatementCallback(
+                        ordersResponseOrder.getOrderId().toString(), orderDetail);
+                try {
+                    DB.executePreparedUpdate(
+                            "INSERT OR REPLACE INTO etrade_order ("
+                                    + "limit_price,"
+                                    + "order_action,"
+                                    + "order_id,"
+                                    + "ordered_quantity,"
+                                    + "placed_time,"
+                                    + "status,"
+                                    + "symbol,"
+                                    + "updated_time"
+                                + ") VALUES(?,?,?,?,?,?,?,?);",
+                            callback);
+                } catch (SQLException e) {
+                    LOG.error("Failed to execute: {}", callback.getStatement(), e);
                 }
             } else {
                 LOG.warn("Expected Order to include one OrderDetail");
@@ -253,6 +224,44 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
             long currentTimeMillis = System.currentTimeMillis();
             LOG.info("Failed to fetch orders data, duration={}ms", currentTimeMillis - timeStartedMillis, e);
             setLastFailedFetchTimeMillis(currentTimeMillis);
+        }
+    }
+
+    static class PreparedOrderInsertStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+
+        private final OrderDetail orderDetail;
+        private final String orderId;
+        private PreparedStatement statement;
+
+        PreparedOrderInsertStatementCallback(String orderId, OrderDetail orderDetail) {
+            this.orderDetail = orderDetail;
+            this.orderId = orderId;
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            this.statement = stmt;
+            List<OrderDetail.Instrument> instruments = orderDetail.getInstrumentList();
+            if (instruments.size() == 1) {
+                OrderDetail.Instrument instrument = instruments.get(0);
+                if (instrument.getOrderAction().equals("BUY") || instrument.getOrderAction().equals("SELL")) {
+                    stmt.setFloat(1, orderDetail.getLimitPrice());
+                    stmt.setString(2, instrument.getOrderAction());
+                    stmt.setString(3, orderId);
+                    stmt.setInt(4, instrument.getOrderedQuantity().intValue());
+                    stmt.setInt(5, (int) (orderDetail.getPlacedTime() / 1000L));
+                    stmt.setString(6, orderDetail.getStatus());
+                    stmt.setString(7, instrument.getProduct().getSymbol());
+                    stmt.setInt(8, (int) (System.currentTimeMillis() / 1000L));
+                    stmt.executeUpdate();
+                }
+            } else {
+                LOG.warn("Expected OrderDetail to include one Instrument");
+            }
+        }
+
+        public PreparedStatement getStatement() {
+            return statement;
         }
     }
 }
