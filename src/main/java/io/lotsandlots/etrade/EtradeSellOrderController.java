@@ -89,7 +89,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
                                 + "lastSuccessfulFetchTimeMillis={} deltaMillis={} thresholdMillis={} symbol={}",
                         lastSuccessfulFetchTimeMillis, deltaMillis, thresholdMillis, symbol);
             } else {
-                executor.submit(new SymbolToLotsIndexPutEventRunnable(symbol));
+                executor.submit(new OnPositionLotsUpdateRunnable(symbol));
             }
         }
     }
@@ -98,15 +98,37 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
         return sellOrderDisabledSymbols.contains(symbol);
     }
 
-    SymbolToLotsIndexPutEventRunnable newSymbolToLotsIndexPutEventRunnable(String symbol) {
-        return new SymbolToLotsIndexPutEventRunnable(symbol);
+    OnPositionLotsUpdateRunnable newSymbolToLotsIndexPutEventRunnable(String symbol) {
+        return new OnPositionLotsUpdateRunnable(symbol);
     }
 
-    class SymbolToLotsIndexPutEventRunnable extends EtradeOrderCreator {
+    class DeleteOrderPreparedStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+
+        private final String orderId;
+
+        private PreparedStatement statement;
+
+        DeleteOrderPreparedStatementCallback(String orderId) {
+            this.orderId = orderId;
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            statement = stmt;
+            stmt.setString(1, orderId);
+            stmt.executeUpdate();
+        }
+
+        public PreparedStatement getStatement() {
+            return statement;
+        }
+    }
+
+    class OnPositionLotsUpdateRunnable extends EtradeOrderCreator {
 
         private final String symbol;
 
-        SymbolToLotsIndexPutEventRunnable(String symbol) {
+        OnPositionLotsUpdateRunnable(String symbol) {
             this.symbol = symbol;
         }
 
@@ -138,12 +160,12 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
             } else if (LOG.isDebugEnabled()) {
                 LOG.debug("CancelOrderResponse{}", OBJECT_MAPPER.writeValueAsString(cancelOrderResponse));
             }
-            String sql = "DELETE FROM etrade_order WHERE order_id == ?;";
-            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, orderId.toString());
-                stmt.executeUpdate();
+            DeleteOrderPreparedStatementCallback callback =
+                    new DeleteOrderPreparedStatementCallback(orderId.toString());
+            try {
+                DB.executePreparedUpdate("DELETE FROM etrade_order WHERE order_id == ?;", callback);
             } catch (SQLException e) {
-                LOG.error("Failed to select from 'etrade_order', symbol={}", symbol, e);
+                LOG.error("Failed to execute: {}", callback.getStatement(), e);
             }
         }
 
@@ -172,6 +194,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
                 while (rs.next()) {
                     sellOrderIdList.add(rs.getString("order_id"));
                 }
+                rs.close();
             } catch (SQLException e) {
                 LOG.error("Failed to select from 'etrade_order', symbol={}", symbol, e);
                 return;
@@ -182,7 +205,9 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
             try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, symbol);
                 stmt.setInt(2, freshnessThreshold);
-                lotCount = stmt.executeQuery().getInt(1);
+                ResultSet rs = stmt.executeQuery();
+                lotCount = rs.getInt(1);
+                rs.close();
             } catch (SQLException e) {
                 LOG.error("Failed to select from 'etrade_lot', symbol={}", symbol, e);
                 return;
@@ -247,6 +272,7 @@ public class EtradeSellOrderController implements EtradePortfolioDataFetcher.OnP
                                     .floatValue());
                     placeOrder(securityContext, clientOrderId, orderDetail);
                 }
+                rs.close();
             } catch (Exception e) {
                 LOG.debug("Unable to finish creating sell orders, symbol={}", symbol, e);
             }

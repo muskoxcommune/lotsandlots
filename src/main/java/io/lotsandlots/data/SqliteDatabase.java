@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -19,17 +20,15 @@ public class SqliteDatabase {
     private static SqliteDatabase DB;
 
     private final String url;
-    private final Connection conn;
 
     public SqliteDatabase(String url) throws SQLException {
         this.url = url;
-        //try (Connection conn = DriverManager.getConnection(url)) {
-        //    DatabaseMetaData meta = conn.getMetaData();
-        //    LOG.info("Initialized SqliteDatabase:{} using {}", url, meta.getDriverName());
-        //} catch (SQLException e) {
-        //    LOG.error("Failed to initialized SqliteDatabase:{}", url, e);
-        //}
-        conn = DriverManager.getConnection(url);
+        try (Connection conn = DriverManager.getConnection(url)) {
+            DatabaseMetaData meta = conn.getMetaData();
+            LOG.info("Initialized SqliteDatabase:{} using {}", url, meta.getDriverName());
+        } catch (SQLException e) {
+            LOG.error("Failed to initialized SqliteDatabase:{}", url, e);
+        }
     }
 
     public static SqliteDatabase getInstance() {
@@ -51,26 +50,25 @@ public class SqliteDatabase {
     }
 
     public synchronized void executeSql(String sql) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
+        try (Connection c = DriverManager.getConnection(url); Statement stmt = c.createStatement()) {
             stmt.execute(sql);
         }
     }
 
-    public void executePreparedQuery(String sql, PreparedStatementCallback callback) throws SQLException {
+    public synchronized void executePreparedQuery(String sql, PreparedStatementCallback callback) throws SQLException {
         try (Connection c = DriverManager.getConnection(url); PreparedStatement stmt = c.prepareStatement(sql)) {
             callback.call(stmt);
-            stmt.executeQuery();
         }
     }
 
     public synchronized void executePreparedUpdate(String sql, PreparedStatementCallback callback) throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection c = DriverManager.getConnection(url); PreparedStatement stmt = c.prepareStatement(sql)) {
             callback.call(stmt);
-            stmt.executeUpdate();
         }
     }
 
     public interface PreparedStatementCallback {
+
         void call(PreparedStatement stmt) throws SQLException;
     }
 }

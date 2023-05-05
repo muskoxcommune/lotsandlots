@@ -153,7 +153,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
                 lot.setFollowPrice(lot.getPrice() * (1F - orderCreationThreshold.floatValue()));
                 lot.setTargetPrice(lot.getPrice() * (1F + orderCreationThreshold.floatValue()));
 
-                PreparedLotInsertStatementCallback callback = new PreparedLotInsertStatementCallback(
+                LotInsertPreparedStatementCallback callback = new LotInsertPreparedStatementCallback(
                         lot, orderCreationThreshold.floatValue());
                 try {
                     DB.executePreparedUpdate(
@@ -219,13 +219,13 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    static class PreparedLotInsertStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+    static class LotInsertPreparedStatementCallback implements SqliteDatabase.PreparedStatementCallback {
 
         private final PositionLotsResponse.PositionLot lot;
         private final float orderCreationThreshold;
         private PreparedStatement statement;
 
-        PreparedLotInsertStatementCallback(PositionLotsResponse.PositionLot lot, float orderCreationThreshold) {
+        LotInsertPreparedStatementCallback(PositionLotsResponse.PositionLot lot, float orderCreationThreshold) {
             this.lot = lot;
             this.orderCreationThreshold = orderCreationThreshold;
         }
@@ -242,6 +242,7 @@ public class EtradePortfolioDataFetcher extends EtradeDataFetcher {
             stmt.setString(7, lot.getSymbol());
             stmt.setFloat(8, lot.getPrice() * (1F + orderCreationThreshold));
             stmt.setInt(9, (int) (System.currentTimeMillis() / 1000L));
+            stmt.executeUpdate();
         }
 
         public PreparedStatement getStatement() {

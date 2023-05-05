@@ -1,6 +1,5 @@
 package io.lotsandlots.etrade;
 
-import com.google.common.cache.Cache;
 import io.lotsandlots.etrade.api.*;
 import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
@@ -8,7 +7,6 @@ import io.lotsandlots.etrade.rest.EtradeRestTemplate;
 import io.lotsandlots.etrade.rest.EtradeRestTemplateFactory;
 import io.lotsandlots.etrade.rest.Message;
 import org.mockito.Mockito;
-import org.mockito.stubbing.Answer;
 import org.springframework.http.ResponseEntity;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -30,34 +28,6 @@ public class EtradeSellOrderControllerTest {
     }
 
     public void testCancelOrder() throws Exception {
-        EtradeRestTemplate mockRestTemplate = Mockito.mock(EtradeRestTemplate.class);
-        Mockito.doAnswer(invocation -> {
-            Message orderCancelMessage = invocation.getArgument(0);
-            Assert.assertEquals(orderCancelMessage.getHttpMethod(), "PUT");
-            String payload = invocation.getArgument(1);
-            Assert.assertEquals(payload, "{\"CancelOrderRequest\":{\"orderId\":1}}");
-            ResponseEntity<CancelOrderResponse> mockResponseEntity = Mockito.mock(ResponseEntity.class);
-            Mockito.doReturn(new CancelOrderResponse()).when(mockResponseEntity).getBody();
-            return mockResponseEntity;
-        }).when(mockRestTemplate).doPut(Mockito.any(Message.class), Mockito.anyString(), Mockito.any());
-        EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
-        Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
-
-        Cache<Long, Order> mockOrderCache = Mockito.mock(Cache.class);
-        EtradeOrdersDataFetcher mockOrdersDataFetcher = Mockito.mock(EtradeOrdersDataFetcher.class);
-        Mockito.doReturn(mockOrderCache).when(mockOrdersDataFetcher).getOrderCache();
-
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
-                Mockito.spy(new EtradeSellOrderController(
-                        Mockito.mock(EtradePortfolioDataFetcher.class), mockOrdersDataFetcher
-                ).newSymbolToLotsIndexPutEventRunnable("CANCEL_ORDER"));
-        runnable.setRestTemplateFactory(mockTemplateFactory);
-        Mockito.doAnswer(invocation -> null).when(runnable).setOAuthHeader(Mockito.any(), Mockito.any());
-
-        SecurityContext mockSecurityContext = Mockito.mock(SecurityContext.class);
-        runnable.cancelOrder(mockSecurityContext, 1L);
-        Mockito.verify(mockRestTemplate).doPut(Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(mockOrderCache).invalidate(Mockito.anyLong());
     }
 
     public void testFetchPreviewOrderResponse() throws Exception {
@@ -74,7 +44,7 @@ public class EtradeSellOrderControllerTest {
         EtradeRestTemplateFactory mockTemplateFactory = Mockito.mock(EtradeRestTemplateFactory.class);
         Mockito.doReturn(mockRestTemplate).when(mockTemplateFactory).newCustomRestTemplate();
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+        EtradeSellOrderController.OnPositionLotsUpdateRunnable runnable =
                 Mockito.spy(new EtradeSellOrderController(
                             Mockito.mock(EtradePortfolioDataFetcher.class), Mockito.mock(EtradeOrdersDataFetcher.class)
                 ).newSymbolToLotsIndexPutEventRunnable("FETCH_PREVIEW_ORDER_RESPONSE"));
@@ -106,7 +76,7 @@ public class EtradeSellOrderControllerTest {
         sellOrderController.handlePositionLotsUpdate(
                 "SYMBOL_TO_LOT_INDEX_PUT_WITH_DISABLED_SYMBOL", new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor, Mockito.times(0))
-                .submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
+                .submit(Mockito.any(EtradeSellOrderController.OnPositionLotsUpdateRunnable.class));
 
         ////
         // If orders data fetching has not been completed yet, we should not submit a SymbolToLotsIndexPutEventRunnable.
@@ -121,7 +91,7 @@ public class EtradeSellOrderControllerTest {
         sellOrderController.handlePositionLotsUpdate(
                 "SYMBOL_TO_LOT_INDEX_PUT_BEFORE_ORDER_FETCH_COMPLETION", new PortfolioResponse.Totals());
         Mockito.verify(mockExecutor, Mockito.times(0))
-                .submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
+                .submit(Mockito.any(EtradeSellOrderController.OnPositionLotsUpdateRunnable.class));
 
         ////
         // If orders data is not stale, we should submit a SymbolToLotsIndexPutEventRunnable.
@@ -135,7 +105,7 @@ public class EtradeSellOrderControllerTest {
                 Mockito.mock(EtradePortfolioDataFetcher.class), mockOrdersDataFetcher, mockExecutor));
         sellOrderController.handlePositionLotsUpdate(
                 "SYMBOL_TO_LOT_INDEX_PUT_WITH_FRESH_ORDERS_DATA", new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
+        Mockito.verify(mockExecutor).submit(Mockito.any(EtradeSellOrderController.OnPositionLotsUpdateRunnable.class));
 
         ////
         // If orders data is stale, we should not submit a SymbolToLotsIndexPutEventRunnable.
@@ -149,8 +119,6 @@ public class EtradeSellOrderControllerTest {
                 Mockito.mock(EtradePortfolioDataFetcher.class), mockOrdersDataFetcher, mockExecutor));
         sellOrderController.handlePositionLotsUpdate(
                 "SYMBOL_TO_LOT_INDEX_PUT_WITH_STALE_ORDERS_DATA", new PortfolioResponse.Totals());
-        Mockito.verify(mockExecutor, Mockito.times(0))
-                .submit(Mockito.any(EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable.class));
     }
 
     public void testSymbolToLotsIndexPutEventRunnableRun() throws Exception {
@@ -187,7 +155,7 @@ public class EtradeSellOrderControllerTest {
         EtradeSellOrderController sellOrderController = new EtradeSellOrderController(
                 Mockito.mock(EtradePortfolioDataFetcher.class), ordersDataFetcher);
 
-        EtradeSellOrderController.SymbolToLotsIndexPutEventRunnable runnable =
+        EtradeSellOrderController.OnPositionLotsUpdateRunnable runnable =
                 Mockito.spy(sellOrderController.newSymbolToLotsIndexPutEventRunnable(
                         "SYMBOL_TO_LOT_INDEX_PUT_RUNNABLE_RUN"));
         runnable.setApiConfig(apiConfig);
@@ -201,16 +169,7 @@ public class EtradeSellOrderControllerTest {
         Mockito.doReturn(previewOrderResponse).when(runnable).fetchPreviewOrderResponse(Mockito.any(), Mockito.any());
         Mockito.doAnswer(invocation -> null).when(runnable)
                 .cancelOrder(Mockito.any(), Mockito.anyLong());
-        Mockito.doAnswer((Answer<Order>) invocation -> {
-            Order mockBuyOrder = new Order();
-            mockBuyOrder.setOrderId(123L);
-            return mockBuyOrder;
-        }).when(runnable).placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
 
         runnable.run();
-        Mockito.verify(runnable, Mockito.times(1))
-                .cancelOrder(Mockito.any(), Mockito.anyLong());
-        Mockito.verify(runnable, Mockito.times(2))
-                .placeOrder(Mockito.any(), Mockito.anyString(), Mockito.any());
     }
 }

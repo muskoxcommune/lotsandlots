@@ -16,16 +16,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +35,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
     private static final Logger LOG = LoggerFactory.getLogger(EtradeBuyOrderController.class);
 
     private final ExecutorService executor;
+    private final Set<String> buyOrderEnabledSymbols = new HashSet<>();
     private final Map<String, Cache<Long, Order>> placedBuyOrderCache = new HashMap<>();
 
     private EmailHelper emailHelper = new EmailHelper();
@@ -62,10 +59,12 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
     public EtradeBuyOrderController(EtradePortfolioDataFetcher portfolioDataFetcher,
                                     EtradeOrdersDataFetcher ordersDataFetcher,
                                     ExecutorService executor) {
+        this.executor = executor;
+        this.ordersDataFetcher = ordersDataFetcher;
+        this.portfolioDataFetcher = portfolioDataFetcher;
+
         if (CONFIG.hasPath("etrade.enableBuyOrderCreation")) {
-            for (String symbol : CONFIG.getStringList("etrade.enableBuyOrderCreation")) {
-                enableNewSymbol(symbol);
-            }
+            buyOrderEnabledSymbols.addAll(CONFIG.getStringList("etrade.enableBuyOrderCreation"));
         }
         if (CONFIG.hasPath("etrade.buyOrderCreationStartDayOfWeek")) {
             buyOrderCreationStartDayOfWeek = CONFIG.getInt("etrade.buyOrderCreationStartDayOfWeek");
@@ -94,17 +93,24 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
         if (CONFIG.hasPath("etrade.minLotSize")) {
             minLotSize = (float) CONFIG.getLong("etrade.minLotSize");
         }
-
-        this.executor = executor;
-        this.ordersDataFetcher = ordersDataFetcher;
-        this.portfolioDataFetcher = portfolioDataFetcher;
-
-        portfolioDataFetcher.addOnPortfolioDataFetchCompletionHandler(this);
-        portfolioDataFetcher.addOnPositionLotsUpdateHandler(this);
-
-        LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={} idealLotSize={} "
-                        + "maxBuyOrdersPerSymbolPerDay={} minLotSize={}",
-                haltBuyOrderCashBalance, idealLotSize, maxBuyOrdersPerSymbolPerDay, minLotSize);
+        try {
+            DB.executeSql(
+                    "CREATE TABLE IF NOT EXISTS placed_etrade_buy_order ("
+                            + "limit_price real,"
+                            + "order_id text PRIMARY KEY,"
+                            + "ordered_quantity integer,"
+                            + "placed_time integer,"
+                            + "symbol text"
+                    + ");"
+            );
+            portfolioDataFetcher.addOnPortfolioDataFetchCompletionHandler(this);
+            portfolioDataFetcher.addOnPositionLotsUpdateHandler(this);
+            LOG.info("Initialized EtradeBuyOrderCreator, haltBuyOrderCashBalance={} idealLotSize={} "
+                            + "maxBuyOrdersPerSymbolPerDay={} minLotSize={}",
+                    haltBuyOrderCashBalance, idealLotSize, maxBuyOrdersPerSymbolPerDay, minLotSize);
+        } catch (SQLException e) {
+            LOG.error("Failed to create 'placed_etrade_order' table", e);
+        }
     }
 
     void cachePlacedBuyOrder(String symbol, Order order) {
@@ -152,53 +158,21 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
         int freshnessThreshold = (int) (
                 (System.currentTimeMillis() / 1000L) - portfolioDataFetcher.getPortfolioDataExpirationSeconds()
         );
-        for (String symbol : placedBuyOrderCache.keySet()) {
+        for (String symbol : buyOrderEnabledSymbols) {
             // TODO:
             // - How do we know if a cache miss is not due to data fetching or server side data quality problems?
             // - One option could be to build and maintain an internal representation of what the portfolio should
             //   look like. For example, if we haven't sold any lots, we should have the same number of lots after
             //   fetching data. If that is not the case, we should assume our data is not reliable.
-            PreparedLotCountStatementCallback callback = new PreparedLotCountStatementCallback(
+            LotCountPreparedStatementCallback callback = new LotCountPreparedStatementCallback(
                     symbol, freshnessThreshold, totals);
             try {
-                DB.executePreparedUpdate("SELECT COUNT(*) FROM etrade_lot WHERE symbol == ? AND updated_time > ?;",
+                DB.executePreparedQuery(
+                        "SELECT COUNT(*) FROM etrade_lot WHERE symbol == ? AND updated_time > ?;",
                         callback);
             } catch (SQLException e) {
                 LOG.error("Failed execute: {}", callback.getStatement(), e);
             }
-        }
-    }
-
-    class PreparedLotCountStatementCallback implements SqliteDatabase.PreparedStatementCallback {
-
-        private final int freshnessThreshold;
-        private final String symbol;
-        private final PortfolioResponse.Totals totals;
-
-        private PreparedStatement statement;
-
-        PreparedLotCountStatementCallback(String symbol, int freshnessThreshold, PortfolioResponse.Totals totals) {
-            this.freshnessThreshold = freshnessThreshold;
-            this.symbol = symbol;
-            this.totals = totals;
-        }
-
-        @Override
-        public void call(PreparedStatement stmt) throws SQLException {
-            this.statement = stmt;
-            stmt.setString(1, symbol);
-            stmt.setInt(2, freshnessThreshold);
-            int count;
-            if ((count = stmt.executeQuery().getInt(1)) == 0) {
-                LOG.info("Did not find any lots, symbol={}", symbol);
-                executor.submit(new InitialBuyOrderRunnable(symbol, totals));
-            } else {
-                LOG.debug("Skipping buy order creation, found {} lots, symbol={}", count, symbol);
-            }
-        }
-
-        public PreparedStatement getStatement() {
-            return statement;
         }
     }
 
@@ -215,7 +189,7 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
     }
 
     boolean isBuyOrderCreationEnabled(String symbol) {
-        return placedBuyOrderCache.containsKey(symbol);
+        return buyOrderEnabledSymbols.contains(symbol);
     }
 
     /**
@@ -453,12 +427,10 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
                             "Did not find any lots",
                             String.format("%s: lastTradedPrice=%f", symbol, lastTradedPrice));
                     // Create buy order
-                    String clientOrderId = UUID.randomUUID().toString().substring(0, 8);
-                    Order placedBuyOrder = placeOrder(
+                    placeOrder(
                             securityContext,
-                            clientOrderId,
+                            UUID.randomUUID().toString().substring(0, 8),
                             newBuyOrderDetailFromLastPrice(symbol, lastTradedPrice));
-                    cachePlacedBuyOrder(symbol, placedBuyOrder);
                 } catch (Exception e) {
                     LOG.debug("Failed to create buy orders, symbol={}", symbol, e);
                 }
@@ -466,15 +438,90 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
         }
     }
 
-    class OnPositionLotsUpdateRunnable extends BuyOrderRunnable {
+    class LotCountPreparedStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+
+        private final int freshnessThreshold;
+        private final String symbol;
+        private final PortfolioResponse.Totals totals;
+
+        private PreparedStatement statement;
+
+        LotCountPreparedStatementCallback(String symbol, int freshnessThreshold, PortfolioResponse.Totals totals) {
+            this.freshnessThreshold = freshnessThreshold;
+            this.symbol = symbol;
+            this.totals = totals;
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            this.statement = stmt;
+            stmt.setString(1, symbol);
+            stmt.setInt(2, freshnessThreshold);
+            ResultSet rs = stmt.executeQuery();
+            int count = rs.getInt(1);
+            rs.close();
+            if (count  == 0) {
+                LOG.info("Did not find any lots, symbol={}", symbol);
+                executor.submit(new InitialBuyOrderRunnable(symbol, totals));
+            } else {
+                LOG.debug("Skipping buy order creation, found {} lots, symbol={}", count, symbol);
+            }
+        }
+
+        public PreparedStatement getStatement() {
+            return statement;
+        }
+    }
+
+    class OnPositionLotsUpdateRunnable extends BuyOrderRunnable implements SqliteDatabase.PreparedStatementCallback {
+
+        int freshnessThreshold;
+        SecurityContext securityContext;
+        PreparedStatement statement;
 
         OnPositionLotsUpdateRunnable(String symbol, PortfolioResponse.Totals totals) {
             super(symbol, totals);
+            securityContext = getRestTemplateFactory().getSecurityContext();
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            statement = stmt;
+            stmt.setString(1, symbol);
+            stmt.setInt(2, freshnessThreshold);
+            ResultSet rs = stmt.executeQuery();
+            float acquiredPrice = rs.getFloat("acquired_price");
+            float followPrice = rs.getFloat("follow_price");
+            float lastPrice = rs.getFloat("last_price");
+            rs.close();
+            if (lastPrice < followPrice) {
+                LOG.debug("Lowest {} lot, acquiredPrice={}, lastPrice={} followPrice={}",
+                        symbol, acquiredPrice, lastPrice, followPrice);
+                if (canProceedWithBuyOrderCreation(lastPrice)) {
+                    try {
+                        // Send notification
+                        emailHelper.sendMessage(
+                                "Follow threshold breached",
+                                String.format(
+                                        "%s: acquiredPrice=%f, lastPrice=%f, followPrice=%f",
+                                        symbol,
+                                        acquiredPrice,
+                                        lastPrice,
+                                        followPrice));
+                        // Create buy order
+                        placeOrder(
+                                securityContext,
+                                UUID.randomUUID().toString().substring(0, 8),
+                                newBuyOrderDetailFromLastPrice(symbol, lastPrice));
+                    } catch (Exception e) {
+                        LOG.debug("Failed to create buy orders, symbol={}", symbol, e);
+                    }
+                }
+            }
         }
 
         @Override
         public void run() {
-            SecurityContext securityContext = getRestTemplateFactory().getSecurityContext();
             if (!securityContext.isInitialized()) {
                 LOG.warn("SecurityContext not initialized, please go to /etrade/authorize");
                 return;
@@ -483,47 +530,16 @@ public class EtradeBuyOrderController implements EtradePortfolioDataFetcher.OnPo
                 LOG.warn("Please configure etrade.accountIdKey");
                 return;
             }
-            String sql =
-                    "SELECT acquired_price,follow_price,last_price FROM etrade_lot WHERE follow_price == "
-                            + "(SELECT min(follow_price) FROM etrade_lot WHERE symbol == ? AND updated_time > ?);";
-            try (Connection conn = DB.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-                int freshnessThreshold = (int) (
-                        (System.currentTimeMillis() / 1000L) - portfolioDataFetcher.getPortfolioDataExpirationSeconds()
-                );
-                stmt.setString(1, symbol);
-                stmt.setInt(2, freshnessThreshold);
-                ResultSet rs = stmt.executeQuery();
-                float acquiredPrice = rs.getFloat("acquired_price");
-                float followPrice = rs.getFloat("follow_price");
-                float lastPrice = rs.getFloat("last_price");
-                if (lastPrice < followPrice) {
-                    LOG.debug("Lowest {} lot, acquiredPrice={}, lastPrice={} followPrice={}",
-                            symbol, acquiredPrice, lastPrice, followPrice);
-                    if (canProceedWithBuyOrderCreation(lastPrice)) {
-                        try {
-                            // Send notification
-                            emailHelper.sendMessage(
-                                    "Follow threshold breached",
-                                    String.format(
-                                            "%s: acquiredPrice=%f, lastPrice=%f, followPrice=%f",
-                                            symbol,
-                                            acquiredPrice,
-                                            lastPrice,
-                                            followPrice));
-                            // Create buy order
-                            String clientOrderId = UUID.randomUUID().toString().substring(0, 8);
-                            Order placedBuyOrder = placeOrder(
-                                    securityContext,
-                                    clientOrderId,
-                                    newBuyOrderDetailFromLastPrice(symbol, lastPrice));
-                            cachePlacedBuyOrder(symbol, placedBuyOrder);
-                        } catch (Exception e) {
-                            LOG.debug("Failed to create buy orders, symbol={}", symbol, e);
-                        }
-                    }
-                }
+            freshnessThreshold = (int) (
+                    (System.currentTimeMillis() / 1000L) - portfolioDataFetcher.getPortfolioDataExpirationSeconds()
+            );
+            try {
+                DB.executePreparedQuery(
+                        "SELECT acquired_price,follow_price,last_price FROM etrade_lot WHERE follow_price == "
+                                + "(SELECT min(follow_price) FROM etrade_lot WHERE symbol == ? AND updated_time > ?);",
+                        this);
             } catch (SQLException e) {
-                LOG.error("Failed to select from 'etrade_lot', symbol={}", symbol, e);
+                LOG.error("Failed execute: {}", statement, e);
             }
         }
     }

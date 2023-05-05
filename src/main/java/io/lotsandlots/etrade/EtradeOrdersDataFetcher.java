@@ -1,7 +1,5 @@
 package io.lotsandlots.etrade;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.typesafe.config.Config;
 import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.OrderDetail;
@@ -21,10 +19,8 @@ import java.security.GeneralSecurityException;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
 
@@ -32,7 +28,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
     private static final SqliteDatabase DB = SqliteDatabase.getInstance();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrdersDataFetcher.class);
 
-    private final Cache<Long, Order> orderCache;
     private Long ordersDataExpirationSeconds = 120L;
     private Long ordersDataFetchIntervalSeconds = 60L;
     private Map<String, List<Order>> symbolToBuyOrdersIndex = new HashMap<>();
@@ -46,12 +41,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         if (CONFIG.hasPath("etrade.ordersDataFetchIntervalSeconds")) {
             ordersDataFetchIntervalSeconds = CONFIG.getLong("etrade.ordersDataFetchIntervalSeconds");
         }
-
-        orderCache = CacheBuilder
-                .newBuilder()
-                .expireAfterWrite(ordersDataExpirationSeconds, TimeUnit.SECONDS)
-                .build();
-
         try {
             DB.executeSql(
                     "CREATE TABLE IF NOT EXISTS etrade_order ("
@@ -91,10 +80,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    Cache<Long, Order> getOrderCache() {
-        return orderCache;
-    }
-
     public Long getOrdersDataExpirationSeconds() {
         return ordersDataExpirationSeconds;
     }
@@ -122,7 +107,7 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 if (!orderDetail.getStatus().equals("OPEN") && !orderDetail.getStatus().equals("PARTIAL")) {
                     continue;
                 }
-                PreparedOrderInsertStatementCallback callback = new PreparedOrderInsertStatementCallback(
+                OrderInsertPreparedStatementCallback callback = new OrderInsertPreparedStatementCallback(
                         ordersResponseOrder.getOrderId().toString(), orderDetail);
                 try {
                     DB.executePreparedUpdate(
@@ -144,36 +129,6 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
                 LOG.warn("Expected Order to include one OrderDetail");
             }
         }
-    }
-
-    void indexOrdersBySymbol() {
-        Map<String, List<Order>> newSymbolToBuyOrdersIndex = new HashMap<>();
-        Map<String, List<Order>> newSymbolToSellOrdersIndex = new HashMap<>();
-        for (Map.Entry<Long, Order> entry : orderCache.asMap().entrySet()) {
-            Order order = entry.getValue();
-            String action = order.getOrderAction();
-            if (action.equals("BUY")) {
-                if (newSymbolToBuyOrdersIndex.containsKey(order.getSymbol())) {
-                    newSymbolToBuyOrdersIndex.get(order.getSymbol()).add(order);
-                } else {
-                    newSymbolToBuyOrdersIndex.put(order.getSymbol(), newOrderList(order));
-                }
-            } else if (action.equals("SELL")) {
-                if (newSymbolToSellOrdersIndex.containsKey(order.getSymbol())) {
-                    newSymbolToSellOrdersIndex.get(order.getSymbol()).add(order);
-                } else {
-                    newSymbolToSellOrdersIndex.put(order.getSymbol(), newOrderList(order));
-                }
-            }
-        }
-        symbolToBuyOrdersIndex = newSymbolToBuyOrdersIndex;
-        symbolToSellOrdersIndex = newSymbolToSellOrdersIndex;
-    }
-
-    static List<Order> newOrderList(Order order) {
-        List<Order> newOrderList = new LinkedList<>();
-        newOrderList.add(order);
-        return newOrderList;
     }
 
     Message newOrdersMessage(String marker) {
@@ -212,13 +167,8 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         long timeStartedMillis = System.currentTimeMillis();
         try {
             fetchOrdersResponse(securityContext, null);
-            // Expired entries are not guaranteed to be cleaned up immediately, so we do it here explicitly.
-            // Reference https://github.com/google/guava/wiki/CachesExplained#when-does-cleanup-happen
-            orderCache.cleanUp();
-            indexOrdersBySymbol();
             long currentTimeMillis = System.currentTimeMillis();
-            LOG.info("Fetched orders data, duration={}ms orders={}",
-                    currentTimeMillis - timeStartedMillis, orderCache.size());
+            LOG.info("Fetched orders data, duration={}ms", currentTimeMillis - timeStartedMillis);
             setLastSuccessfulFetchTimeMillis(currentTimeMillis);
         } catch (Exception e) {
             long currentTimeMillis = System.currentTimeMillis();
@@ -227,13 +177,14 @@ public class EtradeOrdersDataFetcher extends EtradeDataFetcher {
         }
     }
 
-    static class PreparedOrderInsertStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+    static class OrderInsertPreparedStatementCallback implements SqliteDatabase.PreparedStatementCallback {
 
         private final OrderDetail orderDetail;
         private final String orderId;
+
         private PreparedStatement statement;
 
-        PreparedOrderInsertStatementCallback(String orderId, OrderDetail orderDetail) {
+        OrderInsertPreparedStatementCallback(String orderId, OrderDetail orderDetail) {
             this.orderDetail = orderDetail;
             this.orderId = orderId;
         }

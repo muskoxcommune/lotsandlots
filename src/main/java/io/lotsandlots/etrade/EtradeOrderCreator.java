@@ -3,15 +3,14 @@ package io.lotsandlots.etrade;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lotsandlots.data.SqliteDatabase;
 import io.lotsandlots.etrade.api.OrderDetail;
 import io.lotsandlots.etrade.api.PlaceOrderRequest;
 import io.lotsandlots.etrade.api.PlaceOrderResponse;
 import io.lotsandlots.etrade.api.PreviewOrderRequest;
 import io.lotsandlots.etrade.api.PreviewOrderResponse;
-import io.lotsandlots.etrade.model.Order;
 import io.lotsandlots.etrade.oauth.SecurityContext;
 import io.lotsandlots.etrade.rest.Message;
-import io.lotsandlots.web.listener.LifecycleListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -19,17 +18,18 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
 public abstract class EtradeOrderCreator extends EtradeDataFetcher {
 
+    private static final SqliteDatabase DB = SqliteDatabase.getInstance();
     private static final Logger LOG = LoggerFactory.getLogger(EtradeOrderCreator.class);
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
-    private LifecycleListener lifecycleListener  = LifecycleListener.getListener();
 
     PreviewOrderResponse fetchPreviewOrderResponse(SecurityContext securityContext,
                                                    PreviewOrderRequest previewOrderRequest)
@@ -74,7 +74,7 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
         return previewOrderRequest;
     }
 
-    Order placeOrder(SecurityContext securityContext,
+    void placeOrder(SecurityContext securityContext,
                     String clientOrderId,
                     OrderDetail orderDetail)
             throws GeneralSecurityException, JsonProcessingException, UnsupportedEncodingException {
@@ -118,27 +118,54 @@ public abstract class EtradeOrderCreator extends EtradeDataFetcher {
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("PlaceOrderResponse{}", OBJECT_MAPPER.writeValueAsString(placeOrderResponse));
         }
-        OrderDetail placeOrderResponseOrderDetail = placeOrderResponse.getOrderDetailList().get(0);
-        OrderDetail.Instrument instrument = placeOrderResponseOrderDetail.getInstrumentList().get(0);
-
-        Order order = new Order();
-        order.setLimitPrice(placeOrderResponseOrderDetail.getLimitPrice());
-        order.setOrderAction(instrument.getOrderAction());
-        order.setOrderId(placeOrderResponse.getOrderIdList().get(0).getOrderId());
-        order.setOrderedQuantity(instrument.getQuantity());
-        order.setPlacedTime(placeOrderResponse.getPlacedTime());
-        order.setStatus("OPEN");
-        order.setSymbol(previewOrderRequest.getOrderDetailList().get(0)
-                                           .getInstrumentList().get(0)
-                                           .getProduct()
-                                           .getSymbol());
-        EtradeOrdersDataFetcher ordersDataFetcher = lifecycleListener.getEtradeOrdersDataFetcher();
-        ordersDataFetcher.getOrderCache().put(order.getOrderId(), order);
-        ordersDataFetcher.indexOrdersBySymbol();
-        return order;
+        PlacedOrderInsertPreparedStatementCallback callback = new PlacedOrderInsertPreparedStatementCallback(
+                placeOrderResponse, previewOrderRequest);
+        try {
+            DB.executePreparedUpdate(
+                    "INSERT OR REPLACE INTO placed_etrade_buy_order ("
+                            + "limit_price,"
+                            + "order_id,"
+                            + "ordered_quantity,"
+                            + "placed_time,"
+                            + "symbol,"
+                        + ") VALUES(?,?,?,?,?);",
+                    callback);
+        } catch (SQLException e) {
+            LOG.error("Failed to execute: {}", callback);
+        }
     }
 
-    void setLifecycleListener(LifecycleListener lifecycleListener) {
-        this.lifecycleListener = lifecycleListener;
+    static class PlacedOrderInsertPreparedStatementCallback implements SqliteDatabase.PreparedStatementCallback {
+
+        private final PlaceOrderResponse placeOrderResponse;
+        private final PreviewOrderRequest previewOrderRequest;
+
+        private PreparedStatement statement;
+
+        PlacedOrderInsertPreparedStatementCallback(
+                PlaceOrderResponse placeOrderResponse, PreviewOrderRequest previewOrderRequest) {
+            this.placeOrderResponse = placeOrderResponse;
+            this.previewOrderRequest = previewOrderRequest;
+        }
+
+        @Override
+        public void call(PreparedStatement stmt) throws SQLException {
+            statement = stmt;
+            OrderDetail orderDetail = placeOrderResponse.getOrderDetailList().get(0);
+            OrderDetail.Instrument instrument = orderDetail.getInstrumentList().get(0);
+
+            stmt.setFloat(1, orderDetail.getLimitPrice());
+            stmt.setString(3, placeOrderResponse.getOrderIdList().get(0).getOrderId().toString());
+            stmt.setInt(4, instrument.getQuantity().intValue());
+            stmt.setInt(5, (int) (placeOrderResponse.getPlacedTime() / 1000L));
+            stmt.setString(7, previewOrderRequest.getOrderDetailList().get(0).getInstrumentList().get(0)
+                    .getProduct()
+                    .getSymbol());
+            stmt.executeUpdate();
+        }
+
+        public PreparedStatement getStatement() {
+            return statement;
+        }
     }
 }
